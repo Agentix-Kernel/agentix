@@ -3,7 +3,9 @@
 **This directory is the single source of truth for the LUDO cluster contracts.**
 Every consumer repo **vendors** (keeps a byte-identical copy) from here; none edits its
 own copy. Drift is guarded by [`../scripts/check_contract_drift.py`](../scripts/check_contract_drift.py).
-All are **private** (BSL/proprietary per repo).
+Consumers span **private/proprietary** repos (`ludo-gateway`, `ludo-webapps`) and **public/BSL**
+repos (`ludo-cli`, `ludo-desktop`) — so every vendored contract artifact must stay publishable
+(no secrets, no engine internals). See [`../docs/licensing-policy.md`](../docs/licensing-policy.md).
 
 | Contract | File | Between | Notes |
 |---|---|---|---|

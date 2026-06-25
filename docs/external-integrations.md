@@ -19,6 +19,6 @@ keys live in gitignored `.env.<stage>`; this lists the integration points + publ
 - Partners: ReCloud `https://re-cloud.io/` · Odoo `https://www.odoo.com/` · Melious `https://melious.ai/`
 
 ## Repo GitHub map
-`ludo-agent`→`euroblaze/ludo` · `ludo-gateway`→`euroblaze/ludo-gateway` ·
-`ludo-webapps`→`euroblaze/ludo-flywheel` · `ludo-cli`→`euroblaze/ludo-omg` ·
+`ludo-agent`→`euroblaze/ludo-agent` · `ludo-gateway`→`euroblaze/ludo-gateway` ·
+`ludo-webapps`→`euroblaze/ludo-webapps` · `ludo-cli`→`euroblaze/ludo-cli` ·
 `ludo-desktop`→`euroblaze/ludo-desktop` · `ludo-init`→`euroblaze/ludo-init`. (Also in `../CLAUDE.md`.)

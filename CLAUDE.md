@@ -14,10 +14,10 @@ Odoo cross-version migration):
 
 | Folder | GitHub | Role | Repo CLAUDE.md owns |
 |---|---|---|---|
-| `ludo-agent/` | `euroblaze/ludo` | The migration **engine + worker** — internal-only, no public port. 3 stores, ~37 tools, the **Cortex** (LLM). **The only agentic component.** | autonomy bar, locked decisions, tools/skills, the Cortex, the three stores |
+| `ludo-agent/` | `euroblaze/ludo-agent` | The migration **engine + worker** — internal-only, no public port. 3 stores, ~37 tools, the **Cortex** (LLM). **The only agentic component.** | autonomy bar, locked decisions, tools/skills, the Cortex, the three stores |
 | `ludo-gateway/` | `euroblaze/ludo-gateway` | The **public control-plane edge API** — the *single public door* in front of the broker for all clients. Terminates auth/tenancy/vault, turns commands into jobs, projects events as resumable SSE. **Absorbing the apps backend** (epic `flywheel#96`). | edge API, auth/tenancy/vault, Contract A, broker seam, commerce |
-| `ludo-webapps/` | `euroblaze/ludo-flywheel` | The **product frontends**: 3 **Vue 3 + Vite** apps (public, portal, superadmin). Its FastAPI backend is **retiring into the gateway**; post-cutover apps = frontends-only. | frontends, locale, Contract A consumption |
-| `ludo-cli/` | `euroblaze/ludo-omg` | **Transport-only CLI** client (like `gh`/`kubectl`) — no engine, no creds; talks to a deployment over the public API. | CLI commands, client transport |
+| `ludo-webapps/` | `euroblaze/ludo-webapps` | The **product frontends**: 3 **Vue 3 + Vite** apps (public, portal, superadmin). Its FastAPI backend is **retiring into the gateway**; post-cutover apps = frontends-only. | frontends, locale, Contract A consumption |
+| `ludo-cli/` | `euroblaze/ludo-cli` | **Transport-only CLI** client (like `gh`/`kubectl`) — no engine, no creds; talks to a deployment over the public API. | CLI commands, client transport |
 | `ludo-desktop/` | `euroblaze/ludo-desktop` | Native **SwiftUI desktop client** (macOS; Windows TBD) — thin client over the public API. | desktop UI, native auth (PKCE) |
 
 More clients (web / mobile / **WMD**) will join; all are thin clients of the gateway.
@@ -26,20 +26,22 @@ reality (see "Drift") the repo is authoritative.
 
 ## Licensing
 
-Two tiers. **Source-available** (BSL 1.1 → Apache-2.0 at the 4-year change date — *not* OSI
-open-source) for the engine, the gateway edge, and the clients; **closed/proprietary** for the
-product frontends (`ludo-webapps`). Full policy: [`docs/licensing-policy.md`](docs/licensing-policy.md).
+Two tiers, aligned to repo visibility. **Proprietary** (closed, *private* repos) for the
+engine, the gateway edge, and the product frontends; **source-available** (BSL 1.1 →
+Apache-2.0 at the 4-year change date — *not* OSI open-source) for the *public* client repos.
+Full policy: [`docs/licensing-policy.md`](docs/licensing-policy.md).
 
-| Repo | License |
-|---|---|
-| `ludo-agent` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
-| `ludo-webapps` (flywheel) | Proprietary — all rights reserved (© wapsol (labs) gmbh) |
-| `ludo-gateway` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
-| `ludo-cli` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
-| `ludo-desktop` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
+| Repo | License | Visibility |
+|---|---|---|
+| `ludo-agent` | Proprietary — all rights reserved (© wapsol (labs) gmbh) | private |
+| `ludo-gateway` | Proprietary — all rights reserved (© wapsol (labs) gmbh) | private |
+| `ludo-webapps` (flywheel) | Proprietary — all rights reserved (© wapsol (labs) gmbh) | private |
+| `ludo-cli` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh | public |
+| `ludo-desktop` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh | public |
 
 BSL ≠ open source: source is visible + modifiable for **non-production** use; production use
-needs a commercial license until the change date, when it converts to Apache-2.0.
+needs a commercial license until the change date, when it converts to Apache-2.0. Only the
+two public client repos (`ludo-cli`, `ludo-desktop`) are source-available.
 
 ## Cluster topology — broker-mediated, never direct calls
 
