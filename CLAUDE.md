@@ -150,8 +150,8 @@ transport. The three concepts (Anthropic guidance:
 verified conclusions** (reactive cache + wiki + control-plane episodic SoR). The old
 three-layer "Core + Skills + Wiki" ladder (`findings→wiki→skill→core`) is being
 retired; skills are **not** a graduation target but an open-standard packaging of
-know-how. Detail: `ludo-agent/docs/proposals/tools-skills-mcp.md` +
-`harness-brain.md`.
+know-how. Detail: `ludo-init/docs/proposals/tools-skills-mcp.md` +
+`ludo-agent/docs/proposals/harness-brain.md`.
 
 ## Where to look (defer to repo CLAUDE.md for specifics)
 
