@@ -16,8 +16,8 @@ Odoo cross-version migration):
 |---|---|---|---|
 | `ludo-agent/` | `euroblaze/ludo` | The migration **engine + worker** — internal-only, no public port. 3 stores, ~37 tools, the **Cortex** (LLM). **The only agentic component.** | autonomy bar, locked decisions, tools/skills, the Cortex, the three stores |
 | `ludo-gateway/` | `euroblaze/ludo-gateway` | The **public control-plane edge API** — the *single public door* in front of the broker for all clients. Terminates auth/tenancy/vault, turns commands into jobs, projects events as resumable SSE. **Absorbing the apps backend** (epic `flywheel#96`). | edge API, auth/tenancy/vault, Contract A, broker seam, commerce |
-| `ludo-apps/` | `euroblaze/ludo-flywheel` | The **product frontends**: 3 **Vue 3 + Vite** apps (public, portal, superadmin). Its FastAPI backend is **retiring into the gateway**; post-cutover apps = frontends-only. | frontends, locale, Contract A consumption |
-| `ludo-omg/` | `euroblaze/ludo-omg` | **Transport-only CLI** client (like `gh`/`kubectl`) — no engine, no creds; talks to a deployment over the public API. | CLI commands, client transport |
+| `ludo-webapps/` | `euroblaze/ludo-flywheel` | The **product frontends**: 3 **Vue 3 + Vite** apps (public, portal, superadmin). Its FastAPI backend is **retiring into the gateway**; post-cutover apps = frontends-only. | frontends, locale, Contract A consumption |
+| `ludo-cli/` | `euroblaze/ludo-omg` | **Transport-only CLI** client (like `gh`/`kubectl`) — no engine, no creds; talks to a deployment over the public API. | CLI commands, client transport |
 | `ludo-desktop/` | `euroblaze/ludo-desktop` | Native **SwiftUI desktop client** (macOS; Windows TBD) — thin client over the public API. | desktop UI, native auth (PKCE) |
 
 More clients (web / mobile / **WMD**) will join; all are thin clients of the gateway.
@@ -158,9 +158,13 @@ know-how. Detail: `ludo-agent/docs/proposals/tools-skills-mcp.md` +
   (long) + `ludo-agent/arch.md` (topology/contracts).
 - **Edge API, auth/tenancy/vault, Contract A, commerce, broker seam** →
   `ludo-gateway/` README + CLAUDE.md (the control-plane successor).
-- **Frontends, locale, Vue/Vite build** → `ludo-apps/.claude/CLAUDE.md`.
-- **CLI client** → `ludo-omg/` README. **Desktop client** → `ludo-desktop/` README +
+- **Frontends, locale, Vue/Vite build** → `ludo-webapps/.claude/CLAUDE.md`.
+- **CLI client** → `ludo-cli/` README. **Desktop client** → `ludo-desktop/` README +
   `prd_macos.md`.
+- **Cross-repo contracts (the seams)** → **canonical in `ludo-init/contracts/`** (A/B/C +
+  shared types); consumers vendor from there (`scripts/check_contract_drift.py`). Detailed
+  cross-repo topology → `ludo-init/docs/cluster-architecture.md`; thin-client Contract A guide
+  → `ludo-init/docs/contracts-consumer-guide.md`; cluster proposals → `ludo-init/docs/proposals/`.
 
 ## Commands (basics — repo files have the full set)
 

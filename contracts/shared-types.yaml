@@ -1,0 +1,28 @@
+# Shared types referenced by Contract A (control-plane) and Contract C (billing/commerce).
+# Single source of truth — A and C $ref these; do not redefine inline. See ../docs/design.md §4.
+openapi: 3.1.0
+info:
+  title: LUDO shared types
+  version: 0.0.1
+paths: {}
+components:
+  schemas:
+    AccountId:
+      type: string
+      description: Opaque, persisted per-customer id (= Account.id). The only customer id that
+        crosses to the agent. No PII.
+      example: acct_acme
+    Account:
+      type: object
+      required: [id, type]
+      properties:
+        id: { $ref: "#/components/schemas/AccountId" }
+        name: { type: string, nullable: true }
+        type: { type: string, enum: [customer, superdev, request] }
+        superdev_id: { $ref: "#/components/schemas/AccountId" }   # roster parent (agency model)
+    Money:
+      type: object
+      required: [amount_cents, currency]
+      properties:
+        amount_cents: { type: integer, description: minor units }
+        currency: { type: string, default: EUR, example: EUR }

@@ -1,0 +1,197 @@
+# Contract A — client-facing edge API. Source of truth for generated clients
+# (Swift/TS/Kotlin) consumed by apps-frontends · desktop · omg. FastAPI also serves
+# the live schema at /openapi.json; canonicalize + enforce this artifact in CI (#96 Phase 1).
+#
+# Conventions (canonical — clients MUST follow):
+#   - Resource paths are prefixed /api/v1. Operational paths (/healthz, /system/status)
+#     and auth (/auth/desktop/*) are un-prefixed.
+#   - The event stream is Server-Sent-Events (text/event-stream), framed as
+#     `id: <seq>\nevent: <type>\ndata: <json>\n\n`. NOT NDJSON. Resume with Last-Event-ID.
+#   - Commands (approve/resume) are enqueue-and-ack: 202, no useful body; the result
+#     arrives on the event stream. Clients re-GET the resource to observe state.
+openapi: 3.1.0
+info:
+  title: LUDO Gateway — Contract A
+  version: 0.1.0
+  description: Client-agnostic control-plane API in front of NATS. Bearer auth (JWT).
+servers:
+  - url: http://10.0.99.1:8080
+security:
+  - bearerAuth: []
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      security: []
+      summary: "Liveness — { ok: true }"
+      responses: { "200": { description: ok } }
+
+  /system/status:
+    get:
+      operationId: systemStatus
+      security: []
+      summary: "Gateway environment — { app_env, broker_mode } (omg `omg status`)."
+      responses:
+        "200":
+          description: environment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  app_env: { type: string, example: dev }
+                  broker_mode: { type: string, enum: [stub, nats] }
+
+  /auth/desktop/start:
+    get:
+      operationId: desktopAuthStart
+      security: []
+      description: >
+        PKCE flow start for native clients (desktop). The gateway brokers the GitHub
+        OAuth dance and 302-redirects the user-agent to the provider authorize URL.
+        On completion the provider redirects back to `redirect_uri` (the client's custom
+        scheme, e.g. ludo-desktop://auth/callback) carrying `?code=...&state=...`.
+      parameters:
+        - { name: redirect_uri, in: query, required: true, schema: { type: string }, description: client custom-scheme callback }
+        - { name: code_challenge, in: query, required: true, schema: { type: string } }
+        - { name: code_challenge_method, in: query, required: false, schema: { type: string, enum: [S256], default: S256 } }
+        - { name: state, in: query, required: false, schema: { type: string }, description: CSRF token echoed back to the client }
+      responses:
+        "302": { description: redirect to the OAuth provider authorize URL }
+
+  /auth/desktop/token:
+    post:
+      operationId: desktopAuthToken
+      security: []
+      description: PKCE code-for-token exchange. Returns the bearer token the client stores (Keychain).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, code_verifier]
+              properties:
+                code: { type: string }
+                code_verifier: { type: string }
+      responses:
+        "200":
+          description: bearer token + identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, account_id]
+                properties:
+                  token: { type: string, description: JWT bearer }
+                  account_id: { $ref: "./shared-types.yaml#/components/schemas/AccountId" }
+        "400": { description: bad/expired code or verifier mismatch }
+
+  /api/v1/accounts:
+    get:
+      operationId: listAccounts
+      summary: Accounts visible to the caller (account picker). Scoped by role.
+      responses:
+        "200":
+          description: account-scoped accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "./shared-types.yaml#/components/schemas/Account" }
+
+  /api/v1/migrations:
+    get:
+      operationId: listMigrations
+      parameters:
+        - { name: account_id, in: query, required: false, schema: { type: string }, description: filter within scope (superdev/superadmin) }
+      responses:
+        "200":
+          description: account-scoped migrations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Migration" } }
+
+  /api/v1/migrations/{migration_id}:
+    get:
+      operationId: getMigration
+      parameters:
+        - { name: migration_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: one migration, content: { application/json: { schema: { $ref: "#/components/schemas/Migration" } } } }
+        "404": { description: not found / out of scope (no existence leak) }
+
+  /api/v1/migrations/{migration_id}/approve:
+    patch:
+      operationId: approveMigration
+      description: Enqueue-and-ack. Returns 202; result arrives on the event stream. Re-GET to observe state.
+      parameters:
+        - { name: migration_id, in: path, required: true, schema: { type: string } }
+        - { name: Idempotency-Key, in: header, required: false, schema: { type: string } }
+      responses:
+        "202": { description: accepted }
+        "404": { description: not found / out of scope }
+
+  /api/v1/migrations/{migration_id}/resume:
+    patch:
+      operationId: resumeMigration
+      description: Resume a paused/checkpointed migration. Enqueue-and-ack (202).
+      parameters:
+        - { name: migration_id, in: path, required: true, schema: { type: string } }
+        - { name: Idempotency-Key, in: header, required: false, schema: { type: string } }
+      responses:
+        "202": { description: accepted }
+        "404": { description: not found / out of scope }
+
+  /api/v1/migrations/{migration_id}/events:
+    get:
+      operationId: streamMigrationEvents
+      description: >
+        Resumable SSE (text/event-stream), framed `id: <seq>\nevent: <type>\ndata: <json>\n\n`
+        where <json> is a curated Contract B envelope. Reconnect with Last-Event-ID = last seq seen.
+      parameters:
+        - { name: migration_id, in: path, required: true, schema: { type: string } }
+        - { name: Last-Event-ID, in: header, required: false, schema: { type: string } }
+      responses:
+        "200": { description: event stream, content: { text/event-stream: {} } }
+        "404": { description: not found / out of scope }
+
+  # Estimate scope-picker (desktop #94). Shapes firm up when the desktop scope UI is wired;
+  # enumerated here so native clients don't 404. Bodies are intentionally loose for now.
+  /api/v1/estimates/{estimate_id}/inventory:
+    get:
+      operationId: getEstimateInventory
+      parameters:
+        - { name: estimate_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "scope inventory (shape TBD — desktop #94)", content: { application/json: { schema: { type: object } } } }
+        "404": { description: not found / out of scope }
+  /api/v1/estimates/{estimate_id}/resolve-scope:
+    post:
+      operationId: resolveEstimateScope
+      parameters:
+        - { name: estimate_id, in: path, required: true, schema: { type: string } }
+      requestBody: { required: false, content: { application/json: { schema: { type: object } } } }
+      responses:
+        "200": { description: "resolved scope (shape TBD — desktop #94)", content: { application/json: { schema: { type: object } } } }
+        "404": { description: not found / out of scope }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Migration:
+      type: object
+      properties:
+        id: { type: string }
+        account_id: { type: string }
+        combo: { type: string }
+        state_index: { type: integer }
+        ludo_session_id: { type: string, nullable: true }
+        agent_outcome: { type: string, nullable: true }

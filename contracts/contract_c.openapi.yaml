@@ -1,0 +1,194 @@
+# Contract C — billing/commerce. Separate from Contract A so commerce can later
+# split into its own secure-DB service with zero client churn. Design: ../docs/design.md §4 (#13).
+# Shared types ($ref ./shared-types.yaml) — Account / AccountId / Money. Bearer auth.
+# Amounts are Money (amount_cents + currency, default EUR). Tenancy-scoped by account.
+openapi: 3.1.0
+info:
+  title: LUDO Gateway — Contract C (billing/commerce)
+  version: 0.1.0
+  description: Payments, subscriptions, invoices, discounts, referrals, billing rollup, estimates.
+servers:
+  - url: http://10.0.99.1:8080
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/estimates:
+    post:
+      operationId: createEstimate
+      summary: Estimate funnel (combo + versions) — free, may precede signup.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EstimateRequest" }
+      responses:
+        "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/Estimate" } } } }
+
+  /api/v1/payments/checkout:
+    post:
+      operationId: createCheckout
+      summary: Open a Mollie checkout — one-off migration fee or subscription first payment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckoutRequest" }
+      responses:
+        "201": { description: created, content: { application/json: { schema: { $ref: "#/components/schemas/Checkout" } } } }
+  /api/v1/payments:
+    get:
+      operationId: listPayments
+      responses:
+        "200":
+          description: account-scoped payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { items: { type: array, items: { $ref: "#/components/schemas/Payment" } } }
+
+  /api/v1/subscription:
+    get:
+      operationId: getSubscription
+      summary: The caller's current subscription (null if none).
+      responses:
+        "200": { description: current subscription, content: { application/json: { schema: { $ref: "#/components/schemas/Subscription" } } } }
+
+  /api/v1/invoices:
+    get:
+      operationId: listInvoices
+      responses:
+        "200":
+          description: posted invoices (PDF served separately)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { items: { type: array, items: { $ref: "#/components/schemas/Invoice" } } }
+
+  /api/v1/discounts/mine:
+    get:
+      operationId: myDiscount
+      summary: The caller's soonest-expiring active code (null if none).
+      responses:
+        "200": { description: discount, content: { application/json: { schema: { $ref: "#/components/schemas/Discount" } } } }
+
+  /api/v1/referrals/me:
+    get:
+      operationId: myReferrals
+      responses:
+        "200": { description: referral portfolio, content: { application/json: { schema: { $ref: "#/components/schemas/ReferralPortfolio" } } } }
+
+  /api/v1/billing/rollup:
+    get:
+      operationId: billingRollup
+      summary: MRR/LTV rollup (superdev/superadmin only).
+      responses:
+        "200": { description: rollup, content: { application/json: { schema: { $ref: "#/components/schemas/BillingRollup" } } } }
+        "403": { description: forbidden (not superdev/superadmin) }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Account: { $ref: "./shared-types.yaml#/components/schemas/Account" }
+    Money: { $ref: "./shared-types.yaml#/components/schemas/Money" }
+
+    EstimateRequest:
+      type: object
+      required: [combo, src_version, tgt_version]
+      properties:
+        combo: { type: string, enum: [cc, ee, ce, ec], description: source/target edition pair }
+        src_version: { type: integer, example: 15 }
+        tgt_version: { type: integer, example: 18 }
+
+    Estimate:
+      type: object
+      properties:
+        id: { type: string }
+        account_id: { type: string, nullable: true }
+        combo: { type: string }
+        src_version: { type: integer }
+        tgt_version: { type: integer }
+        state: { type: string, enum: [draft, claimed] }
+        total: { type: integer, description: estimate amount, minor units }
+        low: { type: integer }
+        high: { type: integer }
+        days: { type: integer }
+        automation: { type: integer, description: automation percentage }
+        created_at: { type: string, format: date-time }
+
+    CheckoutRequest:
+      type: object
+      required: [kind, ref]
+      properties:
+        kind: { type: string, enum: [one_off, subscription_first] }
+        ref: { type: string, description: estimate id (one_off) or plan id (subscription) }
+        discount_code: { type: string, nullable: true }
+
+    Checkout:
+      type: object
+      properties:
+        payment_id: { type: string }
+        checkout_url: { type: string, description: Mollie hosted checkout URL }
+        status: { type: string }
+
+    Payment:
+      type: object
+      properties:
+        id: { type: string }
+        account_id: { type: string }
+        kind: { type: string, enum: [one_off, subscription_first, subscription_cycle] }
+        ref: { type: string }
+        amount: { $ref: "./shared-types.yaml#/components/schemas/Money" }
+        status: { type: string, enum: [pending, paid, failed, expired, canceled] }
+        discount_code: { type: string, nullable: true }
+        discount_cents: { type: integer }
+        created_at: { type: string, format: date-time }
+        paid_at: { type: string, format: date-time, nullable: true }
+
+    Subscription:
+      type: object
+      nullable: true
+      properties:
+        id: { type: string }
+        account_id: { type: string }
+        amount: { $ref: "./shared-types.yaml#/components/schemas/Money" }
+        interval: { type: string, example: "1 month" }
+        status: { type: string, enum: [active, canceled] }
+        started_at: { type: string, format: date-time }
+        canceled_at: { type: string, format: date-time, nullable: true }
+
+    Invoice:
+      type: object
+      properties:
+        id: { type: string }
+        account_id: { type: string }
+        number: { type: string }
+        description: { type: string }
+        amount: { $ref: "./shared-types.yaml#/components/schemas/Money" }
+        status: { type: string, enum: [posted, paid] }
+        created_at: { type: string, format: date-time }
+
+    Discount:
+      type: object
+      nullable: true
+      properties:
+        code: { type: string }
+        kind: { type: string, enum: [welcome, referral] }
+        value: { $ref: "./shared-types.yaml#/components/schemas/Money" }
+        status: { type: string, enum: [pending, redeemed, expired] }
+        valid_until: { type: string, format: date-time }
+
+    ReferralPortfolio:
+      type: object
+      properties:
+        referral_code: { type: string, description: the caller's own share code }
+        codes: { type: array, items: { $ref: "#/components/schemas/Discount" } }
+
+    BillingRollup:
+      type: object
+      properties:
+        mrr: { $ref: "./shared-types.yaml#/components/schemas/Money" }
+        ltv: { $ref: "./shared-types.yaml#/components/schemas/Money" }
+        accounts: { type: integer, description: accounts in scope }

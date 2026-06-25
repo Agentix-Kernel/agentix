@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LUDO Contract B — job message (gateway -> agent)",
+  "description": "The broker payload the gateway publishes onto NATS subject `ludo.jobs`; the agent worker consumes + acks it. Canonical mirror of ludo-agent src/ludo/worker/payload.py::JobMessage. Carries the opaque account_id + per-job vault-decrypted Odoo creds + params. No PII beyond creds, no slug (Principle #9). One message -> one dispatch via the JobType registry.",
+  "type": "object",
+  "required": ["job_id", "type", "account_id"],
+  "additionalProperties": false,
+  "properties": {
+    "job_id": { "type": "string" },
+    "type": {
+      "type": "string",
+      "description": "Dispatch key -> actions.* handler. Mirror of ludo-agent JobType StrEnum.",
+      "enum": [
+        "migrate", "dry_run", "estimate",
+        "bulk_load", "rollback", "verify", "port_module",
+        "trajectories_rebuild", "discover_order", "backfill_types"
+      ]
+    },
+    "account_id": {
+      "type": "string",
+      "description": "Opaque, persisted per-customer id. The only customer id that crosses to the agent. No PII."
+    },
+    "idempotency_key": { "type": ["string", "null"], "description": "At-least-once delivery + idempotent execution; dedupe key." },
+    "session_id": { "type": ["string", "null"], "description": "The control-plane-assigned ludo_session_id; event-stream key when present." },
+    "source": { "type": ["object", "null"], "description": "Source Odoo creds (vault-decrypted config mapping) the worker builds OdooCredentials from." },
+    "target": { "type": ["object", "null"], "description": "Target Odoo creds (vault-decrypted config mapping)." },
+    "source_version": { "type": ["string", "null"], "example": "15.0" },
+    "target_version": { "type": ["string", "null"], "example": "18.0" },
+    "params": { "type": "object", "description": "Job-type-specific parameters.", "default": {} },
+    "budget_usd": { "type": ["number", "null"], "description": "Per-job spend cap." }
+  }
+}
