@@ -20,10 +20,10 @@ docs. Start here, then defer to each repo's own `CLAUDE.md`/README for specifics
 ## The cluster (repo map)
 | Dir | GitHub | Role |
 |---|---|---|
-| `ludo-agent` | euroblaze/ludo | migration engine + worker (internal-only; the only agentic component) |
+| `ludo-agent` | euroblaze/ludo-agent | migration engine + worker (internal-only; the only agentic component) |
 | `ludo-gateway` | euroblaze/ludo-gateway | public control-plane edge (the single public door over the broker) |
-| `ludo-webapps` | euroblaze/ludo-flywheel | product frontends (Vue 3 + Vite); backend retiring into the gateway |
-| `ludo-cli` | euroblaze/ludo-omg | transport-only CLI client |
+| `ludo-webapps` | euroblaze/ludo-webapps | product frontends (Vue 3 + Vite); backend retiring into the gateway |
+| `ludo-cli` | euroblaze/ludo-cli | transport-only CLI client |
 | `ludo-desktop` | euroblaze/ludo-desktop | native SwiftUI desktop client (macOS) |
 | `ludo-init` | euroblaze/ludo-init | **this repo** — cluster foundation |
 
