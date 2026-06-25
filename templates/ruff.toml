@@ -1,0 +1,23 @@
+# LUDO canonical ruff config — vendored from ludo-init/templates/ruff.toml into each
+# Python repo's pyproject.toml [tool.ruff]. line-length 120 is the cluster standard
+# (gateway moved 110 -> 120; widening adds no E501s). See docs/tooling-standards.md.
+#
+# Two tiers:
+#   core    (clients: gateway, cli)  -> select = ["E","F","I","UP","B"]
+#   engine  (ludo-agent)             -> core + ["W","C4","SIM","RUF","ASYNC"], ignore E501
+# The agent runs the stricter "engine" tier (autonomy-bar discipline); clients run core.
+
+line-length = 120
+target-version = "py312"
+
+[lint]
+# core tier (clients). Engine repo extends this — see note above.
+select = ["E", "F", "I", "UP", "B"]
+
+[lint.flake8-bugbear]
+# FastAPI dependency-injection idiom is not the B008 anti-pattern.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

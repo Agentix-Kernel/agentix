@@ -1,0 +1,35 @@
+# LUDO base .gitignore — vendored from ludo-init/templates/gitignore.base.
+# Append repo-specific lines BELOW a "# repo-specific" marker; keep this block in sync
+# (ludo-init/scripts/check_config_drift.py checks the base block is present verbatim).
+
+# Secrets & generated SQL
+.env
+.env.*
+!.env.example
+init_*.sql
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Data stores (SQLite WAL + backups) — never commit DB files
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Build / tooling output
+dist/
+build/
+node_modules/
+.DS_Store
+
+# Claude local config / runtime
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

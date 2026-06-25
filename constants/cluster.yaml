@@ -1,0 +1,79 @@
+# LUDO cluster constants — THE single source of truth for shared values.
+# Vendored (byte-identical) into each repo's constants/cluster.yaml; guarded by
+# ludo-init/scripts/check_config_drift.py. Change a value HERE, then re-vendor.
+# Docs (docs/network-and-ports.md etc.) explain these — they never re-hardcode them.
+
+schema_version: "1.0"
+
+# ── Network / addressing ──────────────────────────────────────────────────────
+# House rule: address infra by the loopback ALIAS, never `localhost`.
+network:
+  loopback: "10.0.99.1"
+  # Dev port allocation (one host, one port per surface). NOTE: the public web app
+  # and the gateway both want 8080 in dev — a known collision to resolve at gateway
+  # cutover (B5); listed as intended target ports.
+  ports:
+    public_web: 8080        # ludo-webapps public site (dev / nginx)
+    portal: 8080            # same-origin sub-path: <public>/portal
+    superadmin: 8092        # ludo-webapps superadmin console
+    apps_backend: 8000      # ludo-webapps FastAPI backend (retiring into gateway)
+    gateway: 8080           # ludo-gateway public edge (collides w/ public_web in dev — B5)
+    nats: 4222              # NATS JetStream (broker, private zone)
+    minio: 9000             # MinIO (agent bulk store, private zone)
+
+# ── Broker (NATS JetStream) — Contract B transport ───────────────────────────
+broker:
+  url: "nats://10.0.99.1:4222"   # env override: LUDO_NATS_URL / NATS_URL
+  subjects:
+    jobs: "ludo.jobs"                  # gateway -> agent (job-message)
+    jobs_cancel: "ludo.jobs.cancel"    # cooperative cancel
+    events_prefix: "ludo.events"       # agent -> gateway: ludo.events.<session_id>
+  streams:
+    jobs: "LUDO_JOBS"
+    events: "LUDO_EVENTS"
+
+# ── Environment stages ────────────────────────────────────────────────────────
+# APP_ENV selects .env.<stage> (with .env as fallback). dev is the default.
+env_stages: [dev, stag, prod]
+default_stage: dev
+
+# ── Deployment domains (per stage) ────────────────────────────────────────────
+# Canonical zones; see docs/deployment-domains.md. Explicit .env values always win.
+domains:
+  prod:
+    public: "https://runludo.com"
+    portal: "https://runludo.com/portal"
+    superadmin: "https://superadmin.runludo.com"
+    api: "https://runludo.com/api/v1"
+  stag:
+    base: "https://ludo.stag.simplify-erp.de"   # same zone shape as prod
+  dev:
+    public: "http://10.0.99.1:8080"
+    portal: "http://10.0.99.1:8080/portal"
+    superadmin: "http://10.0.99.1:8092"
+    api: "http://10.0.99.1:8000/api/v1"
+
+# ── Locale / currency ─────────────────────────────────────────────────────────
+locale:
+  backend_default: "de"          # DEFAULT_LOCALE (DACH audience + house rule)
+  frontend_default: "en"         # browser-language match, English fallback
+  public_languages: [en, de, fr, es, it]
+  english_only: [portal, superadmin]
+  currency: "EUR"
+
+# ── Dev-secret placeholders (NEVER real secrets; stag/prod fail-fast on these) ──
+# These are the insecure defaults the prod-secret guard refuses. Real values live
+# only in gitignored .env.<stage>. See docs/env-and-secrets.md.
+dev_secret_placeholders:
+  JWT_SECRET: "dev-insecure-change-me"
+  VAULT_ENC_KEY: "dev-vault-enc-not-secret"
+  VAULT_ENC_SALT: "dev-vault-enc-salt-not-secret"
+  SUPERADMIN_PASSWORD: "change-me"
+
+# ── Tooling baseline (see docs/tooling-standards.md) ──────────────────────────
+tooling:
+  python: "3.12"
+  package_manager: "uv"
+  ruff_line_length: 120
+  ruff_target: "py312"
+  docker_base: "python:3.12-slim"
