@@ -88,7 +88,7 @@ two public client repos (`ludo-cli`, `ludo-desktop`) are source-available.
   Session → N Jobs; Job → 1 Model; load → M Batches; Session → N Turns.
 - **Identity** (locked, #430-B): **`account_id`** is the one opaque, **persisted**
   per-customer id (authority = the control plane). It keys the xmlid component
-  (`ludo.{account_id}-…`), MinIO prefix, `sessions.customer_id` *value*, and wiki page
+  (`ludo.{account_id}-…`), MinIO prefix, `sessions.customer_id` *value*, and memory page
   names. The Migration/Job payload carries it; **no PII** else crosses into agent
   stores. **`slug`** is an operator/dev CLI handle to resolve `account_id` + creds
   (`CustomerProvider.resolve(slug)`) — **never persisted**, absent in production.
@@ -106,24 +106,24 @@ two public client repos (`ludo-cli`, `ludo-desktop`) are source-available.
   snapshot is a different thing — call it a **state checkpoint** if both appear.
 - **Cortex** = the LLM (`ludo-agent/src/ludo/llm/` — router + anthropic/openai/groq).
   Woken **only on surprise**; the deterministic body does the rest.
-- **Data vs Knowledge — never cross.** *Data* = records being migrated + bulk
-  artifacts → MinIO + the target Odoo. *Knowledge* = what the system learnt →
-  git-backed `knowledge/` wiki + the core prompt (+ Agent Skills where warranted).
-- **Three memory classifications** (canonical term first, alias = wiki dir name).
+- **Data vs Memory — never cross.** *Data* = records being migrated + bulk
+  artifacts → MinIO + the target Odoo. *Memory* = what the system learnt →
+  git-backed `memory/` store + the core prompt (+ Agent Skills where warranted).
+- **Three memory classifications** (canonical term first, alias = memory dir name).
   Full physical layout is the single source of truth in `ludo-agent/arch.md` § 7.3:
   **Transient** (aka *ephemeral*) — one run: SQLite Session/turns + MinIO checkpoints;
-  staging in `knowledge/ephemeral/`) · **Episodic** — two types: *per-customer*
+  staging in `memory/ephemeral/`) · **Episodic** — two types: *per-customer*
   (system of record = the **control-plane DB**, `flywheel#92`; agent working copy at
-  `knowledge/episodic/customers/`) and *per-version-pair*
-  (`knowledge/episodic/pairs/<pair>/{renames,reconciled}/`) · **Learnings** (aka
-  *longterm*) — general, cross-customer (`knowledge/longterm/` = types catalogue,
-  Odoo facts, recipes). All wiki subpaths resolve through `ludo.knowledge.paths`.
-- **Knowledge content + verbs** (locked, #430-C/E): **finding** (Transient, raw note)
+  `memory/episodic/customers/`) and *per-version-pair*
+  (`memory/episodic/pairs/<pair>/{renames,reconciled}/`) · **Learnings** (aka
+  *longterm*) — general, cross-customer (`memory/longterm/` = types catalogue,
+  Odoo facts, recipes). All memory subpaths resolve through `ludo.memory.paths`.
+- **Memory content + verbs** (locked, #430-C/E): **finding** (Transient, raw note)
   · **recipe** (Episodic, per-pair values) · **diagnosis** (Episodic, reconciled root
   cause) · **page** (Episodic, customer page) · **type** (Learnings, cross-pair
-  catalogue entry; `RootCauseType` at `knowledge/longterm/types/`. `RootCauseType`
+  catalogue entry; `RootCauseType` at `memory/longterm/types/`. `RootCauseType`
   (diagnosis taxonomy) is distinct from `JobType` (queue step) — qualified names
-  disambiguate). Verbs: **reconcile** (finding → wiki rule) · **promote**
+  disambiguate). Verbs: **reconcile** (finding → memory rule) · **promote**
   (cross-customer evidence flips `promoted`).
 
 ## Agentic surface — Tools, Skills, MCP
@@ -146,9 +146,9 @@ transport. The three concepts (Anthropic guidance:
   surface published via **`ludo-gateway`** (kernel-phase, post-autonomy).
 
 **Competence model** (the agent, redesign `euroblaze/ludo` #468): two layers —
-**Core** (deterministic body + the Cortex loop) over a **knowledge substrate of
-verified conclusions** (reactive cache + wiki + control-plane episodic SoR). The old
-three-layer "Core + Skills + Wiki" ladder (`findings→wiki→skill→core`) is being
+**Core** (deterministic body + the Cortex loop) over a **memory substrate of
+verified conclusions** (reactive cache + memory + control-plane episodic SoR). The old
+three-layer "Core + Skills + Memory" ladder (`findings→memory→skill→core`) is being
 retired; skills are **not** a graduation target but an open-standard packaging of
 know-how. Detail: `ludo-agent/docs/proposals/tools-skills-mcp.md` +
 `harness-brain.md`.
@@ -189,7 +189,7 @@ stack — prefer them over ad-hoc commands.
   authoritative for the control plane post-cutover.
 - **Skills:** the agent's *bespoke* skills layer (manifest/trigger/graduation ladder)
   had zero organic graduations and is being retired (#470); skills re-found on the
-  open standard. If a doc still describes `findings→wiki→skill→core` as live, it
+  open standard. If a doc still describes `findings→memory→skill→core` as live, it
   predates the #468 redesign.
 - **Frontends are Vue 3 + Vite** (public/portal/superadmin); the old
   React-UMD/Babel stack (`sync_theme.py`/`build_jsx.js`/JSX) was removed — do not

@@ -317,7 +317,7 @@ Customer (portal / web)
 > The "2 containers" note for ludo-agent gains a **broker** alongside (internal-only,
 > [#88](https://github.com/euroblaze/ludo-flywheel/issues/88)).
 
-**LIBRADO key facts** (from code review): FastAPI HTTP + Typer CLI share one core · storage = MinIO (blobs/checkpoints) + SQLite+FTS5 (ops) + git wiki (domain knowledge) · LLM = Claude primary (OAuth via `~/.claude/.credentials.json`), OpenAI/Groq fallback · architecture is zero per-action confirmations (safety via dry-run + SafetyGate middleware) · two-level orchestration: outer customer-orchestrator agent → inner per-model sessions.
+**LIBRADO key facts** (from code review): FastAPI HTTP + Typer CLI share one core · storage = MinIO (blobs/checkpoints) + SQLite+FTS5 (ops) + git memory (domain knowledge) · LLM = Claude primary (OAuth via `~/.claude/.credentials.json`), OpenAI/Groq fallback · architecture is zero per-action confirmations (safety via dry-run + SafetyGate middleware) · two-level orchestration: outer customer-orchestrator agent → inner per-model sessions.
 
 ## 11. Job lifecycle & state machine
 
@@ -398,7 +398,7 @@ Consumers: `apps/api` only (internal SSE subscription → validate → write to 
 
 - **Frontends** (`portal`, `superadmin`, `web`): Vue/Vite. Build `vite build` · dev `vite dev` · test `vitest run`.
 - **`apps/api`**: language/framework TBD (open question §18). SQLite (name in `.env`; dev has own DB; never shared dev/prod). Numbered migration files.
-- **`ludo-agent` (LIBRADO)**: Python 3.12. MinIO + SQLite+FTS5 + git wiki. Claude/OpenAI/Groq.
+- **`ludo-agent` (LIBRADO)**: Python 3.12. MinIO + SQLite+FTS5 + git memory. Claude/OpenAI/Groq.
 - **Secrets**: Vault for Odoo API keys + tokens (encrypted at rest; app DB stores references). `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`, `MOLLIE_API_KEY` in `.env`. `SUPERADMIN_KEY` in `apps/superadmin/.env`. Claude OAuth at `~/.claude/.credentials.json`.
 - **Auth**: GitHub OAuth (portal); key-only (superadmin).
 - **ESP**: Mautic ("mauxy") — newsletter + colleague-share. Double opt-in.
@@ -529,7 +529,7 @@ Conventional Commits `type(scope): subject`. Each agent commits its worktree onl
 ### `ludo-agent/CLAUDE.md`
 ```md
 ## What this is
-- Python 3.12. FastAPI + Typer CLI share one core. MinIO + SQLite+FTS5 + git wiki.
+- Python 3.12. FastAPI + Typer CLI share one core. MinIO + SQLite+FTS5 + git memory.
 - LLM: Claude primary (OAuth ~/.claude/.credentials.json), OpenAI/Groq fallback.
 - Zero per-action confirmations. Safety via dry-run + SafetyGate middleware.
 

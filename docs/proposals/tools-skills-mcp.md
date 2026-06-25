@@ -49,7 +49,7 @@ article's levers — and exactly what the D-slice audit already names):
 | Schema + data flow | `extract_from_odoo`, `extract_binary`, `load_to_odoo`, `load_binary`, `load_attachments`, `inspect_model`, `verify_migration` | keep — irreducible primitives |
 | Cross-version intelligence | `discover_renames`, `discover_model_renames`, `discover_migration_order`, `create_blueprint`, `make_plan` | keep |
 | FK mapping | `pin_xmlid`, `pin_by_natural_key`, `enrich_per_record_from_m2o`, `sync_pinned_fields`, `restore_workflow_states` | **consolidate** → `pin_record(strategy=…)` (D2) |
-| Knowledge loop | `consult_wiki`, `lookup_known_fix`, `query_recovery_sequences`, `record_finding`, `record_attempt`, `diagnose` | **consolidate** → `consult_knowledge(query, kind=…)` (D1); Cortex makes `lookup_known_fix` read-only + `diagnose` the spine (#471) |
+| Memory loop | `consult_memory`, `lookup_known_fix`, `query_recovery_sequences`, `record_finding`, `record_attempt`, `diagnose` | **consolidate** → `consult_memory(query, kind=…)` (D1); Cortex makes `lookup_known_fix` read-only + `diagnose` the spine (#471) |
 | Mutation/workflow + sandbox | `invoke_workflow_action`, `grant_user_groups`; `read_file/glob/grep/web_fetch/write_to_fs`; module-port: `apply_patch`, `run_command`, `git_*`, `ast_*`, `install_module`, `run_module_tests` | keep — general primitives |
 
 No new tool families needed for migration.
@@ -58,7 +58,7 @@ No new tool families needed for migration.
 
 The redesign retires ludo-agent's **bespoke skills implementation** (`manifest.json`
 + `trigger` predicates + `type_catalogue_min_evidence` + custom loader + the
-wiki→skill→core graduation ladder — zero organic graduations). That stands. But
+memory→skill→core graduation ladder — zero organic graduations). That stands. But
 "retire skills entirely" was too strong:
 
 - **Dead** = the bespoke machinery. *Retire it.*

@@ -6,7 +6,7 @@ Issues: engine-side `euroblaze/ludo` #463 · public CLI `euroblaze/ludo-omg` #1.
 ## Decision
 
 - The `omg` CLI moves to a separate **public, open-source** repo `euroblaze/ludo-omg`.
-- The engine + worker + read-only API + 3 stores + knowledge wiki stay **private** in
+- The engine + worker + read-only API + 3 stores + memory store stay **private** in
   `euroblaze/librado` (this repo).
 - `omg` becomes a **transport-only client** (the `kubectl` / `stripe` / `gh` pattern): a network
   client to a LUDO deployment over **Contract A** (REST) + **Contract B** (events) / broker. It
@@ -32,7 +32,7 @@ Issues: engine-side `euroblaze/ludo` #463 · public CLI `euroblaze/ludo-omg` #1.
 | Transport client (Contract A REST + Contract B/SSE + job submit) | ✓ | — |
 | CLI config (deployment URL + auth token) | ✓ | — |
 | Public contract artifacts (`contracts/`) | ✓ (vendored) | source of truth |
-| Engine `core` / `actions` / `tools` / `llm` / stores / `knowledge` / `estimate` / `odoo` | — | ✓ |
+| Engine `core` / `actions` / `tools` / `llm` / stores / `memory` / `estimate` / `odoo` | — | ✓ |
 | Read-only API server + broker worker | — | ✓ |
 | Odoo credentials / customer PII | never | ✓ (vault is apps') |
 
@@ -48,7 +48,7 @@ Issues: engine-side `euroblaze/ludo` #463 · public CLI `euroblaze/ludo-omg` #1.
 
 - **Phase 0 — DONE (this repo).** Decouple the engine from `cli/`: `cli/_config.py` →
   `ludo/config.py`; `cli/customer_verification.py` → `ludo/actions/verify_customer.py`. The engine
-  (`core`/`actions`/`api`/`llm`/`tools`/`storage`/`knowledge`/`estimate`/`odoo`) now has **zero
+  (`core`/`actions`/`api`/`llm`/`tools`/`storage`/`memory`/`estimate`/`odoo`) now has **zero
   `from ludo.cli` imports** — the precondition for the CLI to leave.
 - **Engine-side (#463, private):** Contract B v2 events (B) · broker worker + JobType registry (C) ·
   read-only HTTP introspection parity (D) · apps read client (E).

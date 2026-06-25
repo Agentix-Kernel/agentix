@@ -76,11 +76,11 @@ runnable code.
   (`tools-skills-mcp.md` §4). `manifest.json` survives only as a backward-compat
   carrier for the two live migration skills (which also keep their recon-phase
   trigger wiring untouched).
-- **Maintenance — the maturation pipeline, per agent.** `findings → wiki → skill
-  → core` generalizes: each agent has its own knowledge substrate (migration's
-  `knowledge/`; the business agents' per-customer system-of-record stays the
-  control-plane DB). The first arrow (findings→wiki) stays automatic via
-  `WikiMaintainMiddleware`; wiki→skill→core stay operator-reviewed PRs between
+- **Maintenance — the maturation pipeline, per agent.** `findings → memory → skill
+  → core` generalizes: each agent has its own memory substrate (migration's
+  `memory/`; the business agents' per-customer system-of-record stays the
+  control-plane DB). The first arrow (findings→memory) stays automatic via
+  `MemoryMaintainMiddleware`; memory→skill→core stay operator-reviewed PRs between
   deployments. **No speculative skills** — the scaffolds here are explicitly
   forward-reference, not graduation targets; a real skill earns its place only on
   cross-customer evidence (≥3 customers, ≥2 pairs).

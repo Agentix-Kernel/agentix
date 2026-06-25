@@ -157,7 +157,7 @@ codegen-freshness check so generated artifacts can't go stale.
 
 ## Guardrails — must NOT move to the hub (public-vendoring boundary)
 
-- **ludo-agent:** tools (~37, ~19.7K LOC), dispatcher/actions, knowledge/wiki, Cortex/LLM
+- **ludo-agent:** tools (~37, ~19.7K LOC), dispatcher/actions, memory, Cortex/LLM
   providers, storage schemas, spike harness, cost/estimate rendering. Engine internals.
 - **ludo-gateway:** ORM models (`models*.py`), routers, app factory, DB setup. Gateway-specific.
 - **ludo-webapps:** app pages, brand theme, translation *content* (product copy). Also

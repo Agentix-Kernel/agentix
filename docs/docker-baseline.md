@@ -10,7 +10,7 @@ Conventions for the containerized Python services (agent, gateway; webapps backe
 - **node_modules / venv stay out of images** (house rule) — built/mounted, not committed.
 - **One concern per container:** agent = `app` + `minio`; gateway = `gateway` + `nats`; each store
   is its own container, never shared (three-stores rule). DB volumes:
-  gateway `/srv/data`, agent `/data` + `/app/knowledge`, webapps `/app/data/sqlite`.
+  gateway `/srv/data`, agent `/data` + `/app/memory`, webapps `/app/data/sqlite`.
 - **Stateful caveat:** single-writer SQLite (ADR 0001) → one writer replica owns the data volume;
   scale reads with stateless replicas. See [`db-conventions.md`](db-conventions.md).
 
