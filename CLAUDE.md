@@ -26,21 +26,20 @@ reality (see "Drift") the repo is authoritative.
 
 ## Licensing
 
-Two tiers. **Closed/proprietary** (no source distributed) for the engine + product
-control-plane; **source-available** (BSL 1.1 → Apache-2.0 at the 4-year change date —
-*not* OSI open-source) for the clients + the gateway edge.
+Two tiers. **Source-available** (BSL 1.1 → Apache-2.0 at the 4-year change date — *not* OSI
+open-source) for the engine, the gateway edge, and the clients; **closed/proprietary** for the
+product frontends (`ludo-webapps`). Full policy: [`docs/licensing-policy.md`](docs/licensing-policy.md).
 
 | Repo | License |
 |---|---|
-| `ludo-agent` (librado) | Proprietary — all rights reserved (© wapsol (labs) gmbh) |
-| `ludo-apps` (flywheel) | Proprietary — all rights reserved (© wapsol (labs) gmbh) |
+| `ludo-agent` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
+| `ludo-webapps` (flywheel) | Proprietary — all rights reserved (© wapsol (labs) gmbh) |
 | `ludo-gateway` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
-| `ludo-omg` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
+| `ludo-cli` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
 | `ludo-desktop` | BSL 1.1 → Apache-2.0 · Licensor: wapsol (labs) gmbh |
 
 BSL ≠ open source: source is visible + modifiable for **non-production** use; production use
-needs a commercial license until the change date, when it converts to Apache-2.0. This is why
-the gateway is "source-available, not open-sourced."
+needs a commercial license until the change date, when it converts to Apache-2.0.
 
 ## Cluster topology — broker-mediated, never direct calls
 

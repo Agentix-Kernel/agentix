@@ -15,8 +15,8 @@ For information about alternative licensing arrangements for the Licensed Work,
 contact Ashant Chalasani <ach@runludo.com>.
 
 NOTE: Licensing across the LUDO cluster has two tiers — see docs/licensing-policy.md.
-ludo-agent and ludo-webapps are proprietary (all rights reserved); ludo-gateway,
-ludo-cli, and ludo-desktop are BSL 1.1 -> Apache-2.0 like this repo.
+ludo-webapps is proprietary (all rights reserved); ludo-agent, ludo-gateway, ludo-cli,
+and ludo-desktop are BSL 1.1 -> Apache-2.0 like this repo.
 
 -----------------------------------------------------------------------------
 
