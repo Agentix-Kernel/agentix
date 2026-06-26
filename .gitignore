@@ -5,3 +5,10 @@
 # Secrets & generated SQL
 .env
 init_*.sql
+
+# Python (scripts/ + libs/)
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
