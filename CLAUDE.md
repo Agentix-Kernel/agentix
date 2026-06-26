@@ -6,6 +6,18 @@ MCP). It is deliberately thin on repo specifics — **each repo's own CLAUDE.md 
 authoritative for that repo**; this file points to them. Read this first to know
 *which repo owns what*, then defer to the repo file for detail.
 
+## Agentix — the agentic kernel
+
+**Agentix** is the reusable, app-agnostic **agentic-app kernel** distilled from this cluster:
+the frozen API + principles for building agent apps — the deterministic body + **Cortex-on-surprise**,
+the four calling verbs (`call`/`consult`/`compile`/`delegate`), **activatable** (key-gated) agents
+with a deterministic fallback, trust-zone NATS isolation, **ActionGate** guardrails, the eval
+**Verdict** spine, A2A-over-NATS, the three memory tiers, and the versioned contracts.
+
+**LUDO is an AI-agentic app built on Agentix** — "Agentix + the Odoo app". Agentix is distilled and
+refined in `ludo-init` (working ticket `ludo-init#1`: the component inventory + the **[K]** kernel /
+**[A]** app-specific principle split). Throughout the cluster, **"the kernel" = Agentix.**
+
 ## What this directory is
 
 `/Users/ashant/s_/ludo` is a **workspace**, not a git repo. It holds several
