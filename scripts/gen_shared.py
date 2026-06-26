@@ -35,6 +35,7 @@ def main() -> int:
     cluster = yaml.safe_load(CLUSTER.read_text(encoding="utf-8"))
     broker = cluster["broker"]
     subjects, streams = broker["subjects"], broker["streams"]
+    migration_states = cluster["migration"]["states"]
 
     job = json.loads((CONTRACTS / "job-message.schema.json").read_text(encoding="utf-8"))
     event = json.loads((CONTRACTS / "session-event.schema.json").read_text(encoding="utf-8"))
@@ -77,6 +78,16 @@ def main() -> int:
         "EVENT_TYPES = frozenset(EventType)",
         "",
         "",
+        "# ── Migration lifecycle — from constants/cluster.yaml :: migration.states ─────",
+        "# Control-plane Migration.state_index labels (0-indexed). Canonical for every surface.",
+        f"MIGRATION_STATES: tuple[str, ...] = {tuple(migration_states)!r}",
+        "",
+        "",
+        "def migration_state_label(index: int) -> str:",
+        '    """Human label for a state_index; falls back to "State N" out of range."""',
+        "    return MIGRATION_STATES[index] if 0 <= index < len(MIGRATION_STATES) else f\"State {index}\"",
+        "",
+        "",
         "# ── Contract B models ────────────────────────────────────────────────────────",
         "class JobMessage(BaseModel):",
         '    """gateway -> agent broker payload (ludo.jobs). additionalProperties: false."""',
@@ -113,7 +124,8 @@ def main() -> int:
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(parts), encoding="utf-8")
     print(f"[ok] wrote {OUT.relative_to(REPO)} "
-          f"({len(job_types)} job types, {len(event_types)} event types)")
+          f"({len(job_types)} job types, {len(event_types)} event types, "
+          f"{len(migration_states)} migration states)")
     return 0
 
 

@@ -134,3 +134,81 @@ Correctness/doc items (zero LOC savings): #516 README license, #518 UTC datetime
 | 15 | ludo (agent) | #517 dedup helpers | T4 | P1 |
 | 16 | ludo (agent) | #518 datetime UTC | T4 | P1 |
 | 17 | ludo-omg | #7 retry/backoff | T2 | P2 |
+
+## Realized — Batch B (cluster-cleanup remainder, 2026-06-26)
+
+The 5 issues left after Batch A (#8, #9, #5, #7, #29). #30 deferred — it's the B2 real-OAuth
+lift from ludo-apps (a feature, not a CRIE consolidation item).
+
+- **#8 (T1, P0) — cross-language codegen + #101 fully closed.** `MIGRATION_STATES` made
+  canonical in `constants/cluster.yaml :: migration.states`. `gen_shared.py` extended (Python);
+  two siblings added — `gen_ts.py` → `libs/ts/ludo_shared/generated.{js,d.ts}`, `gen_swift.py`
+  → `libs/swift/LudoShared/Generated.swift` (both client-safe: enums + lifecycle only, no broker
+  internals). `check_shared_drift.py` now guards the JS/Swift vendors **and** runs a
+  codegen-freshness check (closes IE-6). Hand-synced copies retired: webapps `notifications.py`
+  (imports from vendored `ludo_shared`), `libs/shared/migration_states.js` (re-exports the
+  generated module), desktop `Models/Live.swift` (hand `MigrationState` enum deleted → generated).
+- **#9 (T2, P1).** `docs/contracts-consumer-guide.md` gained PKCE(S256), client-config
+  convention (env + `cluster.yaml` `domains` + token-storage tiers), SSE resumption, retry/backoff,
+  and the error taxonomy — the spec #5/#7 build against.
+- **#5 (P1).** `AuthService.swift` resolves the base URL via new `ClientConfig`
+  (env → `UserDefaults` → `cluster.yaml` prod default); stale hardcoded `ludo.euroblaze.de` gone.
+- **#7 (P2).** `omg/client.py` retries transient failures (connect/`429`/`5xx`) with bounded
+  exponential backoff + jitter (honors `Retry-After`); `stream_events` auto-resumes from the last
+  seq via `Last-Event-ID`. Unit-tested.
+- **#29 (P2).** `TokenReq`/`EstimateReq`/`CheckoutReq` gained `Field`/`Literal` constraints
+  (PKCE-verifier shape, edition/version bounds + no-downgrade, payment-kind enum) → 422 at the
+  edge. Dict projections left intentional (ORM/API decoupling).
+
+**LOC (the cross-language savings Batch A pointed here).** ~35 lines of hand-synced lifecycle
+duplication removed — 3 copies (webapps py ~8, webapps js ~13, desktop swift ~14) collapse to
+**1** canonical `cluster.yaml` line. The generators + guards add ~410 lines of one-time hub
+tooling that eliminate the per-language-type drift class permanently (the T1/P0 lever). Honest
+net: raw LOC up (tooling), drift-prone hand-maintenance down to zero.
+
+### Still open after Batch B (deferred CRIE optimizations)
+- **#30** real PKCE/OAuth verify — B2 GitHub-OAuth lift (feature).
+- **IE-2b** internal NATS `Broker` + SSE-encode → private-only shared home (agent⇄gateway),
+  ~141 LOC; held (must not vendor into the public clients).
+- **IE-4** generic Python infra base (config + JWT/Bearer auth + transient-error classifier),
+  agent+gateway; gated behind C-1, modest savings.
+- **#29 remainder** dict projections → `response_model` (optional; currently intentional).
+- Gateway test-coverage expansion (defer-tests rule); webapps TS adoption (now unblocked — the
+  shared types ship a `.d.ts`).
+
+## Realized — Batch C (docs 001/002 remainder, 2026-06-26)
+
+A grounded sweep of the remainder found most items already done or not worth it; the owner
+elected to do the substantive + hygiene items anyway. Dispositions + work:
+
+- **C-1 (license flip): already done.** agent + gateway `LICENSE` are the Proprietary notice;
+  agent `pyproject` = `LicenseRef-Proprietary`. No code change.
+- **IE-4 (infra base): dispositioned — no shareable code.** A two-repo survey found zero real
+  duplication: agent config is YAML/multi-context, gateway is env/single-tenant; agent has **no**
+  JWT auth (read-only introspection by design); transient-error handling is agent-only +
+  provider-specific. A shared "infra base" would be cargo-culting — not created.
+- **IE-2b (broker): extracted (~11 LOC) to a private-only home.** New hub package
+  `libs/internal/ludo_internal/` (`nats_streams.py`: `ensure_streams` + `connect`), vendored into
+  **agent + gateway only** and repointed (`worker/nats.py`, `services/broker.py`); the "MUST match"
+  coupling comment is gone. New `scripts/check_internal_drift.py` guards it and **asserts the
+  public clients never vendor it** (the boundary check). Honest value: small dedup, but the
+  agent↔gateway stream topology can no longer silently diverge.
+- **#30 (PKCE/OAuth): implemented.** `routers/auth.py` now does **real S256 PKCE verification**
+  (offline-testable DEV path + real GitHub authorization-code exchange in stag/prod, lifted from
+  the ludo-apps donor). New `pkce.py` (S256 + a one-time, TTL'd in-memory `PendingAuthStore` —
+  single-replica per ADR 0001), `config.py` GitHub creds + `github_oauth_real`. The 501 is gone;
+  the synthetic demo path is now DEV-only (stag/prod without real creds still refuses). Tests:
+  `test_auth_pkce.py` (S256 verified against the RFC 7636 vector; one-time/expired/mismatch → 400).
+- **Gateway test coverage: expanded.** `conftest.py` seeds a tenancy graph + a `bearer` token
+  forge; `test_tenancy.py` + `test_commerce.py` assert customer/superdev/superadmin/anon scoping,
+  404-not-403 existence-hiding, approve→202, the account-required checkout (#31), and the
+  billing-rollup role gate.
+- **webapps TS: minimal adoption (Vue retained).** Root `tsconfig.json` + `vue-tsc` `type-check`
+  script typecheck the shared libs against the generated `.d.ts` (drift guard between the #8
+  generator and its JS consumers); `libs/shared/migration_states.js` is `// @ts-check`'d. **No
+  SFC→TS rewrite** — the apps stay Vue 3 + Vite; extending the typecheck to `web-ui/**/*.vue` is a
+  documented opt-in next step. (Noted in passing: `libs/web-theme/portal-data.js` keeps its own
+  `{id,label}` mock list — a different shape, intentionally not repointed.)
+
+This closes the CRIE 001/002 ledger: every C/R/IE item is now done, dispositioned with evidence,
+or explicitly deferred as a feature (none of the latter remain except product features like Mollie).

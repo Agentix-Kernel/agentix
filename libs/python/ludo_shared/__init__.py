@@ -18,12 +18,14 @@ from ._generated import (
     JOBS_CANCEL_SUBJECT,
     JOBS_STREAM,
     JOBS_SUBJECT,
+    MIGRATION_STATES,
     NATS_URL,
     EventType,
     JobMessage,
     JobType,
     SessionEvent,
     event_subject,
+    migration_state_label,
 )
 from .sse import decode_sse, encode_sse
 
@@ -35,6 +37,7 @@ __all__ = [
     "JOBS_CANCEL_SUBJECT",
     "JOBS_STREAM",
     "JOBS_SUBJECT",
+    "MIGRATION_STATES",
     "JobMessage",
     "JobType",
     "NATS_URL",
@@ -42,4 +45,5 @@ __all__ = [
     "decode_sse",
     "encode_sse",
     "event_subject",
+    "migration_state_label",
 ]

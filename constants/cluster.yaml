@@ -53,6 +53,14 @@ domains:
     superadmin: "http://10.0.99.1:8092"
     api: "http://10.0.99.1:8000/api/v1"
 
+# ── Migration lifecycle (control-plane state machine) ─────────────────────────
+# Canonical 0-indexed Migration.state_index labels. THE single source for every
+# surface (gateway, webapps frontend+backend, desktop) — emitted into each language
+# by scripts/gen_shared.py (py) + gen_ts.py (js) + gen_swift.py (swift); guarded by
+# check_shared_drift.py. Stop hand-syncing per-language copies (CRIE 002 #101).
+migration:
+  states: [Approved, Queued, Migrating, Test, Gap-fix, Delivered, Deployed]
+
 # ── Locale / currency ─────────────────────────────────────────────────────────
 locale:
   backend_default: "de"          # DEFAULT_LOCALE (DACH audience + house rule)

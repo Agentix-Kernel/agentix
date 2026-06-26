@@ -60,6 +60,16 @@ class EventType(StrEnum):
 EVENT_TYPES = frozenset(EventType)
 
 
+# ── Migration lifecycle — from constants/cluster.yaml :: migration.states ─────
+# Control-plane Migration.state_index labels (0-indexed). Canonical for every surface.
+MIGRATION_STATES: tuple[str, ...] = ('Approved', 'Queued', 'Migrating', 'Test', 'Gap-fix', 'Delivered', 'Deployed')
+
+
+def migration_state_label(index: int) -> str:
+    """Human label for a state_index; falls back to "State N" out of range."""
+    return MIGRATION_STATES[index] if 0 <= index < len(MIGRATION_STATES) else f"State {index}"
+
+
 # ── Contract B models ────────────────────────────────────────────────────────
 class JobMessage(BaseModel):
     """gateway -> agent broker payload (ludo.jobs). additionalProperties: false."""
