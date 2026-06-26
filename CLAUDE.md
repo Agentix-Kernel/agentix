@@ -137,13 +137,23 @@ transport. The three concepts (Anthropic guidance:
   primitive (*the hammer*). LUDO's live set: `ludo-agent/src/ludo/tools/`
   (`register_builtin_tools`, `omg tools list`). Design rule: consolidate, namespace,
   token-efficient returns, actionable errors.
-- **Skill** = a directory (`SKILL.md` + resources) of **procedural know-how** —
-  *how to compose tools toward a goal* (*the carpentry skill*). Use the **Agent
-  Skills open standard** with progressive disclosure, only where real recurring
-  know-how exists.
+- **Skill** = a directory (`SKILL.md` + frontmatter `name`/`description`/`allowed-tools`
+  + resources) of **procedural know-how** — *how to compose tools toward a goal* (*the
+  carpentry skill*). The **Agent Skills open standard**, loaded by the agent-agnostic
+  **`ludo.skills.SkillCatalog`** (each agent points it at its own `skills_root`): session
+  start surfaces each bundle's name+description cheaply, the Cortex pulls the full body on
+  demand via `consult_skill` (**progressive disclosure**). The bespoke manifest/
+  trigger-predicate machinery is retired as the selection mechanism. *Implemented
+  (#498/#513/#514).*
 - **MCP** = the **transport** that publishes tools/skills across components — the
   "Tools-catalog other components can borrow from." Target home: a namespaced MCP
   surface published via **`ludo-gateway`** (kernel-phase, post-autonomy).
+- **Calling — the four verbs** (implemented; `ludo-init/docs/proposals/tool-skill-calling.md`,
+  #503): `call` a tool (in-process) · `consult` a skill (`consult_skill` pulls the
+  `SKILL.md` body on demand) · `compile` a skill (lift its strategy into a deterministic
+  recipe — no LLM at runtime) · `delegate` (hand work to another agent over A2A). Surprises
+  descend a cost-ordered cascade **S3 compiled → S1 consult → S0 novel**; the share absorbed
+  by S3 is the system's intelligence (a concrete read on *surprises/customer → 0*).
 
 **Competence model** (the agent, redesign `euroblaze/ludo` #468): two layers —
 **Core** (deterministic body + the Cortex loop) over a **knowledge substrate of
