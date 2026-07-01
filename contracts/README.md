@@ -35,7 +35,7 @@ A contract change = edit **here** first, then the emitter, then re-vendor the co
 - `ludo-webapps/backend/contract/` — Contract B (`session-event.schema.json`).
 - `ludo-desktop` — hand-codes Swift DTOs from the spec (reconciled at review, not byte-vendored).
 
-Run `python scripts/check_contract_drift.py` (from `ludo-init/`) to verify all copies are in sync.
+Run `python scripts/check_contract_drift.py` (from the repo root) to verify all copies are in sync.
 
 ## Change rules
 - **A / C** (client-facing): evolve **additively**; breaking change → version bump + deprecation

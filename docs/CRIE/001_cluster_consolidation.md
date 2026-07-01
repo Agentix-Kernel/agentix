@@ -1,5 +1,7 @@
 # CRIE 001 — cluster-wide consolidation into ludo-init
 
+> **Repo note:** the hub repo `ludo-init` was renamed to **`euroblaze/agentix`** (now the Agentix kernel + cluster foundation). References below use the historical name.
+
 Date: 2026-06-25. Scope: all 6 repos (`ludo-agent`, `ludo-gateway`, `ludo-webapps`,
 `ludo-cli`, `ludo-desktop`, `ludo-init`). Goal: find Conflicts, Redundancies,
 Integration-Efficiencies (CRIE) and consolidate common code into the `ludo-init` hub.

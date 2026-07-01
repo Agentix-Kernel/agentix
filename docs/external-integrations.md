@@ -21,4 +21,4 @@ keys live in gitignored `.env.<stage>`; this lists the integration points + publ
 ## Repo GitHub map
 `ludo-agent`→`euroblaze/ludo-agent` · `ludo-gateway`→`euroblaze/ludo-gateway` ·
 `ludo-webapps`→`euroblaze/ludo-webapps` · `ludo-cli`→`euroblaze/ludo-cli` ·
-`ludo-desktop`→`euroblaze/ludo-desktop` · `ludo-init`→`euroblaze/ludo-init`. (Also in `../CLAUDE.md`.)
+`ludo-desktop`→`euroblaze/ludo-desktop` · `agentix`→`euroblaze/agentix`. (Also in `../CLAUDE.md`.)

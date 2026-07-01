@@ -1,5 +1,7 @@
 # CRIE 002 — post-consolidation cluster sweep
 
+> **Repo note:** the hub repo `ludo-init` was renamed to **`euroblaze/agentix`** (now the Agentix kernel + cluster foundation). References below use the historical name.
+
 Date: 2026-06-26. Scope: all 6 repos. Follows CRIE 001 (ludo_shared Python consolidation).
 Index issue: euroblaze/ludo-init#11. Method: 3 parallel repo sweeps vs the 001 baseline
 (reports only new / still-open items), high-signal findings spot-verified against source.
