@@ -631,7 +631,6 @@ _EMPTY_ARGS_HARD_CAP = 5
 _CHECKPOINT_CADENCE = 5
 
 
-
 def _empty_args_guard(call: ToolCall, tool: Tool, *, streak: int = 0) -> ToolCallResult | None:
     """Synthesise an ok=False directive ToolCallResult for an empty-args
     call to a tool with required fields, bypassing the opaque pydantic

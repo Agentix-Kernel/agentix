@@ -79,6 +79,5 @@ def test_kernel_code_is_domain_neutral() -> None:
             leaks[str(path.relative_to(_KERNEL.parent.parent))] = hits
     assert not leaks, (
         "App-domain vocabulary leaked into kernel CODE (not docstrings) — "
-        "move it to the app behind a seam:\n"
-        + "\n".join(f"  {f}: {terms}" for f, terms in leaks.items())
+        "move it to the app behind a seam:\n" + "\n".join(f"  {f}: {terms}" for f, terms in leaks.items())
     )

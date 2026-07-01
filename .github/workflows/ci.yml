@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: kernel — lint + typecheck + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.5.x"
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      # Scope to the kernel package (src/agentix + its tests). The repo also
+      # carries the cluster foundation (contracts/constants/scripts) which has
+      # its own conventions; the kernel CI validates the shippable package.
+      - name: ruff format
+        run: uv run ruff format --check src tests
+
+      - name: ruff lint
+        run: uv run ruff check src tests
+
+      - name: mypy --strict
+        run: uv run mypy src/agentix
+
+      - name: pytest
+        run: uv run pytest -m "not stress"
+
+      - name: kernel purity + standalone gates
+        run: uv run pytest tests/unit/test_kernel_purity.py tests/unit/test_kernel_standalone.py -v

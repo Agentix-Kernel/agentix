@@ -97,6 +97,8 @@ async def test_update_session_marks_ended(store: SqliteStore) -> None:
     assert got is not None
     assert got["status"] == "completed"
     assert got["ended_at"] is not None
+
+
 @pytest.mark.asyncio
 async def test_list_sessions_filters_by_customer_and_status(store: SqliteStore) -> None:
     for sid, cust, status in [
@@ -296,6 +298,8 @@ async def test_schema_version_not_reinserted_on_reinit(tmp_path: Path) -> None:
         row = await cur.fetchone()
     assert row is not None and row[0] == 1
     await store2.close()
+
+
 @pytest.mark.asyncio
 async def test_v5_to_v6_migration_adds_intervention_type_column(tmp_path: Path) -> None:
     """v5 → v6 migration: existing DB without `intervention_type` gets
