@@ -1,7 +1,7 @@
 """LLM provider protocol + request/response types.
 
 Direct SDK usage per arch.md §11 — no `litellm` wrapper. Each
-provider adapter has to translate LUDO's canonical ``LlmRequest`` into
+provider adapter has to translate the kernel's canonical ``LlmRequest`` into
 its vendor-specific shape and back. The router lives above the protocol
 (``agentix.llm.router``) and sequences providers for fallback.
 """

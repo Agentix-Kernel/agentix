@@ -108,6 +108,7 @@ class SafetyGate:
             input,
             result,
             contract_resolver=lambda model: self._resolve_contract(ctx, model),
+            field_deriver=self._derive_verifier_fields,
         )
         verify_result = await verifier.call(verify_input, ctx)
         ok = bool(getattr(verify_result, "ok", True))
@@ -165,6 +166,14 @@ class SafetyGate:
         """
         return None, []
 
+    def _derive_verifier_fields(self, source: dict[str, Any], target_fields: set[str]) -> dict[str, Any]:
+        """Derive verifier-input fields that aren't a direct name-match on the
+        source tool's input. The kernel forwards same-named fields itself; this
+        hook is for app-specific derivations (e.g. the migration app pulling
+        ``target_model`` out of its ``rename_map``). Default: nothing derived.
+        """
+        return {}
+
 
 _MISSING: Any = object()
 
@@ -181,6 +190,7 @@ def _build_verifier_input(
     tool_output: BaseModel | None = None,
     *,
     contract_resolver: Any = None,
+    field_deriver: Any = None,
 ) -> BaseModel:
     """Construct the verifier's input model from the source-tool input.
 
@@ -191,17 +201,20 @@ def _build_verifier_input(
     :param contract_resolver: callable taking the model name and returning
         ``(verify_contract, derived_check_fields)``; the contract drives field-level checks.
         ``(None, [])`` means count + sample only.
+    :param field_deriver: optional callable ``(source_dict, target_fields) -> dict`` for
+        app-specific derivations of verifier fields not present by name on the source
+        (e.g. the migration app deriving ``target_model`` from its rename map).
     """
     source = source_input.model_dump()
     target_schema = verifier.input_schema
     target_fields = target_schema.model_fields.keys()
     payload = {k: v for k, v in source.items() if k in target_fields}
-    # Forward rename_map.target_model so the verifier filters on the target
-    # model name, not the source name.
-    if "target_model" in target_fields and not payload.get("target_model"):
-        rmap = source.get("rename_map")
-        if isinstance(rmap, dict) and rmap.get("target_model"):
-            payload["target_model"] = str(rmap["target_model"])
+    # App-derived fields (not a direct name-match on the source) — e.g. a
+    # ``target_model`` the app pulls out of its own rename map. Only fill gaps.
+    if field_deriver is not None:
+        for k, v in field_deriver(source, set(target_fields)).items():
+            if k in target_fields and not payload.get(k):
+                payload[k] = v
     runtime_scope = getattr(tool_output, "verify_scope", None)
     if runtime_scope and "batch_scope" in target_fields:
         payload["batch_scope"] = list(runtime_scope)

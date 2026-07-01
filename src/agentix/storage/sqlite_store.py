@@ -79,10 +79,9 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
         total_cost_usd REAL NOT NULL DEFAULT 0.0,
         checkpoint TEXT,
         -- App-specific session scope as a JSON object. The kernel treats it
-        -- opaquely; apps read their own keys (the migration app stores
-        -- source_version / target_version / target_models here). '{}' = no
-        -- app scope (auto-discovery / spike / probe). NOT NULL with a default
-        -- so the column read is always safe.
+        -- opaquely; apps read their own keys. '{}' = no app scope
+        -- (auto-discovery / spike / probe). NOT NULL with a default so the
+        -- column read is always safe.
         app_meta TEXT NOT NULL DEFAULT '{}',
         -- Human-touchpoint classification for this session — the autonomy
         -- product metric. Counts of non-'none' values per account show whether

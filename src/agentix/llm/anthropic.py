@@ -46,7 +46,8 @@ _OAUTH_ANTHROPIC_BETA = "oauth-2025-04-20,claude-code-20250219"
 # The OAuth "billing" header Anthropic's Claude Code flow expects.
 # The version string inside this header will drift as Claude Code updates;
 # operators who hit OAuth auth failures after a Claude Code update can
-# override via ``LUDO_ANTHROPIC_BILLING_HEADER`` without a code change.
+# override via ``AGENTIX_ANTHROPIC_BILLING_HEADER`` (legacy
+# ``LUDO_ANTHROPIC_BILLING_HEADER`` still honoured) without a code change.
 # Default matches a recent-enough Claude Code version to keep existing
 # setups working.
 _DEFAULT_BILLING_HEADER = "cc_version=2.1.85.351; cc_entrypoint=cli; cch=6c6d5;"
@@ -54,7 +55,11 @@ _DEFAULT_BILLING_HEADER = "cc_version=2.1.85.351; cc_entrypoint=cli; cch=6c6d5;"
 
 def _billing_header() -> str:
     """Return the OAuth billing header — env-override first, then default."""
-    return os.environ.get("LUDO_ANTHROPIC_BILLING_HEADER") or _DEFAULT_BILLING_HEADER
+    return (
+        os.environ.get("AGENTIX_ANTHROPIC_BILLING_HEADER")
+        or os.environ.get("LUDO_ANTHROPIC_BILLING_HEADER")
+        or _DEFAULT_BILLING_HEADER
+    )
 
 
 _MODEL_AUTO_MAX = "claude-opus-4-7"
@@ -252,7 +257,7 @@ def _message_to_anthropic(m: Message) -> dict[str, Any]:
 
 
 def _from_anthropic_response(response: Any, model: str) -> LlmResponse:
-    """Collapse an Anthropic response into LUDO's canonical LlmResponse.
+    """Collapse an Anthropic response into the kernel's canonical LlmResponse.
 
     Anthropic returns a list of content blocks:
 

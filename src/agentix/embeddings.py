@@ -1,7 +1,7 @@
 """Embedding-backed semantic recall — Hermes-shape memory layer.
 
 The deterministic catalogue (``error_catalogue.yaml``) plus the
-hand-curated memory gives LUDO high-signal symbolic recall via exact
+hand-curated memory gives the app high-signal symbolic recall via exact
 patterns. The agent loop also needs *fuzzy* recall — given a novel
 error message, which catalogue patterns are most semantically similar?
 Today this lives as Jaccard token-overlap in

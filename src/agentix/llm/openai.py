@@ -141,7 +141,7 @@ def _to_openai(m: Message) -> dict[str, Any]:
 
 
 def _parse_openai_tool_calls(message: Any) -> list[ToolCall]:
-    """Convert ``choice.message.tool_calls`` into LUDO ToolCalls.
+    """Convert ``choice.message.tool_calls`` into kernel ToolCalls.
 
     OpenAI emits ``message.tool_calls`` as a list of objects with
     ``id``, ``type == "function"``, and ``function.arguments`` as a

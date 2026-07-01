@@ -10,6 +10,16 @@ docs. Start here, then defer to each repo's own `CLAUDE.md`/README for specifics
 |---|---|
 | `src/agentix/` | **The Agentix kernel** — the reusable, app-agnostic agent core (engine + middleware, LLM provider router, three-store storage, skills, tool protocol, Contract-B events). Installable package `agentix`; LUDO depends on it. Must stay free of `ludo.*`/Odoo imports. |
 | `CLAUDE.md` | Cross-repo hub: shared vocabulary, topology, agentic surface, repo map |
+
+**Kernel purity.** `src/agentix` carries no app-domain (Odoo/migration) vocabulary in its
+code surface. Two CI gates enforce it: `tests/unit/test_kernel_purity.py` (AST scan — no
+forbidden terms in identifiers/string literals) and `tests/unit/test_kernel_standalone.py`
+(importing the kernel pulls in no `ludo` module). Apps plug in via seams: `KernelConfig`
+subclass, `SafetyGate` hooks (`rollback`/`_resolve_contract`/`_derive_verifier_fields`),
+the dispatcher's `TerminationPolicy`/`DispatchGuard`, `Tool`/exception `to_error_details()`,
+and the `register_allowed_hosts`/`register_allowed_binaries` allowlist extenders. The kernel's
+one branded dependency is the vendored **wire-contract** package `ludo_shared`/`ludo_internal`
+(cluster-canonical Contract-B types + NATS constants — data contracts, not app logic).
 | `LUDO-PRD-Unified.md` | Unified product PRD (product · architecture · orchestration) |
 | `contracts/` | Canonical Contract A/B/C + shared types (vendored by consumers; drift-checked) |
 | `constants/cluster.yaml` | **Single source** for shared values (loopback, ports, NATS, env stages, domains, locale) |

@@ -9,7 +9,7 @@ blocks"* until we patch it up.
 This middleware scans the input messages just before the LLM sees them
 and injects a synthetic ``role=tool`` message carrying an error payload
 for each dangling ``tool_use`` id. Inspired by DeerFlow's
-``DanglingToolCallMiddleware``; adapted to LUDO's message shape.
+``DanglingToolCallMiddleware``; adapted to the kernel's message shape.
 """
 
 from __future__ import annotations

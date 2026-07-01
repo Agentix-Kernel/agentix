@@ -1,11 +1,11 @@
-"""HUBLE provider — routes LUDO's agent loop through the HUBLE gateway.
+"""HUBLE provider — routes the agent loop through the HUBLE gateway.
 
 HUBLE (a.k.a. ``llmhub``) is the central LLM gateway: one API key,
 many upstream providers (Claude, Melious, OpenAI, Groq, Gemini,
-Ollama, …). LUDO holds only the HUBLE key; HUBLE owns each
+Ollama, …). The app holds only the HUBLE key; HUBLE owns each
 upstream's keys and rotates them centrally.
 
-This provider implements LUDO's :class:`Provider` protocol by
+This provider implements the kernel's :class:`Provider` protocol by
 POSTing to HUBLE's ``/api/v2/agent/chat`` endpoint, which speaks an
 Anthropic-shaped wire format:
 
@@ -180,7 +180,7 @@ class HubleProvider(Provider):
         if response.status_code >= 500:
             # Defence-in-depth: HUBLE sometimes wraps upstream 400s
             # (context overflow, malformed request) as 500s, which causes
-            # LUDO to retry a fundamentally non-retriable error 3x and
+            # the router to retry a fundamentally non-retriable error 3x and
             # waste tokens on every full input payload. Sniff the body
             # for the canonical upstream-400 signatures and re-classify
             # as LlmInvalidRequest (no-retry). Proper fix lives in HUBLE.
@@ -385,7 +385,7 @@ _WRAPPED_4XX_SIGNATURES: tuple[str, ...] = (
 
 def _looks_like_wrapped_4xx(message: str) -> bool:
     """HUBLE sometimes wraps upstream 4xx as 5xx. Sniff the body for
-    canonical upstream-4xx signatures so LUDO doesn't retry a
+    canonical upstream-4xx signatures so the router doesn't retry a
     fundamentally non-retriable error.
 
     Case-insensitive substring match across known signatures. Conservative

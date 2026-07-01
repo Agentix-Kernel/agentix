@@ -47,13 +47,13 @@ class MinioConfig:
     endpoint: str
     access_key: str
     secret_key: str
-    bucket: str = "ludo"
+    bucket: str = "agentix"
     secure: bool = False
     region: str | None = None
 
 
 class MinioStore:
-    """Async MinIO client for LUDO's blob layer.
+    """Async MinIO client for the kernel blob layer.
 
     Thread-safe at the Python level: every public method offloads to a
     worker via ``asyncio.to_thread``. A single ``MinioStore`` instance can
