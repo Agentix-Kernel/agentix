@@ -8,6 +8,7 @@ docs. Start here, then defer to each repo's own `CLAUDE.md`/README for specifics
 ## What's here
 | Path | What |
 |---|---|
+| `src/agentix/` | **The Agentix kernel** — the reusable, app-agnostic agent core (engine + middleware, LLM provider router, three-store storage, skills, tool protocol, Contract-B events). Installable package `agentix`; LUDO depends on it. Must stay free of `ludo.*`/Odoo imports. |
 | `CLAUDE.md` | Cross-repo hub: shared vocabulary, topology, agentic surface, repo map |
 | `LUDO-PRD-Unified.md` | Unified product PRD (product · architecture · orchestration) |
 | `contracts/` | Canonical Contract A/B/C + shared types (vendored by consumers; drift-checked) |
