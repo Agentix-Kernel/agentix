@@ -18,6 +18,12 @@ from agentix.core.context import (
     ContextBuilder,
     summarise_oldest_tool_results,
 )
+from agentix.core.context_manager import (
+    AssembledContext,
+    ContextManager,
+    Tier,
+    WindowEntry,
+)
 from agentix.core.engine import Engine, TurnDispatcher
 from agentix.core.session import Session, create_session, resume_from, resume_or_create, save
 from agentix.core.types import (
@@ -31,19 +37,23 @@ from agentix.core.types import (
 
 __all__ = [
     "ORDERED_CHECKPOINTS",
+    "AssembledContext",
     "CheckpointName",
     "CompressionStrategy",
     "ContextBudget",
     "ContextBuilder",
+    "ContextManager",
     "Engine",
     "Message",
     "Session",
+    "Tier",
     "TokenUsage",
     "ToolCall",
     "ToolCallResult",
     "Turn",
     "TurnDispatcher",
     "TurnStatus",
+    "WindowEntry",
     "create_session",
     "load_checkpoint",
     "resume_from",

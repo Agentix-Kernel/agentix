@@ -92,7 +92,10 @@ sides.** They are *not* aligned today (the session snapshot persists raw `messag
 Sequence is instrument-first; each slice ships behind eval.
 
 - **S0 — Instrument + budget core.** ContextManager assembles deterministically, enforces one
-  budget, X-rays the window per step. Foundation.
+  budget, X-rays the window per step. Foundation. *Slice A landed: `core/context_manager.py`
+  (`ContextManager` + `AssembledContext` + `Tier` + `WindowEntry`) — assemble → compress →
+  X-ray, reusing `context.py`'s budget + compression. Additive; the dispatcher rewire (slice B)
+  is next so behaviour can be diffed one step at a time.*
 - **S1 — Generalise progressive disclosure.** Extend `S3->S1->S0` to tools/memory/knowledge.
   Highest leverage, lowest risk, reuses a proven mechanism.
 - **S2 — Compression + checkpoint resume.** Long-running sessions. *Co-designed with
@@ -108,3 +111,8 @@ Sequence is instrument-first; each slice ships behind eval.
 - **2026-07-06** — reconciled with the runtime plane: [`isolation.md`](isolation.md) added (axiom
   + I1–I7). Split dim-6 into its two planes (P-ISO-2 crossing vs a2a Account isolation); budget
   scoping/ceiling links to I4/I5; reserved inventory #21 SessionRuntime.
+- **2026-07-06** — S0 slice A: `core/context_manager.py` built (additive). `ContextManager`
+  owns assemble → compress → X-ray with priority `Tier`s (SYSTEM > WORKING_MEMORY > SUMMARY >
+  HISTORY), mirroring the dispatcher's current `_build_request` assembly so the rewire (slice B)
+  is a clean swap. Reuses `ContextBudget` + `summarise_oldest_tool_results` (no duplication).
+  Unit tests added. Consolidates the working-memory-injection + budget scatter (agentix#20).
