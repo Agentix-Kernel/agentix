@@ -112,10 +112,9 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_sessions_customer ON sessions (customer_id)",
     "CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions (status)",
-    # Resume lookup: find the agent Session bound to a control-plane Migration id.
-    # Partial (control_plane_id IS NOT NULL) so local/no-control-plane rows stay
-    # out of it. IF NOT EXISTS means it lands on existing DBs with no version bump.
-    "CREATE INDEX IF NOT EXISTS idx_sessions_control_plane ON sessions (control_plane_id) WHERE control_plane_id IS NOT NULL",
+    # NOTE: the idx_sessions_control_plane index is created AFTER migrations run
+    # (see initialize()), not here — control_plane_id is a v13-added column and
+    # is absent when this block runs against a pre-v13 DB.
     """
     CREATE TABLE IF NOT EXISTS turns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -267,6 +266,13 @@ class SqliteStore:
         for stmt in (*_SCHEMA_STATEMENTS, *self._extra_schema_statements()):
             await self._db.execute(stmt)
         await self._apply_migrations()
+        # Indexes on migration-added columns must be created AFTER migrations —
+        # the column is absent when _SCHEMA_STATEMENTS runs against a pre-v13 DB.
+        # control_plane_id arrives in v13; index it once it is guaranteed present.
+        await self._db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_control_plane "
+            "ON sessions (control_plane_id) WHERE control_plane_id IS NOT NULL"
+        )
         await self._db.commit()
         log.info("sqlite.initialized", path=str(self.path), schema_version=_SCHEMA_VERSION)
 
