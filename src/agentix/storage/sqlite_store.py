@@ -58,7 +58,15 @@ KERNEL_SAFETY_KINDS: frozenset[str] = frozenset(
 # move to the app subclass (``ludo.storage.ludo_sqlite``). ``customer_id`` is
 # kept as the generic opaque tenant id. App-owned historical steps
 # (v3/v7/v9/v10/v11) run in ``_migrate_app``.
-_SCHEMA_VERSION = 12
+#
+# v13 = session-binding foundation: two generic, nullable link columns.
+# ``control_plane_id`` binds the agent-side Session back to the control-plane
+# Migration id (the gateway's ``ludo_session_id``) so a resumable event stream
+# and observability can correlate the two halves without a side mapping.
+# ``parent_session_id`` names the spawning Session for A2A delegation
+# (self-referential FK); NULL for top-level runs. Both are kernel-generic —
+# an app that uses neither simply leaves them NULL.
+_SCHEMA_VERSION = 13
 
 _SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
@@ -90,7 +98,16 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
         -- Honest session outcome label, derived from session-end verification
         -- rather than the agent's terminal message. NULL until computed at
         -- session close; rows that predate it stay NULL (unjudged).
-        outcome TEXT
+        outcome TEXT,
+        -- Control-plane binding: the gateway-assigned Migration id
+        -- (``ludo_session_id``) this Session runs. Lets the gateway project a
+        -- resumable event stream and correlate observability without keeping a
+        -- separate mapping. NULL for runs with no control plane (local CLI).
+        control_plane_id TEXT,
+        -- A2A delegation link: the Session that spawned this one. NULL for
+        -- top-level runs. Self-referential so a delegated child can be walked
+        -- back to its parent. Enforcement of crossing rules lives above the DB.
+        parent_session_id TEXT REFERENCES sessions(id)
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sessions_customer ON sessions (customer_id)",
@@ -304,6 +321,18 @@ class SqliteStore:
             if "app_meta" not in existing:
                 await self._db.execute("ALTER TABLE sessions ADD COLUMN app_meta TEXT NOT NULL DEFAULT '{}'")
 
+        # v12 → v13: session-binding columns. Both nullable, no default needed —
+        # existing rows read NULL (no control-plane link, top-level run).
+        # SQLite can't add a column with an inline REFERENCES via ALTER, so the
+        # parent_session_id FK is only declared on the fresh-DB CREATE above;
+        # on migrated DBs it is a plain nullable TEXT (the app enforces linkage).
+        if current < 13:
+            existing = await self._session_columns()
+            if "control_plane_id" not in existing:
+                await self._db.execute("ALTER TABLE sessions ADD COLUMN control_plane_id TEXT")
+            if "parent_session_id" not in existing:
+                await self._db.execute("ALTER TABLE sessions ADD COLUMN parent_session_id TEXT")
+
         # App-owned table migrations (diagnoses / applied_memory_rules, and the
         # app_meta backfill from legacy Odoo columns) — no-op in the base.
         await self._migrate_app(current)
@@ -344,6 +373,8 @@ class SqliteStore:
         customer_id: str,
         status: SessionStatus = "running",
         app_meta: dict[str, Any] | None = None,
+        control_plane_id: str | None = None,
+        parent_session_id: str | None = None,
     ) -> None:
         """Insert a new session row.
 
@@ -352,6 +383,11 @@ class SqliteStore:
         the kernel treats it opaquely; the migration app stores its
         source/target version + target models there. Defaults to ``{}``
         (sessions without app scope: auto-discovery probes, spikes, etc.).
+
+        ``control_plane_id`` binds this Session to the control-plane Migration id
+        (the gateway's ``ludo_session_id``); NULL for local/no-control-plane
+        runs. ``parent_session_id`` names the spawning Session for A2A
+        delegation; NULL for top-level runs.
         """
         db = self._conn()
         app_meta_json = json.dumps(app_meta or {}, ensure_ascii=False, default=str)
@@ -359,11 +395,12 @@ class SqliteStore:
             """
             INSERT INTO sessions (
                 id, customer_id, status, started_at,
-                total_input_tokens, total_output_tokens, total_cost_usd, app_meta
+                total_input_tokens, total_output_tokens, total_cost_usd, app_meta,
+                control_plane_id, parent_session_id
             )
-            VALUES (?, ?, ?, ?, 0, 0, 0.0, ?)
+            VALUES (?, ?, ?, ?, 0, 0, 0.0, ?, ?, ?)
             """,
-            (session_id, customer_id, status, _now(), app_meta_json),
+            (session_id, customer_id, status, _now(), app_meta_json, control_plane_id, parent_session_id),
         )
         await db.commit()
 

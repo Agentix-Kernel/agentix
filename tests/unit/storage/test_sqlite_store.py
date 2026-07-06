@@ -92,6 +92,87 @@ async def test_create_and_get_session(store: SqliteStore) -> None:
 
 
 @pytest.mark.asyncio
+async def test_session_binding_columns_default_null(store: SqliteStore) -> None:
+    """A session created without binding args reads back NULL on both link
+    columns (top-level, no control plane) — schema v13."""
+    await store.create_session(session_id="S1", customer_id="example")
+    got = await store.get_session("S1")
+    assert got is not None
+    assert got["control_plane_id"] is None
+    assert got["parent_session_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_session_binding_columns_round_trip(store: SqliteStore) -> None:
+    """``control_plane_id`` (gateway Migration id) + ``parent_session_id`` (A2A
+    delegation link) persist and read back — schema v13."""
+    await store.create_session(session_id="parent", customer_id="example")
+    await store.create_session(
+        session_id="child",
+        customer_id="example",
+        control_plane_id="mig_abc123",
+        parent_session_id="parent",
+    )
+    got = await store.get_session("child")
+    assert got is not None
+    assert got["control_plane_id"] == "mig_abc123"
+    assert got["parent_session_id"] == "parent"
+
+
+@pytest.mark.asyncio
+async def test_v13_migration_adds_binding_columns(tmp_path: Path) -> None:
+    """A legacy v12 DB (no binding columns) is migrated in place: the two
+    nullable link columns are added, the version bumps to 13, and pre-existing
+    rows survive reading NULL for the new columns. Exercises the ``current < 13``
+    ALTER path in ``_apply_migrations``."""
+    import aiosqlite
+
+    path = tmp_path / "legacy.db"
+    # Hand-build a DB at the v12 shape: sessions WITHOUT the binding columns.
+    db = await aiosqlite.connect(path)
+    await db.execute("CREATE TABLE schema_version (version INTEGER NOT NULL, applied_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    await db.execute(
+        """
+        CREATE TABLE sessions (
+            id TEXT PRIMARY KEY,
+            customer_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            total_input_tokens INTEGER NOT NULL DEFAULT 0,
+            total_output_tokens INTEGER NOT NULL DEFAULT 0,
+            total_cost_usd REAL NOT NULL DEFAULT 0.0,
+            checkpoint TEXT,
+            app_meta TEXT NOT NULL DEFAULT '{}',
+            intervention_type TEXT NOT NULL DEFAULT 'none',
+            outcome TEXT
+        )
+        """
+    )
+    await db.execute("INSERT INTO schema_version (version) VALUES (12)")
+    await db.execute("INSERT INTO sessions (id, customer_id, status, started_at) VALUES ('old', 'c1', 'completed', '2026-01-01T00:00:00+00:00')")
+    await db.commit()
+    await db.close()
+
+    # Re-open through the store: initialize() must run the v13 migration.
+    s = SqliteStore(path)
+    await s.initialize()
+    try:
+        cols = await s._session_columns()
+        assert "control_plane_id" in cols
+        assert "parent_session_id" in cols
+        async with s._conn().execute("SELECT MAX(version) FROM schema_version") as cur:
+            row = await cur.fetchone()
+            assert row is not None and row[0] == 13
+        old = await s.get_session("old")
+        assert old is not None
+        assert old["control_plane_id"] is None
+        assert old["parent_session_id"] is None
+    finally:
+        await s.close()
+
+
+@pytest.mark.asyncio
 async def test_update_session_accumulates_tokens_and_cost(store: SqliteStore) -> None:
     await store.create_session(session_id="S1", customer_id="example")
     await store.update_session("S1", input_tokens_delta=100, cost_usd_delta=0.5)

@@ -49,6 +49,15 @@ class Session(BaseModel):
     # ``source_version`` / ``target_version`` / ``target_models`` here. Persisted
     # to ``sessions.app_meta`` as JSON.
     app_meta: dict[str, Any] = Field(default_factory=dict)
+    # Control-plane binding: the gateway-assigned Migration id this Session runs
+    # (stored control-plane-side as ``ludo_session_id``). Lets the gateway
+    # correlate its Migration with the agent Session for resumable SSE +
+    # observability without a side mapping. NULL for local/no-control-plane runs.
+    control_plane_id: str | None = None
+    # A2A delegation link: the Session that spawned this one (self-referential).
+    # NULL for top-level runs. Crossing rules (only distilled context crosses a
+    # boundary) are enforced above the store, not by this field.
+    parent_session_id: str | None = None
     # Structured "tried / failed / learned" log that survives per-turn
     # context compression. Rendered into a system-role message before
     # each LLM call by ``agent_dispatcher`` so the agent sees its own
@@ -66,6 +75,8 @@ async def create_session(
     customer_id: str,
     budget_usd: float = 200.0,
     app_meta: dict[str, Any] | None = None,
+    control_plane_id: str | None = None,
+    parent_session_id: str | None = None,
 ) -> Session:
     """Create a new session, persisting the SQLite row.
 
@@ -73,17 +84,26 @@ async def create_session(
     app's own session scope, stored opaquely in ``sessions.app_meta`` (the
     migration app puts source/target version + target models there). Defaults
     to ``{}`` for sessions with no pre-declared scope — probes, free-form loops.
+
+    ``control_plane_id`` binds this Session to the control-plane Migration id
+    (the gateway's ``ludo_session_id``); pass it on the redelivery path so the
+    gateway can project a resumable stream. ``parent_session_id`` names the
+    spawning Session for A2A delegation. Both default to NULL (top-level, local).
     """
     session = Session(
         customer_id=customer_id,
         budget_usd=budget_usd,
         app_meta=dict(app_meta or {}),
+        control_plane_id=control_plane_id,
+        parent_session_id=parent_session_id,
     )
     await sqlite.create_session(
         session_id=session.id,
         customer_id=session.customer_id,
         status=session.status,
         app_meta=session.app_meta,
+        control_plane_id=session.control_plane_id,
+        parent_session_id=session.parent_session_id,
     )
     return session
 

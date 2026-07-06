@@ -32,7 +32,13 @@ CREATE TABLE IF NOT EXISTS sessions (
         -- Honest session outcome label, derived from session-end verification
         -- rather than the agent's terminal message. NULL until computed at
         -- session close; rows that predate it stay NULL (unjudged).
-        outcome TEXT
+        outcome TEXT,
+        -- Control-plane binding: the gateway-assigned Migration id
+        -- (``ludo_session_id``) this Session runs. NULL for local runs.
+        control_plane_id TEXT,
+        -- A2A delegation link: the Session that spawned this one (self-ref).
+        -- NULL for top-level runs.
+        parent_session_id TEXT REFERENCES sessions(id)
     );
 CREATE INDEX IF NOT EXISTS idx_sessions_customer ON sessions (customer_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions (status);
