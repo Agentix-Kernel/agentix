@@ -77,6 +77,8 @@ generic-kernel + multi-agent + concurrency requirements. Captured as three plann
 - **Concurrency defects filed** (the I1–I5 invariants' current violations): agentix #38 (cost
   ContextVar leak), #39 (SQLite shared-conn / no busy_timeout), #40 (no global LLM limiter);
   ludo-agent #529 (rename-dir race), #530 (no per-customer budget ceiling).
-- **Component inventory (agentix#1):** reserve #20 ContextManager + #21 SessionRuntime.
-- **Drift-in-CI:** confirm `agentix` + `ludo-gateway` CI invoke the `ludo-tests` drift harness (or
-  a pinned equivalent) — the open half of the isolation follow-up.
+- **Component inventory (agentix#1):** #20 ContextManager + #21 SessionRuntime reserved (comment on agentix#1).
+- **Drift-in-CI (confirmed):** the drift harness runs in `ludo-tests` CI — the `cluster` job checks
+  out every sibling repo (incl. `agentix`, `LUDO_AGENTIX_REPO` now correct post-rename) and runs
+  `check_*_drift.py`. Two gaps remain: gated on the `WORKSPACE_PAT` secret (tracked), and it triggers
+  only on ludo-tests' own pushes — not on changes in the guarded repos (`ludo-tests#2`).
