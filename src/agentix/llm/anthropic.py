@@ -46,20 +46,42 @@ _OAUTH_ANTHROPIC_BETA = "oauth-2025-04-20,claude-code-20250219"
 # The OAuth "billing" header Anthropic's Claude Code flow expects.
 # The version string inside this header will drift as Claude Code updates;
 # operators who hit OAuth auth failures after a Claude Code update can
-# override via ``AGENTIX_ANTHROPIC_BILLING_HEADER`` (legacy
-# ``LUDO_ANTHROPIC_BILLING_HEADER`` still honoured) without a code change.
+# override via ``AGENTIX_ANTHROPIC_BILLING_HEADER`` without a code change.
 # Default matches a recent-enough Claude Code version to keep existing
 # setups working.
+#
+# Precedence: ``AGENTIX_ANTHROPIC_BILLING_HEADER`` > legacy
+# ``LUDO_ANTHROPIC_BILLING_HEADER`` (deprecated, warns once) > default.
 _DEFAULT_BILLING_HEADER = "cc_version=2.1.85.351; cc_entrypoint=cli; cch=6c6d5;"
+
+# Legacy env name kept for one release. Removal target: agentix 0.3.
+_LEGACY_BILLING_HEADER_ENV = "LUDO_ANTHROPIC_BILLING_HEADER"
+_legacy_billing_warned = False
 
 
 def _billing_header() -> str:
-    """Return the OAuth billing header — env-override first, then default."""
-    return (
-        os.environ.get("AGENTIX_ANTHROPIC_BILLING_HEADER")
-        or os.environ.get("LUDO_ANTHROPIC_BILLING_HEADER")
-        or _DEFAULT_BILLING_HEADER
-    )
+    """Return the OAuth billing header — env-override first, then default.
+
+    Honours the legacy ``LUDO_ANTHROPIC_BILLING_HEADER`` name but emits a
+    one-time deprecation warning naming the replacement, so operators can
+    tell which var is active when both are set (the new name wins).
+    """
+    override = os.environ.get("AGENTIX_ANTHROPIC_BILLING_HEADER")
+    if override:
+        return override
+    legacy = os.environ.get(_LEGACY_BILLING_HEADER_ENV)
+    if legacy:
+        global _legacy_billing_warned
+        if not _legacy_billing_warned:
+            _legacy_billing_warned = True
+            log.warning(
+                "anthropic.billing_header.legacy_env",
+                legacy_env=_LEGACY_BILLING_HEADER_ENV,
+                use_instead="AGENTIX_ANTHROPIC_BILLING_HEADER",
+                removal_target="agentix 0.3",
+            )
+        return legacy
+    return _DEFAULT_BILLING_HEADER
 
 
 _MODEL_AUTO_MAX = "claude-opus-4-7"

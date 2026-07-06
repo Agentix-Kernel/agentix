@@ -20,4 +20,7 @@ placeholder** (forgeable JWTs / readable vault otherwise):
 | **Secret** (never commit) | `JWT_SECRET`, `VAULT_ENC_KEY/SALT`, `SUPERADMIN_PASSWORD`, `MOLLIE_API_KEY`, `BREVO_API_KEY`, `ODOO_API_KEY`, OAuth client secrets, provider LLM keys (ANTHROPIC/OPENAI/GROQ) | gitignored `.env.<stage>`; prod via KMS |
 | **Publishable** (safe in client/git) | Email.js public-key, Mauxy publishable site key, OAuth **callback URLs**, ingress IPs, domains | frontend (`ludo-env.js`) / docs — see [`email-and-notifications.md`](email-and-notifications.md) |
 
+Kernel env vars the runtime reads directly (provider fallbacks + billing header):
+[`kernel-config-reference.md`](kernel-config-reference.md).
+
 DB conventions: [`db-conventions.md`](db-conventions.md). Logging: [`logging.md`](logging.md).

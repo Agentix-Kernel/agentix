@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agentix.config import KernelConfig
+from agentix.config import KernelConfig, enabled_providers
 from agentix.storage import SqliteStore
 
 
@@ -46,45 +46,36 @@ def build_llm_provider(  # type: ignore[no-untyped-def]
     def _wrap(p: Any) -> Any:
         return CostRecordingProvider(p, sqlite=sqlite, pricing_table=pricing_table) if sqlite is not None else p
 
-    providers: list[Any] = []
-    if cfg.melious.enabled:
-        # Direct Melious — OpenAI-compatible wire, no gateway hop.
-        providers.append(
-            _wrap(
-                OpenAIProvider(
-                    base_url=cfg.melious.base_url or os.environ.get("MELIOUS_BASE_URL"),
-                    api_key=cfg.melious.api_key or os.environ.get("MELIOUS_API_KEY"),
-                    model=model_override or cfg.melious.model,
-                )
+    # Per-provider object construction. The *activation* decision (which
+    # providers are active + failover order) is owned by
+    # ``agentix.config.enabled_providers`` — the single source of truth the
+    # app config loader also consumes, so the two can't drift.
+    def _build(name: str, pc: Any) -> Any:
+        if name == "melious":
+            # Direct Melious — OpenAI-compatible wire, no gateway hop.
+            return OpenAIProvider(
+                base_url=pc.base_url or os.environ.get("MELIOUS_BASE_URL"),
+                api_key=pc.api_key or os.environ.get("MELIOUS_API_KEY"),
+                model=model_override or pc.model,
             )
-        )
-    if cfg.huble.enabled:
-        huble_model = model_override or cfg.huble.model
-        providers.append(
-            _wrap(
-                HubleProvider(
-                    base_url=cfg.huble.base_url,
-                    api_key=cfg.huble.api_key,
-                    upstream_provider=cfg.huble.upstream_provider,
-                    model=huble_model,
-                )
+        if name == "huble":
+            return HubleProvider(
+                base_url=pc.base_url,
+                api_key=pc.api_key,
+                upstream_provider=pc.upstream_provider,
+                model=model_override or pc.model,
             )
+        return AnthropicProvider(
+            api_key=pc.api_key,
+            oauth_credentials_path=pc.oauth_credentials_path,
+            keychain_service=pc.keychain_service,
+            model=pc.model,
         )
-    ac = cfg.anthropic
-    if ac.api_key or ac.oauth_credentials_path or ac.keychain_service:
-        providers.append(
-            _wrap(
-                AnthropicProvider(
-                    api_key=ac.api_key,
-                    oauth_credentials_path=ac.oauth_credentials_path,
-                    keychain_service=ac.keychain_service,
-                    model=ac.model,
-                )
-            )
-        )
+
+    providers: list[Any] = [_wrap(_build(name, pc)) for name, pc in enabled_providers(cfg)]
     if not providers:
         # Last-resort: Anthropic with defaults when no provider configured.
-        providers.append(_wrap(AnthropicProvider(model=ac.model)))
+        providers.append(_wrap(AnthropicProvider(model=cfg.anthropic.model)))
     if len(providers) == 1:
         return providers[0]
     return ProviderRouter(providers)

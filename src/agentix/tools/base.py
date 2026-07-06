@@ -121,6 +121,14 @@ class Tool(Protocol):
     output_schema: type[BaseModel]
     mutates_target: bool
     verifier: str | None
+    # Optional provider gate. ``None`` (the default via ``getattr`` — most
+    # tools don't set it) means always registrable. A value declares that the
+    # tool needs an LLM provider: the sentinel ``"llm"`` matches when *any*
+    # provider is configured, a concrete provider name (e.g. ``"anthropic"``)
+    # matches only that one. ``ToolRegistry.register_provider_gated`` skips +
+    # logs tools whose requirement is unmet — replacing ad-hoc
+    # ``if provider is not None`` registration conditionals in apps.
+    required_provider: str | None
 
     async def call(self, input: BaseModel, ctx: ToolContext) -> BaseModel: ...
 
