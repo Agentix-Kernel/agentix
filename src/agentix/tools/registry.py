@@ -56,6 +56,37 @@ class ToolRegistry:
             return False
         return True
 
+    def register_provider_gated(self, tool: Tool, *, available: set[str]) -> bool:
+        """Register ``tool`` unless its ``required_provider`` gate is unmet.
+
+        Declarative replacement for ad-hoc ``if provider is not None:
+        registry.register(...)`` conditionals in apps. ``available`` is the
+        set of active provider names (e.g. from
+        ``agentix.config.enabled_providers``).
+
+        * ``required_provider`` absent / ``None`` → always registered.
+        * sentinel ``"llm"`` / ``"*"`` → registered only if *any* provider
+          is available.
+        * a concrete name → registered only if in ``available``.
+
+        Registration itself is strict (:meth:`register`) once the gate
+        passes — a provider-met tool with a conflict is still a canon bug.
+        Returns True if registered, False if skipped (logged at info).
+        """
+        required = getattr(tool, "required_provider", None)
+        if required is not None:
+            met = bool(available) if required in ("llm", "*") else required in available
+            if not met:
+                log.info(
+                    "tools.register_skipped_no_provider",
+                    name=tool.name,
+                    required_provider=required,
+                    available=sorted(available),
+                )
+                return False
+        self.register(tool)
+        return True
+
     def get(self, name: str) -> Tool:
         if name not in self._tools:
             raise KeyError(name)

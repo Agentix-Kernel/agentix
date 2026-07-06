@@ -56,6 +56,7 @@ def load_skills(skills_root: Path | str, registry: ToolRegistry) -> list[dict[st
         return []
 
     loaded: list[dict[str, Any]] = []
+    failed: list[tuple[str, str]] = []
     for manifest_path in sorted(root.glob("*/manifest.json")):
         try:
             manifest = _read_manifest(manifest_path)
@@ -77,11 +78,23 @@ def load_skills(skills_root: Path | str, registry: ToolRegistry) -> list[dict[st
                 path=str(manifest_path.parent),
             )
         except Exception as exc:
+            failed.append((manifest_path.parent.name, f"{type(exc).__name__}: {exc}"))
             log.warning(
                 "skill.load_failed",
                 path=str(manifest_path),
                 error=f"{type(exc).__name__}: {exc}",
             )
+    # One aggregate line so an operator learns which skills are active
+    # without grepping the per-skill events above. Return stays the loaded
+    # manifest list (callers/tests depend on it); the failed roster is
+    # surfaced structurally here.
+    log.info(
+        "skills.load_summary",
+        loaded=[str(m["name"]) for m in loaded],
+        loaded_count=len(loaded),
+        failed=[name for name, _ in failed],
+        failed_count=len(failed),
+    )
     return loaded
 
 

@@ -3,9 +3,11 @@
 ``SafetyGateMarker`` is a pass-through middleware that exists **only** to
 hold a slot in the per-turn ``MIDDLEWARE_ORDER``. The real safety
 enforcement — dry-run intercept, verifier invocation, rollback-on-drift
-— lives in ``ludo.tools.safety_gate.SafetyGate`` and runs per tool
-call, which happens inside the agent dispatcher rather than the
-turn-level middleware chain.
+— is the app's per-tool SafetyGate implementation built on the kernel
+base ``agentix.tools.safety.SafetyGate`` and runs per tool call, which
+happens inside the agent dispatcher rather than the turn-level
+middleware chain. The kernel names the contract, never a concrete app
+module.
 
 Why the split:
   * A per-turn middleware can't see individual tool calls. A turn can
@@ -27,7 +29,7 @@ from agentix.core.types import Turn
 
 
 class SafetyGateMarker:
-    """Chain-position marker; real enforcement lives in tools.safety_gate."""
+    """Chain-position marker; real enforcement is the app's SafetyGate tool-wrapper."""
 
     name = "SafetyGate"
 

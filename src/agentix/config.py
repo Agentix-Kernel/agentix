@@ -105,3 +105,54 @@ class KernelConfig:
     # Per-model USD pricing for cost telemetry + budget enforcement. Empty →
     # ``__unknown__`` fallback in CostTrackingMiddleware.
     llm_pricing: LlmPricingConfig = field(default_factory=LlmPricingConfig)
+
+
+# --- Provider selection — single source of truth for "which provider is active" ---
+#
+# Both the kernel runtime (``build_llm_provider``) and app-side config loaders
+# (e.g. ludo-agent's config report) previously mirrored these predicates and
+# drifted independently. They now share one code path.
+
+ProviderConfig = AnthropicConfig | HubleConfig | MeliousConfig
+
+# Failover priority when several providers are active: direct Melious first
+# (no gateway hop), then HUBLE, then Anthropic.
+_PROVIDER_PRIORITY = ("melious", "huble", "anthropic")
+
+
+def anthropic_active(ac: AnthropicConfig) -> bool:
+    """Anthropic counts as active only when it carries usable credentials.
+
+    Unlike Melious/HUBLE (a plain ``enabled`` flag), Anthropic activation is
+    the compound "any credential present" predicate — the one most prone to
+    drift between copies, so it lives here.
+    """
+    return bool(ac.api_key or ac.oauth_credentials_path or ac.keychain_service)
+
+
+def enabled_providers(cfg: KernelConfig) -> list[tuple[str, ProviderConfig]]:
+    """Ordered ``(name, provider_config)`` for every active provider.
+
+    Order is failover priority (:data:`_PROVIDER_PRIORITY`). Empty when
+    nothing is configured — callers apply the Anthropic last-resort default.
+    """
+    active: list[tuple[str, ProviderConfig]] = []
+    if cfg.melious.enabled:
+        active.append(("melious", cfg.melious))
+    if cfg.huble.enabled:
+        active.append(("huble", cfg.huble))
+    if anthropic_active(cfg.anthropic):
+        active.append(("anthropic", cfg.anthropic))
+    return active
+
+
+def select_enabled_provider(cfg: KernelConfig) -> tuple[str, ProviderConfig]:
+    """Return the primary active provider (first by priority).
+
+    Falls back to ``("anthropic", cfg.anthropic)`` when nothing is
+    configured — matching the runtime's last-resort Anthropic default.
+    """
+    active = enabled_providers(cfg)
+    if active:
+        return active[0]
+    return ("anthropic", cfg.anthropic)
