@@ -25,6 +25,7 @@ from agentix.core.context_manager import ContextManager
 from agentix.core.session import save as save_session
 from agentix.core.types import Message, ToolCall, ToolCallResult, Turn
 from agentix.llm.base import LlmRequest, Provider, tool_to_spec
+from agentix.llm.limiter import llm_capacity
 from agentix.tools.base import Tool, ToolContext
 from agentix.tools.registry import ToolRegistry
 from agentix.tools.safety import (
@@ -145,7 +146,11 @@ class AgentDispatcher:
                 return turn
             iteration += 1
 
-            response = await self._provider.complete(self._build_request(turn, specs, session=ctx.session))
+            # One slot of process-global LLM capacity per call (isolation.md I5):
+            # bounds concurrent provider calls across all sessions/fan-out.
+            request = self._build_request(turn, specs, session=ctx.session)
+            async with llm_capacity():
+                response = await self._provider.complete(request)
 
             # Accumulate usage across every LLM call in this engine turn.
             turn.usage.input_tokens += response.usage.input_tokens

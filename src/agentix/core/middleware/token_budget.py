@@ -7,19 +7,24 @@ whether to abort the next turn.
 
 Two levers before giving up:
 
-1. Ask ``ContextBuilder.compress_if_needed`` to shrink the input. If it
+1. Ask ``ContextManager.compress_if_needed`` to shrink the input. If it
    can shrink further, ``turn.compressed = True`` and we proceed — the
    next turn will re-check the budget.
 2. If compression can't help, mark ``turn.status = "aborted"`` with a
    descriptive reason. This is a *clean* abort — never raise. The engine
    persists the aborted turn normally.
+
+The compression step runs through ``ContextManager`` — the one window/budget
+owner (agentix#20). A default is constructed when none is injected, so the
+compress-before-abort lever is always live (it was previously dead whenever a
+caller omitted the builder).
 """
 
 from __future__ import annotations
 
 import structlog
 
-from agentix.core.context import ContextBuilder
+from agentix.core.context_manager import ContextManager
 from agentix.core.middleware.base import Next
 from agentix.core.types import Turn
 from agentix.storage import SqliteStore
@@ -38,13 +43,14 @@ class TokenBudgetMiddleware:
         sqlite: SqliteStore,
         budget_usd: float = 25.0,
         warn_threshold: float = 0.80,
-        context_builder: ContextBuilder | None = None,
+        context_manager: ContextManager | None = None,
     ) -> None:
         self._sqlite = sqlite
         self._budget_usd = budget_usd
         self._warn_threshold = warn_threshold
         self._warned: set[str] = set()
-        self._context_builder = context_builder
+        # Default-construct so the compress-before-abort lever is always wired.
+        self._context_manager = context_manager or ContextManager()
 
     async def __call__(self, turn: Turn, next_: Next) -> Turn:
         # ── BEFORE: if already over budget, try to compress. If we can't
@@ -68,8 +74,8 @@ class TokenBudgetMiddleware:
             )
 
         if current_cost >= self._budget_usd:
-            if self._context_builder is not None and turn.input_messages:
-                compressed, did = self._context_builder.compress_if_needed(turn.input_messages)
+            if turn.input_messages:
+                compressed, did = self._context_manager.compress_if_needed(turn.input_messages)
                 if did:
                     turn.input_messages = compressed
                     turn.compressed = True

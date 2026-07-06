@@ -15,7 +15,6 @@ from agentix.core.checkpoint import (
 from agentix.core.context import (
     CompressionStrategy,
     ContextBudget,
-    ContextBuilder,
     summarise_oldest_tool_results,
 )
 from agentix.core.context_manager import (
@@ -25,7 +24,14 @@ from agentix.core.context_manager import (
     WindowEntry,
 )
 from agentix.core.engine import Engine, TurnDispatcher
-from agentix.core.session import Session, create_session, resume_from, resume_or_create, save
+from agentix.core.session import (
+    Session,
+    create_session,
+    request_checkpoint,
+    resume_from,
+    resume_or_create,
+    save,
+)
 from agentix.core.types import (
     Message,
     TokenUsage,
@@ -41,7 +47,6 @@ __all__ = [
     "CheckpointName",
     "CompressionStrategy",
     "ContextBudget",
-    "ContextBuilder",
     "ContextManager",
     "Engine",
     "Message",
@@ -56,6 +61,7 @@ __all__ = [
     "WindowEntry",
     "create_session",
     "load_checkpoint",
+    "request_checkpoint",
     "resume_from",
     "resume_or_create",
     "save",

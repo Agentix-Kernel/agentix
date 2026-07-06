@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from agentix.storage import SqliteStore
+from agentix.storage.sqlite_store import _SCHEMA_VERSION
 
 
 @pytest.fixture
@@ -161,9 +162,10 @@ async def test_v13_migration_adds_binding_columns(tmp_path: Path) -> None:
         cols = await s._session_columns()
         assert "control_plane_id" in cols
         assert "parent_session_id" in cols
+        # A v12 DB migrates all the way to the current schema version.
         async with s._conn().execute("SELECT MAX(version) FROM schema_version") as cur:
             row = await cur.fetchone()
-            assert row is not None and row[0] == 13
+            assert row is not None and row[0] == _SCHEMA_VERSION
         old = await s.get_session("old")
         assert old is not None
         assert old["control_plane_id"] is None
