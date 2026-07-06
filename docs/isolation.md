@@ -138,3 +138,12 @@ Isolation only *bites* once concurrency is introduced, so this tracks the concur
   asyncio/concurrency. Canonical: the isolation axiom (P-ISO-1 / P-ISO-2), the two planes, and the
   I1–I7 invariants (each mapped to a concrete defect). References session.md (durable object +
   alignment contract), context.md (window policy), a2a proposal (inter-process plane).
+- **2026-07-06** — invariants built out. **I5** — global LLM capacity limiter
+  (`llm/limiter.py`, per-loop semaphore) wraps every `provider.complete`; closes agentix#40.
+  **I6** — consumer gains a structured-concurrency path: `batch>1` fans the fetched batch out
+  under a `TaskGroup` (per-task contextvar copy keeps I1 safe), `batch=1` stays serial (default,
+  prod unchanged). **I7** — session lease (`sessions.lease_expires_at`/`leased_by`, schema v14) +
+  `claim`/`renew`/`reap_expired_sessions`; the agent claims on start + renews each turn; the
+  reaper is available but not auto-run (single-replica has no orphans). Operator-checkpoint seam:
+  `request_checkpoint` (pause + persist + emit `checkpoint_requested`), resumable via
+  resume_or_create; driver reactivates paused→running on resume.

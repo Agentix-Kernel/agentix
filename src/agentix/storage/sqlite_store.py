@@ -66,7 +66,13 @@ KERNEL_SAFETY_KINDS: frozenset[str] = frozenset(
 # ``parent_session_id`` names the spawning Session for A2A delegation
 # (self-referential FK); NULL for top-level runs. Both are kernel-generic —
 # an app that uses neither simply leaves them NULL.
-_SCHEMA_VERSION = 13
+#
+# v14 = session lease + orphan reaping (isolation.md I7): ``lease_expires_at``
+# (ISO) + ``leased_by`` (worker id). A worker claims the lease when it starts a
+# run and renews it each turn; a reaper transitions ``running`` sessions whose
+# lease has expired to ``failed`` (their worker died). NULL lease = unleased
+# (single-flight / local runs) — the reaper ignores those.
+_SCHEMA_VERSION = 14
 
 _SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
@@ -107,7 +113,13 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
         -- A2A delegation link: the Session that spawned this one. NULL for
         -- top-level runs. Self-referential so a delegated child can be walked
         -- back to its parent. Enforcement of crossing rules lives above the DB.
-        parent_session_id TEXT REFERENCES sessions(id)
+        parent_session_id TEXT REFERENCES sessions(id),
+        -- Session lease (isolation.md I7): ISO timestamp until which the owning
+        -- worker holds this run. Renewed each turn; a reaper fails 'running'
+        -- rows past this. NULL = unleased (single-flight / local); reaper skips.
+        lease_expires_at TEXT,
+        -- Worker id (hostname/pid) currently holding the lease. NULL = unleased.
+        leased_by TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sessions_customer ON sessions (customer_id)",
@@ -343,6 +355,15 @@ class SqliteStore:
             if "parent_session_id" not in existing:
                 await self._db.execute("ALTER TABLE sessions ADD COLUMN parent_session_id TEXT")
 
+        # v13 → v14: session lease columns (I7). Both nullable; existing rows read
+        # NULL (unleased) so the reaper ignores them until a worker claims a lease.
+        if current < 14:
+            existing = await self._session_columns()
+            if "lease_expires_at" not in existing:
+                await self._db.execute("ALTER TABLE sessions ADD COLUMN lease_expires_at TEXT")
+            if "leased_by" not in existing:
+                await self._db.execute("ALTER TABLE sessions ADD COLUMN leased_by TEXT")
+
         # App-owned table migrations (diagnoses / applied_memory_rules, and the
         # app_meta backfill from legacy Odoo columns) — no-op in the base.
         await self._migrate_app(current)
@@ -471,6 +492,55 @@ class SqliteStore:
         ) as cur:
             row = await cur.fetchone()
         return dict(row) if row else None
+
+    # ─────────────────────────── session lease (I7) ────────────────────────
+
+    async def claim_session_lease(self, session_id: str, *, leased_by: str, ttl_seconds: float) -> None:
+        """Take/refresh the lease on a session: set ``leased_by`` + push
+        ``lease_expires_at`` to now + ttl. Called when a worker begins or resumes
+        a run so a reaper can tell a live run from an orphaned one (I7)."""
+        db = self._conn()
+        expires = (datetime.now(tz=UTC) + timedelta(seconds=ttl_seconds)).isoformat()
+        await db.execute(
+            "UPDATE sessions SET leased_by = ?, lease_expires_at = ? WHERE id = ?",
+            (leased_by, expires, session_id),
+        )
+        await db.commit()
+
+    async def renew_session_lease(self, session_id: str, *, ttl_seconds: float) -> None:
+        """Heartbeat: extend ``lease_expires_at`` to now + ttl, keeping the
+        current owner. The worker calls this each turn so a long but live run is
+        never reaped."""
+        db = self._conn()
+        expires = (datetime.now(tz=UTC) + timedelta(seconds=ttl_seconds)).isoformat()
+        await db.execute(
+            "UPDATE sessions SET lease_expires_at = ? WHERE id = ?",
+            (expires, session_id),
+        )
+        await db.commit()
+
+    async def reap_expired_sessions(self) -> list[str]:
+        """Transition ``running`` sessions whose lease has expired to ``failed``
+        (their worker died) and return the reaped ids. Unleased rows
+        (``lease_expires_at IS NULL``) are ignored — single-flight / local runs
+        that opt out of leasing. Safe to run periodically from any worker."""
+        db = self._conn()
+        now = _now()
+        async with db.execute(
+            "SELECT id FROM sessions WHERE status = 'running' "
+            "AND lease_expires_at IS NOT NULL AND lease_expires_at < ?",
+            (now,),
+        ) as cur:
+            rows = await cur.fetchall()
+        ids = [str(r[0]) for r in rows]
+        if ids:
+            placeholders = ",".join("?" for _ in ids)
+            await db.execute(
+                f"UPDATE sessions SET status = 'failed', ended_at = ? WHERE id IN ({placeholders})",
+                (now, *ids),
+            )
+            await db.commit()
+        return ids
 
     async def list_sessions(
         self,

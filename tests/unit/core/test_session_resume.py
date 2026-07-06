@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from agentix.core.session import create_session, resume_or_create, save
+from agentix.core.session import create_session, request_checkpoint, resume_or_create, save
+from agentix.event_types import CHECKPOINT_REQUESTED
+from agentix.events import bus
 from agentix.storage import SqliteStore
 from tests._fakes import _FakeMinio
 
@@ -108,3 +110,41 @@ async def test_falls_through_when_checkpoint_blob_missing(sqlite: SqliteStore) -
     )
     assert resumed is False
     assert session.id != "S_ghost"
+
+
+# ─────────────────────── request_checkpoint (operator seam, WS6) ─────────────
+
+
+@pytest.mark.asyncio
+async def test_request_checkpoint_pauses_saves_and_emits(sqlite: SqliteStore) -> None:
+    """The operator-checkpoint seam: pause + persist + emit checkpoint_requested,
+    and the paused run is resumable through the same binding."""
+    minio = _FakeMinio()
+    captured: list = []
+
+    async def _sink(ev: object) -> None:
+        captured.append(ev)
+
+    bus.add_sink(_sink)
+    try:
+        session = await create_session(sqlite, customer_id="c1", control_plane_id="mig_cp")
+        await request_checkpoint(session, sqlite=sqlite, minio=minio, reason="operator review")
+
+        assert session.status == "paused"
+        row = await sqlite.get_session(session.id)
+        assert row is not None
+        assert row["status"] == "paused"
+        assert row["checkpoint"] == "latest"
+
+        events = [e for e in captured if e.type == CHECKPOINT_REQUESTED]
+        assert events, "checkpoint_requested was not emitted"
+        assert events[0].checkpoint_required is True
+
+        # Paused == resumable: the operator's resume lands the same session.
+        resumed_session, was_resumed = await resume_or_create(
+            sqlite, minio, customer_id="c1", control_plane_id="mig_cp"
+        )
+        assert was_resumed is True
+        assert resumed_session.id == session.id
+    finally:
+        bus.remove_sink(_sink)

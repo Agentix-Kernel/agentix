@@ -165,6 +165,20 @@ class ContextManager:
             budget_tokens=self.budget.max_input_tokens,
         )
 
+    def compress_if_needed(self, messages: list[Message]) -> tuple[list[Message], bool]:
+        """Apply the compression strategy if the window is over budget.
+
+        Returns ``(compressed, did_compress)`` where ``did_compress`` is True iff
+        compression actually reduced the token estimate (a message-count proxy
+        would misfire for body-shrinking strategies — token delta is the right
+        signal, so a budget guard doesn't abort prematurely). This is the budget
+        step ``TokenBudget`` middleware calls; ContextManager owns it so there is
+        one compression path (agentix#20), superseding ``ContextBuilder``.
+        """
+        before = _estimate_tokens(messages)
+        compressed = self.compression(messages, self.budget.max_input_tokens)
+        return compressed, _estimate_tokens(compressed) < before
+
     def _classify(self, m: Message, wm_msg: Message | None) -> WindowEntry:
         """Assign a tier + human reason to one surviving message. Identity is
         used to tell working memory from the primary system prompt (both are

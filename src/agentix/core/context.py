@@ -1,16 +1,15 @@
-"""Context assembly and compression.
+"""Context budget + compression primitives.
 
-Builds the per-turn LLM context — a flat ``list[Message]`` starting with
-a system message plus the relevant slice of conversation history. When
-the running context crosses a token threshold the compression strategy
-replaces the oldest tool exchanges with a single summary message.
-
-Compression is **pluggable** (strategy injected at ContextBuilder
-construction) and **deterministic** (same input → same output), so
+Defines the shared ``ContextBudget`` (token cap + keep-recent) and the default
+``summarise_oldest_tool_results`` compression strategy: when the running context
+crosses the token threshold, the oldest tool exchanges collapse into a single
+summary message. Compression is **pluggable** (strategy injected into
+``ContextManager``) and **deterministic** (same input → same output), so
 resuming from a checkpoint produces an identical context.
 
-The compression entry point is exposed as ``compress_if_needed`` so
-``TokenBudgetMiddleware`` can request compression before giving up.
+The window owner that assembles + budgets + compresses using these primitives is
+``ContextManager`` (``core/context_manager.py``); ``TokenBudget`` middleware calls
+its ``compress_if_needed`` before aborting on budget.
 """
 
 from __future__ import annotations
@@ -100,40 +99,7 @@ def _estimate_tokens(messages: list[Message]) -> int:
     return sum(m.token_estimate() for m in messages)
 
 
-class ContextBuilder:
-    """Assembles per-turn context with a pluggable compression strategy."""
-
-    def __init__(
-        self,
-        system_prompt: str,
-        *,
-        budget: ContextBudget | None = None,
-        compression: CompressionStrategy = summarise_oldest_tool_results,
-    ) -> None:
-        self.system_prompt = system_prompt
-        self.budget = budget or ContextBudget()
-        self.compression = compression
-
-    def build(self, history: list[Message]) -> list[Message]:
-        """Prepend the system prompt to ``history`` in deterministic order.
-
-        The caller (usually the engine) is responsible for passing history
-        in the order it was accumulated; this method does not re-sort.
-        """
-        system = Message(role="system", content=self.system_prompt)
-        return [system, *history]
-
-    def compress_if_needed(self, messages: list[Message]) -> tuple[list[Message], bool]:
-        """Apply the compression strategy if over budget.
-
-        Returns ``(compressed, did_compress)``. ``did_compress`` is True
-        iff compression actually reduced the token estimate. Comparing
-        message count before/after is only a proxy — a strategy that
-        shrinks message *bodies* without changing count would report
-        did_compress=False incorrectly, and ``TokenBudgetMiddleware``
-        would abort prematurely. Token delta is the right primitive.
-        """
-        before_tokens = _estimate_tokens(messages)
-        compressed = self.compression(messages, self.budget.max_input_tokens)
-        after_tokens = _estimate_tokens(compressed)
-        return compressed, after_tokens < before_tokens
+# ``ContextBuilder`` was retired (agentix#20): assembly moved to the dispatcher's
+# ContextManager path and ``compress_if_needed`` now lives on ``ContextManager``.
+# ``ContextBudget`` + ``summarise_oldest_tool_results`` above remain the shared
+# budget type + default compression strategy that ContextManager reuses.

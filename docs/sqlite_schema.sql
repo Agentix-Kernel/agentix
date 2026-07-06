@@ -38,7 +38,12 @@ CREATE TABLE IF NOT EXISTS sessions (
         control_plane_id TEXT,
         -- A2A delegation link: the Session that spawned this one (self-ref).
         -- NULL for top-level runs.
-        parent_session_id TEXT REFERENCES sessions(id)
+        parent_session_id TEXT REFERENCES sessions(id),
+        -- Session lease (I7): ISO expiry the owning worker holds until (renewed
+        -- each turn); a reaper fails 'running' rows past it. NULL = unleased.
+        lease_expires_at TEXT,
+        -- Worker id holding the lease. NULL = unleased.
+        leased_by TEXT
     );
 CREATE INDEX IF NOT EXISTS idx_sessions_customer ON sessions (customer_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions (status);

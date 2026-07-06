@@ -25,6 +25,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from agentix.core.types import Message
 from agentix.core.working_memory import WorkingMemory
+from agentix.event_types import CHECKPOINT_REQUESTED
+from agentix.events import SessionEvent, bus
 from agentix.storage import MinioStore, SqliteStore
 from agentix.storage.sqlite_store import SessionStatus
 
@@ -211,3 +213,33 @@ async def resume_or_create(
         parent_session_id=parent_session_id,
     )
     return session, False
+
+
+async def request_checkpoint(
+    session: Session,
+    *,
+    sqlite: SqliteStore,
+    minio: MinioStore,
+    reason: str,
+    checkpoint: str = "latest",
+) -> None:
+    """Pause a run for operator review — the operator-checkpoint seam.
+
+    Marks the session ``paused``, persists a checkpoint, and emits a
+    ``checkpoint_requested`` event (``checkpoint_required=True``) on the bus so
+    the control plane can surface "awaiting operator review". A paused session is
+    resumable: ``resume_or_create`` restores it and the driver reactivates it to
+    ``running`` when the operator resumes (via the gateway's resume command).
+    This is the pause-side counterpart to the resume the control plane already
+    exposes — an app calls it at its autonomy-bar decision points.
+    """
+    session.status = "paused"
+    await save(session, sqlite=sqlite, minio=minio, checkpoint=checkpoint)
+    await bus.publish(
+        SessionEvent(
+            session_id=session.id,
+            type=CHECKPOINT_REQUESTED,
+            payload={"reason": reason},
+            checkpoint_required=True,
+        )
+    )

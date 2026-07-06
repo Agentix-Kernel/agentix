@@ -71,6 +71,27 @@ def test_compression_fires_over_budget_and_keeps_working_memory() -> None:
     assert out.entries[0].tier is Tier.SYSTEM
 
 
+def test_compress_if_needed_shrinks_over_budget() -> None:
+    """The budget step TokenBudget middleware calls: returns compressed messages
+    + did=True only when the token estimate actually dropped."""
+    msgs = [Message(role="system", content="sys")]
+    for i in range(8):
+        msgs.append(Message(role="user", content=f"q{i} " * 30))
+        msgs.append(Message(role="assistant", content=f"a{i} " * 30))
+    cm = ContextManager(budget=ContextBudget(max_input_tokens=40))
+    out, did = cm.compress_if_needed(msgs)
+    assert did is True
+    assert len(out) < len(msgs)
+
+
+def test_compress_if_needed_noop_under_budget() -> None:
+    cm = ContextManager(budget=ContextBudget(max_input_tokens=100_000))
+    msgs = _history()
+    out, did = cm.compress_if_needed(msgs)
+    assert did is False
+    assert out == msgs
+
+
 def test_compress_false_assembles_without_compressing() -> None:
     """compress=False (how the dispatcher calls it) folds in working memory but
     leaves the budget/compression step alone — every message is preserved even
