@@ -42,7 +42,10 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
 5. **Untrusted context = security** — retrieved memory + tool outputs are injection vectors.
    Safety instructions un-evictable and structurally separated from untrusted content.
 6. **Multi-agent isolation (A2A)** — per-agent windows; sub-agents return distilled
-   conclusions, not raw context. Orchestrator context != worker context.
+   conclusions, not raw context. Orchestrator context != worker context. Two planes, don't
+   conflate: the *crossing* law (only distilled context crosses a Session boundary) is
+   canonical as [`isolation.md`](isolation.md) P-ISO-2; the inter-agent NATS-Account isolation
+   is `proposals/agentic-cluster-a2a.md`.
 7. **Observability** — per-step X-ray: what entered, why, token cost. Ties to metrics + omg.
 
 ## Architecture direction (draft)
@@ -70,17 +73,19 @@ sides.** They are *not* aligned today (the session snapshot persists raw `messag
   Session's **cost** ledger — two budgets, one flow.
 - Both are `[K]`; the app feeds only *sources*. Resume must be kernel-generic (a resume-key
   extension point) or a non-migration app inherits no recovery — see session.md clause 4.
+- The per-step budget is owned here but *scoped per session-task* and *ceilinged per customer* by
+  [`isolation.md`](isolation.md) I4/I5, so parallel sessions don't spend N× or overload Odoo/LLM.
 
 ## Open decisions
 
 - [ ] Component boundary: standalone `ContextManager` vs. folded into Cortex spine?
-- [ ] Who owns the token budget, and how it's threaded to sub-agents.
+- [ ] Who owns the token budget, and how it's threaded to sub-agents (sub-agent = child Session; threading rule → [`isolation.md`](isolation.md)).
 - [ ] Cache-prefix contract — what must stay byte-stable for prompt-cache hits.
 - [ ] Summary cadence + what is lossy-safe to compress.
 - [ ] How a context policy plugs into eval (A/B) as a measurable experiment.
 - [ ] `[K]`/`[A]` split of context *sources*.
 - [ ] Shared managed-context-state object shape (what the Session snapshots) — co-owned with session.md.
-- [ ] New kernel component # in the inventory (kernel-init #1) — likely #20.
+- [ ] New kernel component # in the inventory (agentix#1) — ContextManager = #20; the runtime/isolation model (**SessionRuntime**) = #21 (see [`isolation.md`](isolation.md)).
 
 ## Roadmap / slices
 
@@ -100,3 +105,6 @@ Sequence is instrument-first; each slice ships behind eval.
   First slice not yet chosen (S0 recommended). No code yet.
 - **2026-07-06** — aligned with session-management (storage-vs-policy framing, budget
   reconciliation, S2=session-S0 co-design, kernel-generic resume). Canonical contract in session.md.
+- **2026-07-06** — reconciled with the runtime plane: [`isolation.md`](isolation.md) added (axiom
+  + I1–I7). Split dim-6 into its two planes (P-ISO-2 crossing vs a2a Account isolation); budget
+  scoping/ceiling links to I4/I5; reserved inventory #21 SessionRuntime.

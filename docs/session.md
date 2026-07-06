@@ -5,7 +5,8 @@
 Living design + worklog for the **Session** — the agent's single run (1:1 with a
 control-plane Migration), the ephemeral `s_…` id. Records what exists today (grounded in
 code) and the gaps the *rest* of the Agentix architecture will force. Companion to
-[`context.md`](context.md) (a session snapshot carries a context window — they intersect).
+[`context.md`](context.md) (the per-step window) and [`isolation.md`](isolation.md) (how
+concurrent runs stay isolated at runtime) — the three sides of the Session triangle.
 
 ---
 
@@ -66,6 +67,8 @@ Ranked by leverage.
    When the **gateway + broker** fan jobs to N workers, two workers can run the same
    `session_id`; a dead worker leaves a session `running` forever (no heartbeat/TTL).
    → Session lease/claim (gateway is the `account_id` authority = natural owner) + liveness reaper.
+   → runtime invariants: [`isolation.md`](isolation.md) **I7** (inter-process lease/reaper) sits on
+   top of **I1–I6** (the intra-process gather-safe set).
 3. **Operator-review "checkpoint" is a placeholder — the human-oversight seam.**
    `checkpoint_requested` event + `checkpoint_required` flag are *reserved, no emitter*; named
    phase checkpoints (`blueprint_generated`…) declared but unconsumed; `status="paused"` has no
@@ -90,6 +93,9 @@ Ranked by leverage.
 8. **A2A introduces a session hierarchy not yet modelled.** When `delegate` spawns sub-agent
    work, there's no parent/child session linkage or isolation contract (sub-agent returns a
    distilled conclusion, not raw context). Needs a session-relationship model before A2A lands.
+   → the *runtime relationship* (child task vs remote session, distilled crossing) is canonical
+   in [`isolation.md`](isolation.md) § Session hierarchy; the *stored* `parent_session_id`/
+   correlation field stays this doc's open decision.
 
 ## Session ↔ Context alignment (canonical contract)
 
@@ -118,7 +124,9 @@ links here).
    the *same co-designed work* — not two passes.
 5. **Two budgets, reconciled.** ContextManager owns the per-step *window/token* budget and
    reports consumption into the Session's *cost* ledger (`total_*_tokens`, `cost_usd`). One
-   flow, no double-count.
+   flow, no double-count. Under parallelism the budget must also be *scoped per session-task*
+   and *ceilinged per customer* — see [`isolation.md`](isolation.md) I4/I5 (else parallel jobs
+   spend N×).
 6. **`working_memory` is the seed, not a rival.** Today's session-owned tried/failed/learned
    distillation folds into the ContextManager's managed state — one compression owner, not two
    (CRIE).
@@ -135,7 +143,7 @@ sessions+context genuinely reusable across apps.
 - [ ] Does `resume_from` rehydrate on every redelivery, or only when a snapshot is "fresh enough"?
 - [ ] Per-Job persistence: first-class `jobs` row vs. deriving from broker ack state.
 - [ ] Snapshot content policy once context-management lands (raw vs. managed window).
-- [ ] Session-hierarchy shape for A2A (parent_session_id? separate correlation id?).
+- [ ] Session-hierarchy shape for A2A (parent_session_id? separate correlation id?) — runtime shape → [`isolation.md`](isolation.md); persisted field → here.
 - [ ] The generic idempotency / resume-key extension point (LUDO xmlid census = one impl) — its interface.
 - [ ] Budget split: ContextManager owns the window/token budget; how it reconciles into the `sessions` cost ledger.
 
@@ -157,3 +165,6 @@ Sequenced by leverage + dependency:
 - **2026-07-06** — added the canonical Session↔Context alignment contract (6 clauses +
   genericity check); flagged that the only live recovery path (Odoo-xmlid census) is
   app-specific, so a generic kernel needs a resume-key extension point. Cross-linked `context.md`.
+- **2026-07-06** — spun the runtime/isolation plane out into [`isolation.md`](isolation.md)
+  (axiom + I1–I7 gather-safe invariants). This doc keeps the durable object + alignment contract;
+  the persisted session-hierarchy field stays here. GAP #2/#8 + clause 5 now link the invariants.
