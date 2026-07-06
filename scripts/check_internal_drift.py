@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """check_internal_drift.py — fail if a private repo's vendored `ludo_internal/` package has
-drifted from the canonical in `ludo-init/libs/internal/ludo_internal/`.
+drifted from the canonical in `agentix/libs/internal/ludo_internal/`.
 
 `ludo_internal` is INTERNAL-ONLY shared NATS transport (CRIE IE-2b). Unlike `ludo_shared`
 (client-safe, vendored by the public cli too), this is vendored **only by the private repos**
 — `ludo-agent` + `ludo-gateway`. The public clients (`ludo-cli`/`ludo-desktop`) must NEVER
-vendor it; this guard's vendor list deliberately omits them. Run from `ludo-init/`.
+vendor it; this guard's vendor list deliberately omits them. Run from `agentix/`.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import filecmp
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # ludo-init/
+REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
 WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
 CANON = REPO_ROOT / "libs" / "internal" / "ludo_internal"
 FILES = ["__init__.py", "nats_streams.py"]

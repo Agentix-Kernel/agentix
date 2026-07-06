@@ -1,6 +1,6 @@
-# LUDO base .gitignore — vendored from ludo-init/templates/gitignore.base.
+# LUDO base .gitignore — vendored from agentix/templates/gitignore.base.
 # Append repo-specific lines BELOW a "# repo-specific" marker; keep this block in sync
-# (ludo-init/scripts/check_config_drift.py checks the base block is present verbatim).
+# (agentix/scripts/check_config_drift.py checks the base block is present verbatim).
 
 # Secrets & generated SQL
 .env

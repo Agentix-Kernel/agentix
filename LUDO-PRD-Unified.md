@@ -364,7 +364,7 @@ pending_approval → approved → running → migrated
 OpenAPI (REST). Covers every `apps/api` endpoint: job lifecycle (submit, approve, status, resume), auth, estimates, billing, SSE relay subscription. Consumers: `portal`, `superadmin`, `web` generate typed clients. No hand-written API types in any frontend. Change rule: REST surface change → Contract A PR first → frontends regenerate. One tier, no further cascade.
 
 ### Contract B — [`contracts/session-event.schema.json`](contracts/session-event.schema.json)
-JSON Schema for the agent→gateway event envelope. Covers the SSE event structure. **Canonical contracts** (A/B/C + shared types) now live in [`contracts/`](contracts/) here in `ludo-init` — see [`contracts/README.md`](contracts/README.md) for authorship + the vendor model; don't restate the field list. (Consumers vendor byte-identical copies, guarded by `scripts/check_contract_drift.py`.)
+JSON Schema for the agent→gateway event envelope. Covers the SSE event structure. **Canonical contracts** (A/B/C + shared types) now live in [`contracts/`](contracts/) here in `agentix` — see [`contracts/README.md`](contracts/README.md) for authorship + the vendor model; don't restate the field list. (Consumers vendor byte-identical copies, guarded by `scripts/check_contract_drift.py`.)
 
 > **Known gap.** The agent does **not** yet emit `schema_version` / `gate_required`, so
 > the relay silently drops non-conforming events — [euroblaze/ludo #414](https://github.com/euroblaze/ludo/issues/414)

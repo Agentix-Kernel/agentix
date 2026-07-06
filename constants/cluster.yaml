@@ -1,6 +1,6 @@
 # LUDO cluster constants — THE single source of truth for shared values.
 # Vendored (byte-identical) into each repo's constants/cluster.yaml; guarded by
-# ludo-init/scripts/check_config_drift.py. Change a value HERE, then re-vendor.
+# agentix/scripts/check_config_drift.py. Change a value HERE, then re-vendor.
 # Docs (docs/network-and-ports.md etc.) explain these — they never re-hardcode them.
 
 schema_version: "1.0"

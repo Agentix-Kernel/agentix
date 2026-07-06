@@ -1,4 +1,4 @@
-# ludo-init — LUDO cluster foundation
+# agentix — LUDO cluster foundation
 
 The **bootstrap + foundation** repo for the LUDO product cluster (autonomous Odoo cross-version
 migration). It holds what's shared across all repos: the cross-repo hub, the unified product PRD,
@@ -37,10 +37,10 @@ one branded dependency is the vendored **wire-contract** package `ludo_shared`/`
 | `ludo-webapps` | euroblaze/ludo-webapps | product frontends (Vue 3 + Vite); backend retiring into the gateway |
 | `ludo-cli` | euroblaze/ludo-cli | transport-only CLI client |
 | `ludo-desktop` | euroblaze/ludo-desktop | native SwiftUI desktop client (macOS) |
-| `ludo-init` | euroblaze/ludo-init | **this repo** — cluster foundation |
+| `agentix` | euroblaze/agentix | **this repo** — cluster foundation |
 
 ## Workspace setup
-1. **Clone** all repos as siblings under one workspace dir (e.g. `~/s_/ludo/`); clone `ludo-init`
+1. **Clone** all repos as siblings under one workspace dir (e.g. `~/s_/ludo/`); clone `agentix`
    first (it carries the shared contracts/constants the others vendor).
 2. **Prerequisites:** Python **3.12** + **uv**, Node.js (frontends), Docker (+ compose), NATS for the
    broker path. macOS client needs Xcode 15+.
