@@ -56,6 +56,21 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
 **Priority tiers (eviction order), draft — highest survives:**
 `guardrails/safety (never evict) > task/goal > active working set > retrieved memory > history`
 
+## Alignment with session-management
+
+Canonical contract + genericity check: [`session.md`](session.md) § Session ↔ Context
+alignment (single source of truth — not restated here). In short: **the Session is the durable
+store of a run's context; the ContextManager is the per-step policy over it — one object, two
+sides.** They are *not* aligned today (the session snapshot persists raw `messages`;
+`working_memory` is an ad-hoc second compressor). Policy-side consequences for this doc:
+
+- The ContextManager writes the **managed** window that the Session snapshots (not raw
+  history) — so **S2 (compression) and the session's resume are the same co-designed work.**
+- The ContextManager owns the per-step **window/token** budget and reports consumption into the
+  Session's **cost** ledger — two budgets, one flow.
+- Both are `[K]`; the app feeds only *sources*. Resume must be kernel-generic (a resume-key
+  extension point) or a non-migration app inherits no recovery — see session.md clause 4.
+
 ## Open decisions
 
 - [ ] Component boundary: standalone `ContextManager` vs. folded into Cortex spine?
@@ -64,6 +79,7 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
 - [ ] Summary cadence + what is lossy-safe to compress.
 - [ ] How a context policy plugs into eval (A/B) as a measurable experiment.
 - [ ] `[K]`/`[A]` split of context *sources*.
+- [ ] Shared managed-context-state object shape (what the Session snapshots) — co-owned with session.md.
 - [ ] New kernel component # in the inventory (kernel-init #1) — likely #20.
 
 ## Roadmap / slices
@@ -74,10 +90,13 @@ Sequence is instrument-first; each slice ships behind eval.
   budget, X-rays the window per step. Foundation.
 - **S1 — Generalise progressive disclosure.** Extend `S3->S1->S0` to tools/memory/knowledge.
   Highest leverage, lowest risk, reuses a proven mechanism.
-- **S2 — Compression + checkpoint resume.** Long-running sessions.
+- **S2 — Compression + checkpoint resume.** Long-running sessions. *Co-designed with
+  session.md S0 (wire resume) — same work from two sides.*
 - **S3 — Eval harness for context policies.** Make every change measurable.
 
 ## Worklog
 
 - **2026-07-06** — doc opened. Framing, dimensions, assets, architecture direction captured.
   First slice not yet chosen (S0 recommended). No code yet.
+- **2026-07-06** — aligned with session-management (storage-vs-policy framing, budget
+  reconciliation, S2=session-S0 co-design, kernel-generic resume). Canonical contract in session.md.
