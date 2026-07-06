@@ -104,8 +104,12 @@ Wrap every request and the SSE reopen in a bounded retry with **exponential back
 
 - **Retry only transient failures**: connection/timeout errors, `429`, and `5xx`. Never retry
   `4xx` other than `429` (they won't get better on replay).
-- **Backoff**: `delay = min(cap, base * 2**attempt) + random_jitter` (e.g. `base=0.5s`,
-  `cap=30s`), with a max-attempt ceiling. Honor a `Retry-After` header when present.
+- **Backoff**: full jitter — `delay = random(base/2 … min(base * 2**attempt, cap))`
+  (`base=0.5s`, `cap=30s`). Honor a `Retry-After` header when present.
+- **Attempt ceiling**: **commands/queries are bounded** (a max-attempt cap); the **SSE stream
+  reconnects forever by design** (a live feed), but jittered so restarts don't herd the gateway.
+  This is the canonical policy every client conforms to — see
+  [`proposals/client-sdk-direction.md`](proposals/client-sdk-direction.md) (the build-vs-skip decision).
 - **Idempotency**: enqueue endpoints (`approve`/`resume`, `202`) take an `Idempotency-Key` —
   reuse the *same* key across retries of the same logical action so a replay can't double-submit.
   Pure reads (`GET`) are naturally safe to retry.
