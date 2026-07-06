@@ -112,6 +112,9 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_sessions_customer ON sessions (customer_id)",
     "CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions (status)",
+    # NOTE: the idx_sessions_control_plane index is created AFTER migrations run
+    # (see initialize()), not here — control_plane_id is a v13-added column and
+    # is absent when this block runs against a pre-v13 DB.
     """
     CREATE TABLE IF NOT EXISTS turns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,6 +266,13 @@ class SqliteStore:
         for stmt in (*_SCHEMA_STATEMENTS, *self._extra_schema_statements()):
             await self._db.execute(stmt)
         await self._apply_migrations()
+        # Indexes on migration-added columns must be created AFTER migrations —
+        # the column is absent when _SCHEMA_STATEMENTS runs against a pre-v13 DB.
+        # control_plane_id arrives in v13; index it once it is guaranteed present.
+        await self._db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_control_plane "
+            "ON sessions (control_plane_id) WHERE control_plane_id IS NOT NULL"
+        )
         await self._db.commit()
         log.info("sqlite.initialized", path=str(self.path), schema_version=_SCHEMA_VERSION)
 
@@ -445,6 +455,20 @@ class SqliteStore:
     async def get_session(self, session_id: str) -> dict[str, Any] | None:
         db = self._conn()
         async with db.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)) as cur:
+            row = await cur.fetchone()
+        return dict(row) if row else None
+
+    async def get_session_by_control_plane_id(self, control_plane_id: str) -> dict[str, Any] | None:
+        """The most recent Session bound to ``control_plane_id`` (the gateway
+        Migration id), or None. Powers resume-on-redelivery: a job carrying a
+        known control-plane id maps back to the agent Session it already started.
+        Returns the newest by ``started_at`` — the live one when several share
+        the id (e.g. the compose path's per-model sessions)."""
+        db = self._conn()
+        async with db.execute(
+            "SELECT * FROM sessions WHERE control_plane_id = ? ORDER BY started_at DESC LIMIT 1",
+            (control_plane_id,),
+        ) as cur:
             row = await cur.fetchone()
         return dict(row) if row else None
 

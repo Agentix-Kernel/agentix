@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     );
 CREATE INDEX IF NOT EXISTS idx_sessions_customer ON sessions (customer_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions (status);
+CREATE INDEX IF NOT EXISTS idx_sessions_control_plane ON sessions (control_plane_id) WHERE control_plane_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS turns (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,

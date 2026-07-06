@@ -156,3 +156,58 @@ async def resume_from(
     key = MinioStore.key_checkpoint(str(row["customer_id"]), session_id, checkpoint)
     snapshot = await minio.get_json(key)
     return Session.model_validate(snapshot)
+
+
+# Statuses a session can be resumed from. A run that already ``completed`` or
+# ``failed`` is terminal — a redelivery of its job starts fresh rather than
+# reviving a finished run.
+_RESUMABLE_STATUSES: frozenset[str] = frozenset({"running", "paused"})
+
+
+async def resume_or_create(
+    sqlite: SqliteStore,
+    minio: MinioStore,
+    *,
+    customer_id: str,
+    control_plane_id: str,
+    budget_usd: float = 200.0,
+    app_meta: dict[str, Any] | None = None,
+    parent_session_id: str | None = None,
+    checkpoint: str = "latest",
+) -> tuple[Session, bool]:
+    """Resume the Session bound to ``control_plane_id`` if one exists and is
+    still resumable; otherwise create a fresh, bound Session.
+
+    This is the kernel's generic resume-on-redelivery seam. The control plane
+    assigns a stable Migration id and reuses it on every redelivery of the same
+    job; the first run creates a Session bound to it, and a redelivery finds
+    that Session and rebuilds its in-context reasoning (messages + working
+    memory) instead of starting over. What *work* is already done on the outside
+    (idempotency — e.g. an app's record census) stays the app's concern; this
+    only restores the agent's own state.
+
+    Returns ``(session, resumed)``. When ``resumed`` is True the caller MUST NOT
+    re-seed the conversation (system prompt / first user message) — the restored
+    ``session.messages`` already carry it. A resumable row whose checkpoint blob
+    is missing falls through to a fresh create rather than raising.
+    """
+    row = await sqlite.get_session_by_control_plane_id(control_plane_id)
+    if row is not None and str(row["status"]) in _RESUMABLE_STATUSES and row["checkpoint"] is not None:
+        try:
+            session = await resume_from(
+                str(row["id"]), sqlite=sqlite, minio=minio, checkpoint=str(row["checkpoint"])
+            )
+            return session, True
+        except (LookupError, KeyError):
+            # Row says resumable but the blob is gone (GC'd, partial write) —
+            # don't wedge the job; start clean under the same binding.
+            pass
+    session = await create_session(
+        sqlite,
+        customer_id=customer_id,
+        budget_usd=budget_usd,
+        app_meta=app_meta,
+        control_plane_id=control_plane_id,
+        parent_session_id=parent_session_id,
+    )
+    return session, False

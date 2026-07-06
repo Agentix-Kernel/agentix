@@ -19,7 +19,7 @@ from agentix.core.context import (
     summarise_oldest_tool_results,
 )
 from agentix.core.engine import Engine, TurnDispatcher
-from agentix.core.session import Session, create_session, resume_from, save
+from agentix.core.session import Session, create_session, resume_from, resume_or_create, save
 from agentix.core.types import (
     Message,
     TokenUsage,
@@ -47,6 +47,7 @@ __all__ = [
     "create_session",
     "load_checkpoint",
     "resume_from",
+    "resume_or_create",
     "save",
     "save_checkpoint",
     "summarise_oldest_tool_results",
