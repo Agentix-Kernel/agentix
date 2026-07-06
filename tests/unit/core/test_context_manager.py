@@ -71,6 +71,25 @@ def test_compression_fires_over_budget_and_keeps_working_memory() -> None:
     assert out.entries[0].tier is Tier.SYSTEM
 
 
+def test_compress_false_assembles_without_compressing() -> None:
+    """compress=False (how the dispatcher calls it) folds in working memory but
+    leaves the budget/compression step alone — every message is preserved even
+    over budget, and nothing is marked compressed."""
+    msgs = [Message(role="system", content="sys")]
+    for i in range(8):
+        msgs.append(Message(role="user", content=f"question {i} " * 20))
+        msgs.append(Message(role="assistant", content=f"answer {i} " * 20))
+    cm = ContextManager(budget=ContextBudget(max_input_tokens=50))
+    out = cm.assemble(msgs, working_memory_render="LEARNED: x", compress=False)
+
+    assert out.compressed is False
+    # No summary — nothing was elided.
+    assert not any(e.tier is Tier.SUMMARY for e in out.entries)
+    # All originals + the working-memory message survive.
+    assert len(out.messages) == len(msgs) + 1
+    assert any(e.tier is Tier.WORKING_MEMORY for e in out.entries)
+
+
 def test_xray_reports_totals_and_rows() -> None:
     cm = ContextManager(budget=ContextBudget(max_input_tokens=9000))
     out = cm.assemble(_history(), working_memory_render="TRIED: x")

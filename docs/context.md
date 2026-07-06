@@ -94,8 +94,10 @@ Sequence is instrument-first; each slice ships behind eval.
 - **S0 — Instrument + budget core.** ContextManager assembles deterministically, enforces one
   budget, X-rays the window per step. Foundation. *Slice A landed: `core/context_manager.py`
   (`ContextManager` + `AssembledContext` + `Tier` + `WindowEntry`) — assemble → compress →
-  X-ray, reusing `context.py`'s budget + compression. Additive; the dispatcher rewire (slice B)
-  is next so behaviour can be diffed one step at a time.*
+  X-ray, reusing `context.py`'s budget + compression. Slice B landed: the dispatcher's
+  `_build_request` now assembles through `ContextManager` (`compress=False`), replacing the
+  inline working-memory injection — one assembly path. Compression stays with TokenBudget
+  middleware; unifying the budget step is the next slice.*
 - **S1 — Generalise progressive disclosure.** Extend `S3->S1->S0` to tools/memory/knowledge.
   Highest leverage, lowest risk, reuses a proven mechanism.
 - **S2 — Compression + checkpoint resume.** Long-running sessions. *Co-designed with

@@ -126,15 +126,19 @@ class ContextManager:
         base_messages: list[Message],
         *,
         working_memory_render: str | None = None,
+        compress: bool = True,
     ) -> AssembledContext:
         """Build the window from ``base_messages`` (the turn's history, system
-        prompt at index 0), fold in working memory, compress to budget, and
-        classify every surviving message for the X-ray.
+        prompt at index 0), fold in working memory, optionally compress to
+        budget, and classify every surviving message for the X-ray.
 
         Mirrors the dispatcher's current ``_build_request`` assembly exactly:
         working memory becomes a ``system`` message inserted after the leading
-        system prompt (so it survives compression, which keeps system
-        messages), then the whole window is compressed if over budget.
+        system prompt (so it survives compression, which keeps system messages).
+        ``compress=False`` does assembly + X-ray only, leaving compression to
+        whoever owns the budget step (today the ``TokenBudget`` middleware) —
+        that is how the dispatcher adopts the manager without moving the
+        compression seam.
         """
         messages = list(base_messages)
 
@@ -145,9 +149,13 @@ class ContextManager:
             messages.insert(_after_leading_system(messages), wm_msg)
 
         # Compress to budget (deterministic; same input → same output).
-        before = _estimate_tokens(messages)
-        final = self.compression(messages, self.budget.max_input_tokens)
-        compressed = _estimate_tokens(final) < before
+        if compress:
+            before = _estimate_tokens(messages)
+            final = self.compression(messages, self.budget.max_input_tokens)
+            compressed = _estimate_tokens(final) < before
+        else:
+            final = messages
+            compressed = False
 
         entries = [self._classify(m, wm_msg) for m in final]
         return AssembledContext(

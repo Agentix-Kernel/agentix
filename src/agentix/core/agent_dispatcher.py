@@ -21,6 +21,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 import structlog
 
+from agentix.core.context_manager import ContextManager
 from agentix.core.session import save as save_session
 from agentix.core.types import Message, ToolCall, ToolCallResult, Turn
 from agentix.llm.base import LlmRequest, Provider, tool_to_spec
@@ -111,6 +112,10 @@ class AgentDispatcher:
         # defaults: never force-terminate, no guards.
         self._termination_policy = termination_policy
         self._dispatch_guards: list[DispatchGuard] = list(dispatch_guards or [])
+        # The window owner: assembles the per-turn LLM messages (history +
+        # working memory) in one place. Compression stays with the TokenBudget
+        # middleware for now, so the dispatcher assembles with compress=False.
+        self._context_manager = ContextManager()
         # Reset per ``__call__``.
         self._empty_args_streak: dict[str, int] = {}
         # Last-persisted attempt count for throttled checkpoint.
@@ -376,26 +381,20 @@ class AgentDispatcher:
             if self._request_defaults is not None
             else LlmRequest(messages=[])
         )
-        messages = list(turn.input_messages)
-        # Inject working memory as a system message after the original
-        # system prompt. ``core/context.py`` keeps ``role="system"``
-        # messages verbatim, so it survives token-budget compression.
+        # Assemble the window through the ContextManager: it folds working
+        # memory in as a system message after the leading system prompt (which
+        # survives token-budget compression). compress=False leaves the budget
+        # step to TokenBudget middleware. This replaces the previous inline
+        # injection so there is one assembly path (agentix#20).
+        wm_render: str | None = None
         if session is not None:
             wm = getattr(session, "working_memory", None)
             if wm is not None:
-                rendered = wm.render_for_system_prompt()
-                if rendered:
-                    wm_msg = Message(role="system", content=rendered)
-                    # Insert after the leading system messages so the
-                    # migration system prompt stays at index 0.
-                    insert_at = 0
-                    for i, m in enumerate(messages):
-                        if m.role == "system":
-                            insert_at = i + 1
-                        else:
-                            break
-                    messages.insert(insert_at, wm_msg)
-        base.messages = messages
+                wm_render = wm.render_for_system_prompt() or None
+        assembled = self._context_manager.assemble(
+            list(turn.input_messages), working_memory_render=wm_render, compress=False
+        )
+        base.messages = assembled.messages
         base.tools = specs if specs else None
         base.tool_choice = self._tool_choice if specs else None
         return base
