@@ -43,6 +43,20 @@ async def test_initialize_enables_wal_and_fk(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_initialize_sets_busy_timeout(tmp_path: Path) -> None:
+    """A busy timeout is set so a concurrent writer waits rather than
+    failing with SQLITE_BUSY (agentix#39 / isolation.md I2)."""
+    s = SqliteStore(tmp_path / "bt.db")
+    await s.initialize()
+    try:
+        async with s._conn().execute("PRAGMA busy_timeout") as cur:
+            row = await cur.fetchone()
+            assert row is not None and row[0] == 30000
+    finally:
+        await s.close()
+
+
+@pytest.mark.asyncio
 async def test_second_initialize_is_idempotent(tmp_path: Path) -> None:
     path = tmp_path / "x.db"
     s1 = SqliteStore(path)

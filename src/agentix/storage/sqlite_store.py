@@ -208,11 +208,20 @@ def _now() -> str:
 class SqliteStore:
     """Async operational-state store backed by a single SQLite file.
 
-    Opens the database on ``initialize()``, enables WAL + foreign keys, and
-    runs the schema DDL idempotently. Keeps a single long-lived connection
-    behind an ``asyncio.Lock`` — SQLite serialises writes anyway, so no
-    benefit to a connection pool, and a single writer avoids surprising
-    interleavings with the FTS triggers.
+    Opens the database on ``initialize()``, enables WAL + a busy timeout +
+    foreign keys, and runs the schema DDL idempotently. Keeps a single
+    long-lived connection; ``aiosqlite`` serialises individual statements on
+    its worker thread.
+
+    Concurrency: the worker is single-flight (one run at a time), so there is
+    no concurrent access to serialise and **no in-process lock**. A logical
+    ``execute``+``commit`` is therefore atomic only under that single-writer
+    discipline — running sessions concurrently in one process (``gather``)
+    would need a per-task connection or a transaction lock, because
+    ``commit()`` flushes *all* pending writes on the shared connection
+    (agentix#39 / isolation.md I2, deferred). Cross-process safety (a 2nd
+    worker on the same WAL file) is covered by ``busy_timeout``: a concurrent
+    writer waits rather than failing immediately with ``SQLITE_BUSY``.
     """
 
     def __init__(self, path: str | Path) -> None:
@@ -228,6 +237,11 @@ class SqliteStore:
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute("PRAGMA synchronous=NORMAL")
         await self._db.execute("PRAGMA foreign_keys=ON")
+        # A concurrent writer (e.g. a 2nd worker process on the same WAL file)
+        # waits up to 30s for the lock instead of failing immediately with
+        # SQLITE_BUSY. Explicit + higher than the implicit sqlite3 5s
+        # connect-timeout default (agentix#39 / isolation.md I2).
+        await self._db.execute("PRAGMA busy_timeout=30000")
         # Base (kernel) DDL first, then any app-specific tables the subclass adds.
         for stmt in (*_SCHEMA_STATEMENTS, *self._extra_schema_statements()):
             await self._db.execute(stmt)
