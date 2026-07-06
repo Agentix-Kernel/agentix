@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """check_contract_drift.py — fail if a consumer's vendored contract copy has drifted
-from the canonical set in `ludo-init/contracts/`.
+from the canonical set in `agentix/contracts/`.
 
-`ludo-init/contracts/` is the single source of truth (contracts/README.md). Clients
-vendor copies; this guards they stay byte-identical. Run from `ludo-init/` in CI / before
+`agentix/contracts/` is the single source of truth (contracts/README.md). Clients
+vendor copies; this guards they stay byte-identical. Run from `agentix/` in CI / before
 a release. Best-effort: a sibling repo not checked out is skipped (reported), not a failure.
 
 Covered: ludo-gateway, ludo-cli, ludo-webapps (file-vendored). Desktop hand-codes Swift
@@ -15,7 +15,7 @@ import filecmp
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # ludo-init/
+REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
 WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
 CANON = REPO_ROOT / "contracts"
 
@@ -23,7 +23,7 @@ GATEWAY = WORKSPACE / "ludo-gateway" / "contracts"
 CLI = WORKSPACE / "ludo-cli" / "contracts"
 WEBAPPS = WORKSPACE / "ludo-webapps" / "backend" / "contract"
 
-# consumer_copy -> canonical file name in ludo-init/contracts/
+# consumer_copy -> canonical file name in agentix/contracts/
 CONSUMERS: list[tuple[Path, str]] = [
     # gateway vendors the full set under the same names
     (GATEWAY / "contract_a.openapi.yaml", "contract_a.openapi.yaml"),

@@ -5,7 +5,7 @@
 > Builds on [`tools-skills-mcp.md`](./tools-skills-mcp.md) (Tools/Skills/MCP grounding),
 > [`agent-skills-catalog.md`](./agent-skills-catalog.md) (per-agent skills), and
 > [`agentic-cluster-a2a.md`](./agentic-cluster-a2a.md) (A2A, trust zones). Cross-cluster
-> vocabulary lives in the `ludo-init/CLAUDE.md`.
+> vocabulary lives in the `agentix/CLAUDE.md`.
 
 ## 1. Four calling verbs
 

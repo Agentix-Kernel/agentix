@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """check_config_drift.py — fail if a repo's vendored `constants/cluster.yaml` has
-drifted from the canonical in `ludo-init/constants/`.
+drifted from the canonical in `agentix/constants/`.
 
-`ludo-init/constants/cluster.yaml` is the single source of truth for shared values
+`agentix/constants/cluster.yaml` is the single source of truth for shared values
 (loopback, ports, NATS subjects/streams, env stages, dev placeholders, tooling
 baseline). Each Python repo vendors a byte-identical copy under `<repo>/constants/`.
-Run from `ludo-init/`. Sibling-style guard, mirroring check_contract_drift.py.
+Run from `agentix/`. Sibling-style guard, mirroring check_contract_drift.py.
 
 (ruff config + .gitignore base are aligned in-place per repo — their tiers differ —
 so they're not byte-vendored here; tooling-standards.md is their canonical reference.)
@@ -16,7 +16,7 @@ import filecmp
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # ludo-init/
+REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
 WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
 CANON = REPO_ROOT / "constants" / "cluster.yaml"
 

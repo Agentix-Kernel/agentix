@@ -1,7 +1,7 @@
 """NATS JetStream topology — the one declaration shared by the agent worker and the gateway.
 
 Both private repos must declare the SAME streams/subjects (Contract B transport). The names come
-from the vendored `ludo_shared` (canonical: `ludo-init/constants/cluster.yaml`); this module owns
+from the vendored `ludo_shared` (canonical: `agentix/constants/cluster.yaml`); this module owns
 the *declaration* + connect so the two repos can't drift on the `add_stream` shape. `nats` is
 imported lazily so importing this module needs no dependency (stub modes stay dependency-free).
 """

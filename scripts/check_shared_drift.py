@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """check_shared_drift.py — fail if a repo's vendored shared package drifted from the
-canonical in `ludo-init`, or if the generated artifacts are stale vs their sources.
+canonical in `agentix`, or if the generated artifacts are stale vs their sources.
 
-`ludo-init/libs/` is the single source of truth for the shared, cross-repo wire types +
+`agentix/libs/` is the single source of truth for the shared, cross-repo wire types +
 migration lifecycle (CRIE R-2/R-3/R-4 + 002 #8/#101). The generated artifacts are emitted
 by gen_shared.py (Python) / gen_ts.py (JS) / gen_swift.py (Swift) from `contracts/` +
 `constants/cluster.yaml`; consumers vendor a byte-identical copy. This guard checks:
@@ -11,7 +11,7 @@ by gen_shared.py (Python) / gen_ts.py (JS) / gen_swift.py (Swift) from `contract
   2. freshness (CRIE IE-6) — re-running the generators changes nothing (i.e. the canonical
      artifacts were regenerated after the last contract/cluster edit).
 
-Run from `ludo-init/`. Mirrors check_config_drift.py.
+Run from `agentix/`. Mirrors check_config_drift.py.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # ludo-init/
+REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
 WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
 LIBS = REPO_ROOT / "libs"
 
