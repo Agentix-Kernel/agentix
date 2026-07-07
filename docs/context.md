@@ -21,7 +21,7 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
 
 - **Progressive disclosure** — Skills `S3->S1->S0` cascade + `SkillCatalog`. This IS
   context-management; generalise the same summary-in / body-on-demand pattern to tools,
-  memory, knowledge. (see `docs/proposals/tool-skill-calling.md`, `agent-skills-catalog.md`)
+  memory, knowledge. (see `docs/tools.md`, `proposals/agent-skills-catalog.md`)
 - **Checkpoints** — `core/checkpoints.py`; context reconstruction on resume rides this spine.
 - **Eval** — Verdict + Grader A (responses) / B (outcomes). Every context policy must be
   measurable here. (see `docs/proposals/eval-validation.md`)

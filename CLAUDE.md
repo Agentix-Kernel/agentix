@@ -165,7 +165,7 @@ transport. The three concepts (Anthropic guidance:
 - **MCP** = the **transport** that publishes tools/skills across components — the
   "Tools-catalog other components can borrow from." Target home: a namespaced MCP
   surface published via **`ludo-gateway`** (kernel-phase, post-autonomy).
-- **Calling — the four verbs** (implemented; `agentix/docs/proposals/tool-skill-calling.md`,
+- **Calling — the four verbs** (implemented; `agentix/docs/tools.md`,
   #503): `call` a tool (in-process) · `consult` a skill (`consult_skill` pulls the
   `SKILL.md` body on demand) · `compile` a skill (lift its strategy into a deterministic
   recipe — no LLM at runtime) · `delegate` (hand work to another agent over A2A). Escalations
@@ -177,7 +177,8 @@ transport. The three concepts (Anthropic guidance:
 verified conclusions** (reactive cache + memory + control-plane episodic SoR). The old
 three-layer "Core + Skills + Memory" ladder (`findings→memory→skill→core`) is being
 retired; skills are **not** a graduation target but an open-standard packaging of
-know-how. Detail: `agentix/docs/proposals/tools-skills-mcp.md` +
+know-how. Detail: `agentix/docs/tools.md` +
+`agentix/docs/proposals/agent-skills-catalog.md` +
 `ludo-agent/docs/proposals/harness-brain.md`.
 
 ## Where to look (defer to repo CLAUDE.md for specifics)

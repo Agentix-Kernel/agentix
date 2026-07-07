@@ -1,5 +1,8 @@
 # Tooling standards (Python services)
 
+Dev tooling only. Agent tools (the `Tool` protocol, registry, safety gate) are
+documented in [`tools.md`](tools.md).
+
 Applies to `ludo-agent`, `ludo-gateway`, `ludo-cli`. Canonical ruff config:
 [`../templates/ruff.toml`](../templates/ruff.toml); baseline values in `cluster.yaml:tooling`.
 

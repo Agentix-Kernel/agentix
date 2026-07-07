@@ -1,13 +1,35 @@
 # Per-agent Skills — catalog, storage, and invocation across the cluster
 
-> **STATUS: DIRECTION — converged design, partial scaffold in tree.** Builds on
-> the activatable multi-agent cluster ([`agentic-cluster-a2a.md`](./agentic-cluster-a2a.md)
-> — agent map, NATS trust zones, ActionGate) and the Tools/Skills/MCP assessment
-> ([`tools-skills-mcp.md`](./tools-skills-mcp.md) — Skills re-founded on the Agent
-> Skills open standard). Answers: **which skills does each technical and business
-> agent need, where are they stored and maintained, and how does an agent
-> loop/session call them.** The server-side business/ops agents are **W4 /
-> kernel-phase** — this names their skill shape; it does not ship runnable agents.
+> **STATUS: DIRECTION — converged design, partial scaffold in tree.** The canonical
+> **skills** doc. Builds on the activatable multi-agent cluster
+> ([`agentic-cluster-a2a.md`](./agentic-cluster-a2a.md) — agent map, NATS trust
+> zones, ActionGate); tools + tool calling are canonical in
+> [`../tools.md`](../tools.md). Answers: **what a Skill is, which skills does each
+> technical and business agent need, where are they stored and maintained, and how
+> does an agent loop/session call them.** The server-side business/ops agents are
+> **W4 / kernel-phase** — this names their skill shape; it does not ship runnable
+> agents.
+
+## 0. What a Skill is — re-found on the open standard
+
+A **Skill** is a directory (`SKILL.md` + scripts/resources) packaging **procedural
+knowledge** — *when and how to compose tools toward a goal* — with progressive
+disclosure (name/description → body → bundled files on demand). *The carpentry
+know-how* to a tool's *hammer*. The Agent Skills **open standard** (Dec 2025),
+portable across Claude.ai / Code / SDK / API; Anthropic guidance:
+[Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills).
+
+The competence-model redesign (#470, refined) retires the **bespoke** skills
+implementation (`manifest.json` + trigger predicates + evidence thresholds + custom
+loader + the memory→skill→core graduation ladder — zero organic graduations). But
+"retire skills entirely" was too strong:
+
+- **Dead** = the bespoke machinery. *Retire it.*
+- **Keep the concept**, re-founded on the open standard, used **only where genuine,
+  recurring procedural know-how exists** — never as a speculative graduation target.
+
+The **Cortex deliberation loop** itself is so central it belongs in **core** (the
+system prompt), per the guidance's "if every agent needs it, it's not a skill."
 
 ## 1. Agent inventory — technical vs business
 
@@ -73,7 +95,7 @@ runnable code.
   `allowed-tools`), a body of procedural know-how, and optional bundled resources
   + a `tool.py` for skill-scoped primitives. This **retires the bespoke
   `manifest.json` + trigger-predicate machinery** as the selection mechanism
-  (`tools-skills-mcp.md` §4). `manifest.json` survives only as a backward-compat
+  (§0 above). `manifest.json` survives only as a backward-compat
   carrier for the two live migration skills (which also keep their recon-phase
   trigger wiring untouched).
 - **Maintenance — the maturation pipeline, per agent.** `findings → memory → skill

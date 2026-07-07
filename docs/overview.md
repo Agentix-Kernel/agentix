@@ -20,7 +20,7 @@
 - Escalations descend the escalation ladder — compiled recipe (model stays asleep) → consult skill → novel reasoning — so the cheapest competent path wins; the loop then re-runs the step to re-prove it.
 - If the budget is spent before the step proves clean, the agent performs an *operator handoff* (distinct term: escalation = body wakes the model; handoff = agent gives up to a human).
 - The share of escalations absorbed at the compiled tier is the system's intelligence; the product metric is *escalations/customer → 0*.
-- Detail: `proposals/tool-skill-calling.md` (the ladder), `proposals/eval-validation.md` (the metric rollup); reference implementation `ludo-agent/src/ludo/core/compose_loop.py`.
+- Detail: `docs/tools.md` (the ladder), `proposals/eval-validation.md` (the metric rollup); reference implementation `ludo-agent/src/ludo/core/compose_loop.py`.
 
 ### Four calling verbs.
 
@@ -31,7 +31,7 @@ The caller is always the model, woken by an escalation. The four verbs are the f
 - *compile* a skill — turn know-how into a deterministic recipe; next time the body applies it and the model stays asleep.
 - *delegate* — hand the task to another agent over A2A.
 
-Detail and worked examples: `proposals/tool-skill-calling.md`.
+Detail and worked examples: `docs/tools.md`.
 
 ### Tools.
 
