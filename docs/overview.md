@@ -1,19 +1,19 @@
 # Agentix — the reusable kernel for building AI agents
 
-**What it is.** 
+### What it is.
 
 - The frozen, app-agnostic API and principles for building agentic applications.
 - A deterministic body that wakes an LLM only on escalation.
 - Apps supply domain tools, prompts and memory sources; the kernel supplies everything else.
 - A strict `[K]` kernel / `[A]` app split keeps domain terms out of the core, enforced by a purity gate.
 
-**Engine and dispatch.** 
+### Engine and dispatch.
 
 - A turn engine runs an ordered middleware chain around each step;
 - the agent dispatcher owns the LLM loop — build request, call, dispatch tool calls, append results.
 - Messages are an opaque list the engine snapshots per turn.
 
-**Cognitive escalation.** 
+### Cognitive escalation.
 
 - An *escalation* happens when an automated step cannot prove its result is correct (in the reference app: rows failed to load, a verification failed, or values changed during transfer).
 - The deterministic body handles the routine; an escalation is the only event that wakes the model (the *Cortex*).
@@ -22,31 +22,44 @@
 - The share of escalations absorbed at the compiled tier is the system's intelligence; the product metric is *escalations/customer → 0*.
 - Detail: `proposals/tool-skill-calling.md` (the ladder), `proposals/eval-validation.md` (the metric rollup); reference implementation `ludo-agent/src/ludo/core/compose_loop.py`.
 
-**Four calling verbs.** 
+### Four calling verbs.
 
 - *call* a tool (in-process),
 - *consult* a skill (pull its body on demand),
 - *compile* a skill into a deterministic recipe (no LLM at runtime),
 - *delegate* to another agent over A2A.
 
-**Tools.** 
+### Tools.
 
-- A registry with provider-neutral spec conversion. Always-on read-only primitives (read, glob, grep, fetch) plus opt-in mutating primitives (write, patch, shell, git). Consolidate, namespace, token-efficient returns, actionable errors.
+- A registry with provider-neutral spec conversion.
+- Always-on read-only primitives (read, glob, grep, fetch) plus opt-in mutating primitives (write, patch, shell, git). Consolidate, namespace, token-efficient returns, actionable errors.
 
-**Skills.** The Agent Skills open standard, loaded by an agent-agnostic catalog. Progressive disclosure — cheap name and description at session start, full body on demand — so the window stays lean.
+### Skills.
 
-**Working memory.** A structured tried / failed / learned log that survives context compression, auto-recorded on tool failure and on recoveries that overturn a blocked path, and rendered into a system message every turn.
+- The Agent Skills open standard, loaded by an agent-agnostic catalog.
+- Progressive disclosure — cheap name and description at session start, full body on demand — so the window stays lean.
 
-**Sessions.** The checkpoint-first, resumable unit of a run: create, save, resume-from. Operational state in SQLite, full state blob in object storage. App scope is opaque `app_meta`. Sessions carry a control-plane binding and a parent link for streaming and delegation hierarchy.
+### Working memory.
 
-**Context management.** One owner of the model window — assemble, budget, compress, evict by priority tier (guardrails > goal > working set > retrieved memory > history), with a per-turn X-ray of what entered and why.
+A structured tried / failed / learned log that survives context compression, auto-recorded on tool failure and on recoveries that overturn a blocked path, and rendered into a system message every turn.
+
+### Sessions. 
+
+- The checkpoint-first, resumable unit of a run: create, save, resume-from. 
+- Operational state in SQLite, full state blob in object storage.
+- App scope is opaque `app_meta`.
+- Sessions carry a control-plane binding and a parent link for streaming and delegation hierarchy.
+
+**Context management.** 
+
+- One owner of the model window — assemble, budget, compress, evict by priority tier (guardrails > goal > working set > retrieved memory > history), with a per-turn X-ray of what entered and why.
 
 **Budgets (token economics).**
 
 - Per-session and per-account spending ceilings, in money; cost is recorded at each LLM call, not after the fact.
-- *Safety*: no human approves anything mid-run, so the budget is what ends a hopeless retry loop — when it runs out, the agent stops and hands off honestly instead of trying forever.
-- *Economics*: tokens cost money. The account ceiling stops one expensive customer from eating the margin of the others; the control plane enforces it and gives each job the remaining headroom.
-- *Design pressure*: every escalation has a price, so the system is pushed to solve problems the cheap way and to learn — it gets smarter by learning, not by spending more.
+- **Safety**: no human approves anything mid-run, so the budget is what ends a hopeless retry loop — when it runs out, the agent stops and hands off honestly instead of trying forever.
+- **Economics**: tokens cost money. The account ceiling stops one expensive customer from eating the margin of the others; the control plane enforces it and gives each job the remaining headroom.
+- **Design pressure**: every escalation has a price, so the system is pushed to solve problems the cheap way and to learn — it gets smarter by learning, not by spending more.
 - A budget caps how often the model is woken, never how hard it thinks in a turn. Ceilings are policy: set per account, or lifted entirely.
 - The model-window budget is a separate thing — see Context management above.
 
