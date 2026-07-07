@@ -1,10 +1,10 @@
-# Agentix — the reusable, app-agnostic agentic-app kernel
+# Agentix — the reusable kernel for building AI agents
 
 A one-page tour of the kernel's surface. Each line is deliberately terse; see the
 per-topic docs (`session.md`, `context.md`, `isolation.md`, the contracts, and the
 component inventory in agentix#1) for detail.
 
-**What it is.** The frozen API and principles for building agent apps, distilled from a production system. A deterministic body that wakes an LLM only on surprise. Apps supply domain tools, prompts and memory sources; the kernel supplies everything else. A strict `[K]` kernel / `[A]` app split keeps domain terms out of the core, enforced by a purity gate.
+**What it is.** The frozen, app-agnostic API and principles for building agent apps, distilled from a production system. A deterministic body that wakes an LLM only on surprise. Apps supply domain tools, prompts and memory sources; the kernel supplies everything else. A strict `[K]` kernel / `[A]` app split keeps domain terms out of the core, enforced by a purity gate.
 
 **Engine and dispatch.** A turn engine runs an ordered middleware chain around each step; the agent dispatcher owns the LLM loop — build request, call, dispatch tool calls, append results. Messages are an opaque list the engine snapshots per turn.
 
@@ -30,7 +30,7 @@ component inventory in agentix#1) for detail.
 
 **Safety and guardrails.** ActionGate on mutating tools — rate-limit, quiet-hours, idempotency, audit. Loop detection and recorded safety events.
 
-**Memory tiers.** Three classifications — Transient (one run), Episodic (per-tenant and per-context), Learnings (general) — with verbs to reconcile a finding into a rule and promote it on cross-case evidence.
+**Memory tiers.** Three classifications — Transient (one run — the working-memory log above), Episodic (per-tenant and per-context), Learnings (general) — with verbs to reconcile a finding into a rule and promote it on cross-case evidence.
 
 **A2A over NATS.** Capability subjects as the registry, an agent card as the INFO reply, the *delegate* verb, and activatable key-gated agents with a deterministic fallback when no key is present.
 
