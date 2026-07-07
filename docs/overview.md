@@ -30,7 +30,8 @@ The caller is always the model, woken by an escalation. The four verbs are the f
 - *consult* a skill — pull the full know-how text into context, then act on its steps.
 - *compile* a skill — turn know-how into a deterministic recipe; next time the body applies it and the model stays asleep.
 - *delegate* — hand the task to another agent over A2A.
-- Detail and worked examples: `proposals/tool-skill-calling.md`.
+
+Detail and worked examples: `proposals/tool-skill-calling.md`.
 
 ### Tools.
 
