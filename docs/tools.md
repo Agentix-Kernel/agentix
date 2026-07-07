@@ -264,3 +264,51 @@ Reference-app catalog assessment (against the guidance's levers — consolidatio
 namespacing, token-efficient returns, actionable errors): the ~37 migration
 primitives are capability-complete; the work is consolidation, not new tool
 families. Detail lives with the app (`ludo-agent`).
+
+---
+
+## 12. Q&A for agent-engineers
+
+**Q: Wouldn't every agent-engineer need to develop their own set of tools?**
+
+Yes — that is the intended split, not a gap. The kernel deliberately ships only
+domain-neutral primitives (§3); everything an agent knows how to *do* in your domain
+comes from the tools you write. Building on Agentix means: implement the `Tool`
+protocol for your domain (name, pydantic schemas, `mutates_target`, a verifier for
+anything that mutates), then compose `register_kernel_tools()` plus your own onto a
+`ToolRegistry`. The kernel supplies the contract, validation, safety gate and
+dispatch — you only write the tool body. First principle of the kernel: apps supply
+domain tools, prompts and memory sources; the kernel supplies everything else.
+
+**Q: Is it conceivable that agents would write their own tools?**
+
+Conceivable — and the machinery is half-built. The opt-in mutating set (§3) is
+already a tool-authoring toolkit: `write_file`, `apply_patch`, `run_command`,
+`git_*`, inside a sandbox with source read-only and output read-write. An agent can
+write code, test it, and commit it today; nothing technically stops that output from
+being a new tool module. The gap is not capability but *trust*: who reviews the
+generated tool, when it gets registered, and what happens when it is wrong. The safe
+progression is config-before-code — the compile verb (§9) already has agents turning
+know-how into deterministic *recipes* (data, reviewable at a glance) before anyone
+lets them write *code*.
+
+**Q: Would the model (Cortex) ever write tools and update/publish the catalog for
+future reuse — and which parts of Agentix would be responsible?**
+
+As direction, yes — it is the consult↔compile lifecycle (§10) extended one tier,
+with a human gate at the register step. The responsibilities map onto code that
+already exists:
+
+| Responsibility | Where it lives |
+|---|---|
+| The contract a generated tool must satisfy | `tools/base.py` — the `Tool` protocol; pydantic schemas force structure on model-written code |
+| Writing and testing the tool safely | `tools/builtin.py` module-mode set + `tools/_sandbox.py` boundaries |
+| Admitting untrusted tools without risking the service | `tools/registry.py` — `try_register` (log + skip on failure, can never shadow a builtin); the skills loader already registers dynamically loaded tools this way |
+| Containing a bad mutating tool | `tools/safety.py` — a generated mutating tool must ship a verifier or it cannot register; verify-then-rollback limits blast radius |
+| Deciding *when* to author | trace-invariance scoring — the compile-readiness trigger (§10) |
+| Proving the tool works before promotion | the eval Verdict spine — outcomes graded by verification, not the agent's own claim |
+| Publishing for reuse across agents | the MCP tools-catalog surface (§11) |
+| Provenance | `git_*` tools — every generated artifact has a diff and an author trail |
+
+The missing piece is only the orchestration: an author-tool flow chaining
+sandbox-write → test → eval → operator review → `try_register` → catalog publish.
