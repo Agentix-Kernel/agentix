@@ -25,7 +25,7 @@ one branded dependency is the vendored **wire-contract** package `ludo_shared`/`
 | `constants/cluster.yaml` | **Single source** for shared values (loopback, ports, NATS, env stages, domains, locale) |
 | `templates/` | `gitignore.base` · `ruff.toml` · `env.template` — vendored/aligned into repos |
 | `libs/python/ludo_shared/` | canonical shared Python: Contract B types + broker constants + SSE codec (generated from `contracts/`+`constants/` by `scripts/gen_shared.py`; vendored, drift-checked) |
-| `docs/` | Cluster architecture, contracts consumer guide, proposals, + config/policy docs (network, env-and-secrets, tooling, db, cors, docker, domains, email, integrations, licensing, logging) |
+| `docs/` | Cluster architecture, contracts consumer guide, proposals, + config/policy docs (network, env-and-secrets, tooling, db, docker, domains, email, integrations, licensing, logging) |
 | `scripts/` | `check_contract_drift.py` · `check_config_drift.py` — guard vendored copies |
 | `LICENSE` | Canonical BSL 1.1 (see `docs/licensing-policy.md` for the per-repo tier matrix) |
 

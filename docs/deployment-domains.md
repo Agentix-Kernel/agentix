@@ -11,7 +11,7 @@ Canonical per-stage domains live in [`../constants/cluster.yaml`](../constants/c
 
 ## Zone rules
 - **Apex** serves public + portal (`/portal`) + API (`/api/v1` proxied) — one origin (same-origin
-  model, see [`cors-strategy.md`](cors-strategy.md)).
+  model, see [`cors.md`](https://github.com/euroblaze/ludo-webapps/blob/main/docs/cors.md)).
 - **Superadmin** is its own subdomain. `ludo-env.js` derives it by stripping a leading
   `superadmin.|portal.|api.|www.` label from the current host (NOT `indexOf("ludo.")`, which would
   mis-parse `runludo.com`).
