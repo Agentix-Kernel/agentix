@@ -24,12 +24,13 @@
 
 ### Four calling verbs.
 
-The caller is always the model, woken by an escalation. The four verbs are the four ways it can get work done. Running example: rows fail to load because a field was renamed between the source and the target system.
+The caller is always the model, woken by an escalation. The four verbs are the four ways it can get work done.
 
-- *call* a tool — do one thing now, in-process (call the rename-map tool to record the new field name).
-- *consult* a skill — read the know-how first (pull the full skill text into context, then act on its steps).
-- *compile* a skill — turn know-how into automation (the fix keeps working, so its steps become a deterministic recipe; next time the body applies it and the model stays asleep).
-- *delegate* — hand the task to another agent over A2A (the failing module first needs its custom code ported — a different agent's job).
+- *call* a tool — do one thing now, in-process.
+- *consult* a skill — pull the full know-how text into context, then act on its steps.
+- *compile* a skill — turn know-how into a deterministic recipe; next time the body applies it and the model stays asleep.
+- *delegate* — hand the task to another agent over A2A.
+- Detail and worked examples: `proposals/tool-skill-calling.md`.
 
 ### Tools.
 
