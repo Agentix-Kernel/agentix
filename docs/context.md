@@ -26,7 +26,7 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
 - **Eval** — Verdict + Grader A (responses) / B (outcomes). Every context policy must be
   measurable here. (see `docs/proposals/eval-validation.md`)
 - **Memory tiers** — `consult_memory`, applied_memory_rules (retrieval source, not the policy).
-- **X-rays / metrics** — introspection surface for "what was in-window and why".
+- **Window reports / metrics** — introspection surface for "what was in-window and why".
 
 ## Design dimensions (the checklist)
 
@@ -46,7 +46,7 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
    conflate: the *crossing* law (only distilled context crosses a Session boundary) is
    canonical as [`isolation.md`](isolation.md) P-ISO-2; the inter-agent NATS-Account isolation
    is `proposals/agentic-cluster-a2a.md`.
-7. **Observability** — per-step X-ray: what entered, why, token cost. Ties to metrics + omg.
+7. **Observability** — per-step window report: what entered, why, token cost. Ties to metrics + omg.
 
 ## Architecture direction (draft)
 
@@ -92,9 +92,9 @@ sides.** They are *not* aligned today (the session snapshot persists raw `messag
 Sequence is instrument-first; each slice ships behind eval.
 
 - **S0 — Instrument + budget core.** ContextManager assembles deterministically, enforces one
-  budget, X-rays the window per step. Foundation. *Slice A landed: `core/context_manager.py`
+  budget, reports the window per step. Foundation. *Slice A landed: `core/context_manager.py`
   (`ContextManager` + `AssembledContext` + `Tier` + `WindowEntry`) — assemble → compress →
-  X-ray, reusing `context.py`'s budget + compression. Slice B landed: the dispatcher's
+  window report, reusing `context.py`'s budget + compression. Slice B landed: the dispatcher's
   `_build_request` now assembles through `ContextManager` (`compress=False`), replacing the
   inline working-memory injection — one assembly path. Compression stays with TokenBudget
   middleware; unifying the budget step is the next slice.*
@@ -114,7 +114,7 @@ Sequence is instrument-first; each slice ships behind eval.
   + I1–I7). Split dim-6 into its two planes (P-ISO-2 crossing vs a2a Account isolation); budget
   scoping/ceiling links to I4/I5; reserved inventory #21 SessionRuntime.
 - **2026-07-06** — S0 slice A: `core/context_manager.py` built (additive). `ContextManager`
-  owns assemble → compress → X-ray with priority `Tier`s (SYSTEM > WORKING_MEMORY > SUMMARY >
+  owns assemble → compress → window report with priority `Tier`s (SYSTEM > WORKING_MEMORY > SUMMARY >
   HISTORY), mirroring the dispatcher's current `_build_request` assembly so the rewire (slice B)
   is a clean swap. Reuses `ContextBudget` + `summarise_oldest_tool_results` (no duplication).
   Unit tests added. Consolidates the working-memory-injection + budget scatter (agentix#20).

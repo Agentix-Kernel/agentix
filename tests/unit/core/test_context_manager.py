@@ -1,7 +1,7 @@
 """Unit tests for ContextManager — the per-turn window owner (agentix#20).
 
 Covers assembly order, working-memory injection, compression-to-budget, and the
-X-ray. Pure in-memory; no store or provider.
+window report. Pure in-memory; no store or provider.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def test_assemble_passthrough_under_budget() -> None:
     assert isinstance(out, AssembledContext)
     assert out.compressed is False
     assert [m.role for m in out.messages] == ["system", "user", "assistant", "user"]
-    # X-ray classifies the leading system message as SYSTEM, the rest as HISTORY.
+    # The window report classifies the leading system message as SYSTEM, the rest as HISTORY.
     tiers = [e.tier for e in out.entries]
     assert tiers[0] is Tier.SYSTEM
     assert all(t is Tier.HISTORY for t in tiers[1:])
@@ -111,15 +111,15 @@ def test_compress_false_assembles_without_compressing() -> None:
     assert any(e.tier is Tier.WORKING_MEMORY for e in out.entries)
 
 
-def test_xray_reports_totals_and_rows() -> None:
+def test_window_report_totals_and_rows() -> None:
     cm = ContextManager(budget=ContextBudget(max_input_tokens=9000))
     out = cm.assemble(_history(), working_memory_render="TRIED: x")
-    xray = out.xray()
-    assert xray["budget_tokens"] == 9000
-    assert xray["total_tokens"] == out.total_tokens
-    assert xray["over_budget"] is False
-    assert len(xray["messages"]) == len(out.messages)
-    # Every row carries the four X-ray fields.
-    row = xray["messages"][0]
+    report = out.window_report()
+    assert report["budget_tokens"] == 9000
+    assert report["total_tokens"] == out.total_tokens
+    assert report["over_budget"] is False
+    assert len(report["messages"]) == len(out.messages)
+    # Every row carries the four report fields.
+    row = report["messages"][0]
     assert set(row) == {"tier", "role", "tokens", "reason"}
     assert row["tier"] == "SYSTEM"

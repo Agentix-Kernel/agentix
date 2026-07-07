@@ -56,7 +56,7 @@ A structured tried / failed / learned log that survives context compression, aut
 
 ### Context management.
 
-- One owner of the model window — assemble, budget, compress, evict by priority tier (guardrails > goal > working set > retrieved memory > history), with a per-turn X-ray of what entered and why.
+- One owner of the model window — assemble, budget, compress, evict by priority tier (guardrails > goal > working set > retrieved memory > history), with a per-turn *window report* of what entered and why.
 
 ### Budgets (token economics).
 

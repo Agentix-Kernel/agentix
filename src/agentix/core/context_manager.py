@@ -7,8 +7,8 @@ That scatter is the context-management CRIE finding — no one place decides wha
 enters the window, in what priority, and why.
 
 ``ContextManager`` consolidates that: one object that **assembles** the window in
-priority-tier order, **compresses** it to budget, and emits a per-turn **X-ray**
-describing every message (tier, role, tokens, reason) and the totals. It reuses
+priority-tier order, **compresses** it to budget, and emits a per-turn **window
+report** describing every message (tier, role, tokens, reason) and the totals. It reuses
 ``context.py``'s ``ContextBudget`` + compression strategy rather than
 reimplementing them (CRIE — one compression, one budget type).
 
@@ -34,7 +34,7 @@ from agentix.core.context import (
 from agentix.core.types import Message
 
 # Content marker the default compression strategy stamps on its summary message.
-# Used only to label that message in the X-ray; assembly never depends on it.
+# Used only to label that message in the window report; assembly never depends on it.
 _SUMMARY_MARKER = "[context-compressed]"
 
 
@@ -55,7 +55,7 @@ class Tier(IntEnum):
 
 @dataclass
 class WindowEntry:
-    """One assembled message plus why it is in the window (an X-ray row)."""
+    """One assembled message plus why it is in the window (a window-report row)."""
 
     tier: Tier
     role: str
@@ -66,7 +66,7 @@ class WindowEntry:
 @dataclass
 class AssembledContext:
     """Result of :meth:`ContextManager.assemble` — the messages to send to the
-    provider plus the per-turn X-ray."""
+    provider plus the per-turn window report."""
 
     messages: list[Message]
     entries: list[WindowEntry] = field(default_factory=list)
@@ -77,7 +77,7 @@ class AssembledContext:
     def total_tokens(self) -> int:
         return sum(e.tokens for e in self.entries)
 
-    def xray(self) -> dict[str, Any]:
+    def window_report(self) -> dict[str, Any]:
         """JSON-serialisable snapshot of the window: totals + one row per
         message (tier name, role, token estimate, reason). For per-turn
         observability of exactly what the model saw and why."""
@@ -106,7 +106,7 @@ def _after_leading_system(messages: list[Message]) -> int:
 
 
 class ContextManager:
-    """Owns the per-turn model window: assemble → compress → X-ray.
+    """Owns the per-turn model window: assemble → compress → window report.
 
     Reuses ``context.py``'s budget + compression strategy (no duplication).
     Stateless across turns; construct once per run or per turn as convenient.
@@ -130,12 +130,12 @@ class ContextManager:
     ) -> AssembledContext:
         """Build the window from ``base_messages`` (the turn's history, system
         prompt at index 0), fold in working memory, optionally compress to
-        budget, and classify every surviving message for the X-ray.
+        budget, and classify every surviving message for the window report.
 
         Mirrors the dispatcher's current ``_build_request`` assembly exactly:
         working memory becomes a ``system`` message inserted after the leading
         system prompt (so it survives compression, which keeps system messages).
-        ``compress=False`` does assembly + X-ray only, leaving compression to
+        ``compress=False`` does assembly + window report only, leaving compression to
         whoever owns the budget step (today the ``TokenBudget`` middleware) —
         that is how the dispatcher adopts the manager without moving the
         compression seam.
