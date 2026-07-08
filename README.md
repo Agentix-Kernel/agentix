@@ -246,7 +246,8 @@ Canonical catalog with mechanisms and examples: [`docs/seams.md`](docs/seams.md)
 - **Dispatcher policies** — `TerminationPolicy` and `DispatchGuard` on `AgentDispatcher`.
 - **`Tool` implementations** and exception `to_error_details()` for actionable errors.
 - **`ToolContext` handles** — the app injects its own `source`/`target` clients; opaque to the kernel.
-- **Allowlist extenders** — `register_allowed_hosts` (web fetch), `register_allowed_binaries` (shell).
+- **Allowlist + identity extenders** — `register_allowed_hosts` (web fetch),
+  `register_allowed_binaries` (shell), `register_agent_git_identity` (git branch namespace + author).
 - **Middleware** — compose the kernel chain (a prefix is fine) and extend it with app layers.
 - **Skills** — drop bundles under the app's `skills_root`; the catalog discovers them.
 - **Storage** — use the three stores as-is or subclass to add app tables.
