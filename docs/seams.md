@@ -43,11 +43,14 @@ fills with its own clients; the kernel never inspects them. Tools access via
 `ctx.require_source()` / `ctx.require_target()`.
 *LUDO:* source/target Odoo RPC clients.
 
-### 7. Sandbox allowlists — startup extenders
-`src/agentix/tools/spike/web_fetch.py` (`register_allowed_hosts`) and
-`run_command.py` (`register_allowed_binaries`). Kernel defaults cover code-hosting +
-generic verifiers only; the app extends at startup.
-*LUDO:* adds `odoo.com` hosts and the `odoo-bin` binary.
+### 7. Sandbox allowlists + agent identity — startup extenders
+`src/agentix/tools/spike/web_fetch.py` (`register_allowed_hosts`),
+`run_command.py` (`register_allowed_binaries`) and `git_ops.py`
+(`register_agent_git_identity` — git branch namespace + commit author; the branch
+prefix also guards `git_revert`). Kernel defaults cover code-hosting, generic
+verifiers and a neutral `agentix-agent` identity; the app extends at startup.
+*LUDO:* adds `odoo.com` hosts, the `odoo-bin` binary, and the `ludo/port-spike-`
+branch identity.
 
 ### 8. Skills — `SkillCatalog(skills_root)`
 `src/agentix/skills/catalog.py`. The app points the catalog at its own skill-bundle

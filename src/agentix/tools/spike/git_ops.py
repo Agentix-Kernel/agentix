@@ -2,17 +2,19 @@
 
  substrate. The agent commits per logical change so the operator
 can review the port as a normal PR. The output dir is auto-`git init`'d
-by ``spike_port_module`` before the loop starts; the agent operates on a
-``ludo/port-spike-<session>`` branch only.
+by the app's spike driver before the loop starts; the agent operates on a
+``<branch_prefix><session>`` branch only.
 
-Author identity is fixed: ``ludo-agent <session-id>@ludo.local`` so
-``git log`` cleanly separates agent commits from operator commits.
+Author identity is app-registered (:func:`register_agent_git_identity`, same
+extender seam as the sandbox allowlists) so ``git log`` cleanly separates agent
+commits from operator commits. Kernel defaults are neutral (``agentix-agent``).
 """
 
 from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import structlog
@@ -24,8 +26,32 @@ from agentix.tools.base import Tool, ToolContext, elapsed_ms, ensure_input
 log = structlog.get_logger(__name__)
 
 
-_AGENT_BRANCH_PREFIX = "ludo/port-spike-"
-_AGENT_NAME = "ludo-agent"
+@dataclass(frozen=True)
+class AgentGitIdentity:
+    """The agent's git namespace + author identity for spike VCS tools.
+
+    Apps register their own at startup (seam — like the sandbox allowlist
+    extenders); the branch prefix also guards ``git_revert`` so the agent can
+    never touch operator branches.
+    """
+
+    branch_prefix: str = "agentix/port-spike-"
+    name: str = "agentix-agent"
+    email_domain: str = "agentix.local"
+
+
+_IDENTITY = AgentGitIdentity()
+
+
+def register_agent_git_identity(identity: AgentGitIdentity) -> None:
+    """App seam: set the agent's git branch namespace + author identity."""
+    global _IDENTITY
+    _IDENTITY = identity
+
+
+def agent_git_identity() -> AgentGitIdentity:
+    """The registered identity (kernel-neutral defaults until an app registers)."""
+    return _IDENTITY
 
 
 # ─────────────────────── git_status ───────────────────────
@@ -155,9 +181,9 @@ class GitCommit(Tool):
     name = "git_commit"
     description = (
         "Commit the agent's edits inside the spike output dir. Author is "
-        "fixed (`ludo-agent`). Pass an empty `paths` list to stage every "
-        "change, or list specific files. Returns the new commit SHA so the "
-        "agent can reference it in subsequent reasoning."
+        "the registered agent identity. Pass an empty `paths` list to stage "
+        "every change, or list specific files. Returns the new commit SHA so "
+        "the agent can reference it in subsequent reasoning."
     )
     input_schema = GitCommitInput
     output_schema = GitCommitOutput
@@ -178,12 +204,13 @@ class GitCommit(Tool):
             raise RuntimeError(f"git add failed: {add_proc.stderr.strip()}")
 
         # Author identity ties the commit to this session.
-        author = f"{_AGENT_NAME} <{ctx.session.id}@ludo.local>"
+        ident = agent_git_identity()
+        author = f"{ident.name} <{ctx.session.id}@{ident.email_domain}>"
         commit_args = [
             "-c",
-            f"user.name={_AGENT_NAME}",
+            f"user.name={ident.name}",
             "-c",
-            f"user.email={ctx.session.id}@ludo.local",
+            f"user.email={ctx.session.id}@{ident.email_domain}",
             "commit",
             "--author",
             author,
@@ -254,18 +281,19 @@ class GitRevert(Tool):
         started = time.perf_counter_ns()
         cwd = output_root(ctx)
         # Sanity: reject reverts on a branch that isn't the agent's.
+        ident = agent_git_identity()
         branch = await _current_branch(cwd)
-        if not branch.startswith(_AGENT_BRANCH_PREFIX):
+        if not branch.startswith(ident.branch_prefix):
             raise RuntimeError(
                 f"git_revert refused: branch {branch!r} is not an agent branch "
-                f"(must start with {_AGENT_BRANCH_PREFIX!r})"
+                f"(must start with {ident.branch_prefix!r})"
             )
         revert_proc = await _run_git(
             [
                 "-c",
-                f"user.name={_AGENT_NAME}",
+                f"user.name={ident.name}",
                 "-c",
-                f"user.email={ctx.session.id}@ludo.local",
+                f"user.email={ctx.session.id}@{ident.email_domain}",
                 "revert",
                 "--no-edit",
                 params.sha,
