@@ -1,7 +1,7 @@
 """Kernel configuration — the resolved settings the engine + providers need.
 
-``KernelConfig`` is the app-agnostic config the kernel runtime factories
-(:mod:`agentix.runtime`) consume: storage locations, the LLM provider configs, the
+``KernelConfig`` is the app-agnostic config the kernel driver factory
+(:mod:`agentix.drivers.factory`) consumes: storage locations, the LLM provider configs, the
 per-session budget, and the pricing table. Apps subclass it to add their own resolved
 settings (e.g. the migration app's ``ResolvedConfig`` adds Odoo credentials + customers).
 
@@ -114,7 +114,7 @@ class DriverSpec:
 
 @dataclass(frozen=True)
 class KernelConfig:
-    """Resolved kernel settings consumed by :mod:`agentix.runtime`.
+    """Resolved kernel settings consumed by :mod:`agentix.drivers.factory`.
 
     Apps subclass this to attach their own resolved settings. All app-extension fields
     must carry defaults (frozen-dataclass inheritance appends them after these).
@@ -141,7 +141,7 @@ class KernelConfig:
 
 # --- Provider selection — single source of truth for "which provider is active" ---
 #
-# Both the kernel runtime (``build_llm_provider``) and app-side config loaders
+# Both the kernel driver factory (``build_drivers``) and app-side config loaders
 # (e.g. ludo-agent's config report) previously mirrored these predicates and
 # drifted independently. They now share one code path.
 

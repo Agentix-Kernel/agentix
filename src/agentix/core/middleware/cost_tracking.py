@@ -114,7 +114,7 @@ class CostTrackingMiddleware:
         per-turn delta to SQLite (legacy behaviour, kept for backwards
         compat with tests that don't set up :class:`CostRecordingProvider`).
         Default ``False`` — production paths build providers via
-        ``_build_llm_provider`` which wires ``CostRecordingProvider``,
+        ``build_drivers`` which wires ``CostRecordingChatDriver``,
         and double-writing here would over-count. New tests should
         prefer the provider-level wiring; only legacy / engine-direct
         tests pass ``persist_to_sqlite=True``.

@@ -14,7 +14,7 @@ Anthropic-shaped wire format:
 
 Switching between upstream providers is a config knob —
 ``providers.huble.upstream_provider`` — not a code change. The
-agent loop sees the same ``LlmResponse`` shape regardless of whether
+agent loop sees the same ``ChatResponse`` shape regardless of whether
 HUBLE routes to Claude or Melious.
 
 Auth: single ``X-API-Key`` header, env var ``LLMHUB_API_KEY``.
@@ -29,12 +29,12 @@ import httpx
 import structlog
 
 from agentix.core.types import Message, TokenUsage, ToolCall
-from agentix.drivers._compat import (
-    LlmInvalidRequest,
-    LlmRateLimit,
-    LlmUnavailable,
+from agentix.drivers.base import (
+    DriverDescriptor,
+    DriverInvalidRequest,
+    DriverRateLimited,
+    DriverUnavailable,
 )
-from agentix.drivers.base import DriverDescriptor
 from agentix.drivers.chat import ChatRequest, ChatResponse
 
 log = structlog.get_logger(__name__)
@@ -44,7 +44,7 @@ _AGENT_CHAT_PATH = "/api/v2/agent/chat"
 _DEFAULT_TIMEOUT_S = 300.0
 # Gateway-side validator rejects max_tokens above this (HTTP 422,
 # `le=16000`). Provider clamps so callers can keep the generous
-# LlmRequest default without knowing per-provider wire limits.
+# ChatRequest default without knowing per-provider wire limits.
 _HUBLE_MAX_OUTPUT_TOKENS = 16_000
 
 
@@ -57,8 +57,8 @@ class HubleChatDriver:
 
     HUBLE's response is always Anthropic-shaped (``content`` block list
     with ``text`` + ``tool_use`` entries) regardless of upstream — that's
-    the gateway's job. We translate only ``LlmRequest`` → HUBLE payload
-    and HUBLE's content blocks → ``LlmResponse``; no per-upstream
+    the gateway's job. We translate only ``ChatRequest`` → HUBLE payload
+    and HUBLE's content blocks → ``ChatResponse``; no per-upstream
     branching here.
     """
 
@@ -86,19 +86,19 @@ class HubleChatDriver:
         timeout_seconds: float = _DEFAULT_TIMEOUT_S,
     ) -> None:
         # ``model`` is required — no default. Config resolves it from YAML
-        # (``_build_llm_provider`` in ``ludo.config``); ad-hoc callers
+        # (the app's config loader feeding ``build_drivers``); ad-hoc callers
         # must pass one explicitly.
         if not model:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 "HUBLE: model is required (e.g. 'deepseek-v4-flash'); no default — config or caller must specify",
-                provider=self.name,
+                driver=self.name,
             )
         self._base_url = (base_url or os.environ.get("LLMHUB_URL") or _DEFAULT_BASE_URL).rstrip("/")
         key = api_key or os.environ.get("LLMHUB_API_KEY")
         if not key:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 "HUBLE: no API key — set LLMHUB_API_KEY or pass api_key=",
-                provider=self.name,
+                driver=self.name,
             )
         self._api_key = key
         self._upstream_provider = upstream_provider
@@ -143,7 +143,7 @@ class HubleChatDriver:
             "model": model,
             "messages": turns,
             # The gateway validates max_tokens <= 16000 (HTTP 422 above
-            # that). Clamping here keeps the generous LlmRequest default
+            # that). Clamping here keeps the generous ChatRequest default
             # usable across providers — each provider trims to its own
             # wire ceiling instead of callers knowing per-provider limits.
             "max_tokens": min(request.max_tokens, _HUBLE_MAX_OUTPUT_TOKENS),
@@ -182,41 +182,41 @@ class HubleChatDriver:
         try:
             response = await self._client.post(_AGENT_CHAT_PATH, json=payload)
         except (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError) as exc:
-            raise LlmUnavailable(f"HUBLE unreachable: {exc}", provider=self.name) from exc
+            raise DriverUnavailable(f"HUBLE unreachable: {exc}", driver=self.name) from exc
         except httpx.TimeoutException as exc:
-            raise LlmUnavailable(f"HUBLE timeout: {exc}", provider=self.name) from exc
+            raise DriverUnavailable(f"HUBLE timeout: {exc}", driver=self.name) from exc
 
         if response.status_code == 429:
-            raise LlmRateLimit(_status_message(response), provider=self.name)
+            raise DriverRateLimited(_status_message(response), driver=self.name)
         if response.status_code >= 500:
             # Defence-in-depth: HUBLE sometimes wraps upstream 400s
             # (context overflow, malformed request) as 500s, which causes
             # the router to retry a fundamentally non-retriable error 3x and
             # waste tokens on every full input payload. Sniff the body
             # for the canonical upstream-400 signatures and re-classify
-            # as LlmInvalidRequest (no-retry). Proper fix lives in HUBLE.
+            # as DriverInvalidRequest (no-retry). Proper fix lives in HUBLE.
             msg = _status_message(response)
             if _looks_like_wrapped_4xx(msg):
-                raise LlmInvalidRequest(
+                raise DriverInvalidRequest(
                     f"{msg} (HUBLE wrapped upstream 4xx as 5xx — see #143)",
-                    provider=self.name,
+                    driver=self.name,
                 )
-            raise LlmUnavailable(msg, provider=self.name)
+            raise DriverUnavailable(msg, driver=self.name)
         if response.status_code >= 400:
-            raise LlmInvalidRequest(_status_message(response), provider=self.name)
+            raise DriverInvalidRequest(_status_message(response), driver=self.name)
 
         try:
             body = response.json()
         except ValueError as exc:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"HUBLE returned non-JSON body: {response.text[:200]}",
-                provider=self.name,
+                driver=self.name,
             ) from exc
 
         if not body.get("success", True):
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"HUBLE success=false: {body.get('detail') or body.get('message') or body}",
-                provider=self.name,
+                driver=self.name,
             )
 
         return _parse_huble_response(body, model)

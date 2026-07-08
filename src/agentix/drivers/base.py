@@ -8,8 +8,8 @@ system-agnostic: a future database or queue driver registers through the
 same descriptor + lifecycle + error taxonomy without any kernel change.
 
 This module is the import root of ``agentix.drivers`` — it imports nothing
-from ``agentix.llm`` (the chat driver family builds on top of it, never the
-other way round).
+from the rest of the package (per-kind families build on top of it, never
+the other way round).
 
 Canonical doc: ``docs/drivers.md``.
 """

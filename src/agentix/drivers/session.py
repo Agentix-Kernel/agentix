@@ -13,7 +13,7 @@ import contextvars
 # ContextVar threading: default None = no session bound (e.g. CLI-level
 # probes that aren't part of a tracked run).
 current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "agentix.llm.current_session_id", default=None
+    "agentix.drivers.current_session_id", default=None
 )
 
 

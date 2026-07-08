@@ -19,7 +19,7 @@ def test_importing_kernel_pulls_in_no_app_module() -> None:
     from agentix.core.agent_dispatcher import AgentDispatcher, DispatchGuard, TerminationPolicy  # noqa: F401
     from agentix.core.engine import Engine  # noqa: F401
     from agentix.core.session import Session, create_session  # noqa: F401
-    from agentix.llm.router import ProviderRouter  # noqa: F401
+    from agentix.drivers.router import ChatFailoverChain  # noqa: F401
     from agentix.storage import MinioStore, SqliteStore  # noqa: F401
     from agentix.tools.safety import SafetyGate  # noqa: F401
 

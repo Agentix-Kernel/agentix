@@ -89,11 +89,10 @@ class AgentDispatcher:
     def __init__(
         self,
         *,
+        driver: ChatDriver,
         registry: ToolRegistry,
         safety_gate: SafetyGate,
         ctx_factory: CtxFactory,
-        driver: ChatDriver | None = None,
-        provider: ChatDriver | None = None,
         max_tool_iterations: int = 50,
         tool_choice: Literal["auto", "any", "none"] | None = "auto",
         request_defaults: ChatRequest | None = None,
@@ -101,13 +100,7 @@ class AgentDispatcher:
         dispatch_guards: list[DispatchGuard] | None = None,
         default_tool_timeout_seconds: float = 300.0,
     ) -> None:
-        # ``driver=`` is the canonical kwarg; ``provider=`` is the migration
-        # alias (removed in 0.5.0 final).
-        if driver is None and provider is None:
-            raise TypeError("AgentDispatcher requires driver= (a ChatDriver)")
-        if driver is not None and provider is not None:
-            raise TypeError("AgentDispatcher: pass driver= OR provider=, not both")
-        self._driver = driver if driver is not None else provider
+        self._driver = driver
         self._registry = registry
         self._safety_gate = safety_gate
         self._ctx_factory = ctx_factory
@@ -157,7 +150,7 @@ class AgentDispatcher:
             # bounds concurrent provider calls across all sessions/fan-out.
             request = self._build_request(turn, specs, session=ctx.session)
             async with driver_capacity():
-                response = await self._driver.complete(request)  # type: ignore[union-attr]
+                response = await self._driver.complete(request)
 
             # Accumulate usage across every LLM call in this engine turn.
             turn.usage.input_tokens += response.usage.input_tokens

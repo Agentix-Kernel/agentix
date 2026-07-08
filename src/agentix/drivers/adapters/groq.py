@@ -9,13 +9,13 @@ import groq
 import structlog
 
 from agentix.core.types import TokenUsage
-from agentix.drivers._compat import (
-    LlmInvalidRequest,
-    LlmRateLimit,
-    LlmUnavailable,
-)
 from agentix.drivers.adapters.openai import _parse_openai_tool_calls, _to_openai
-from agentix.drivers.base import DriverDescriptor
+from agentix.drivers.base import (
+    DriverDescriptor,
+    DriverInvalidRequest,
+    DriverRateLimited,
+    DriverUnavailable,
+)
 from agentix.drivers.chat import ChatRequest, ChatResponse
 
 log = structlog.get_logger(__name__)
@@ -49,9 +49,9 @@ class GroqChatDriver:
     ) -> None:
         key = api_key or os.environ.get("GROQ_API_KEY")
         if not key:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 "no Groq API key (set GROQ_API_KEY or pass api_key)",
-                provider=self.name,
+                driver=self.name,
             )
         self.default_model = model or _DEFAULT_MODEL
         self._client = groq.AsyncGroq(api_key=key, timeout=timeout_seconds)
@@ -88,13 +88,13 @@ class GroqChatDriver:
         try:
             response = await self._client.chat.completions.create(**kwargs)
         except groq.RateLimitError as e:
-            raise LlmRateLimit(str(e), provider=self.name) from e
+            raise DriverRateLimited(str(e), driver=self.name) from e
         except groq.APIStatusError as e:
             if e.status_code and e.status_code >= 500:
-                raise LlmUnavailable(str(e), provider=self.name) from e
-            raise LlmInvalidRequest(str(e), provider=self.name) from e
+                raise DriverUnavailable(str(e), driver=self.name) from e
+            raise DriverInvalidRequest(str(e), driver=self.name) from e
         except (groq.APIConnectionError, groq.APITimeoutError) as e:
-            raise LlmUnavailable(str(e), provider=self.name) from e
+            raise DriverUnavailable(str(e), driver=self.name) from e
 
         choice = response.choices[0]
         usage = response.usage

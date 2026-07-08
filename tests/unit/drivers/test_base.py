@@ -70,26 +70,6 @@ def test_base_error_defaults_to_not_retryable() -> None:
     assert DriverError("x", driver="d").retryable is False
 
 
-# ───────────────────── LlmError re-base (until 0.5.0 final) ─────────────────────
-
-
-def test_llm_errors_are_driver_errors() -> None:
-    from agentix.llm.base import LlmError, LlmInvalidRequest, LlmRateLimit, LlmUnavailable
-
-    for cls, retryable in ((LlmRateLimit, True), (LlmUnavailable, True), (LlmInvalidRequest, False)):
-        err = cls("boom", provider="p1")
-        assert isinstance(err, DriverError)
-        assert err.retryable is retryable
-        # provider is a read-only alias of driver during the migration window.
-        assert err.provider == "p1"
-        assert err.driver == "p1"
-        assert err.provider == err.driver
-
-    generic = LlmError("x", provider="p2", retryable=True)
-    assert isinstance(generic, DriverError)
-    assert generic.retryable is True
-
-
 # ───────────────────── base protocol ─────────────────────
 
 

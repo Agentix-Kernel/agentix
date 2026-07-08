@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-from agentix.embeddings import EmbeddingResult
+from agentix.drivers.embedding import EmbeddingResult
 
 
 class DeterministicEmbedder:

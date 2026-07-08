@@ -19,9 +19,9 @@ surface is `async def` — `Engine.run_turn` (the sole turn entry point), every
 store method, every provider `complete()`, every `Tool.call()`, every middleware.
 There is no `asyncio.run` anywhere in `src/agentix/`: the app decides where the
 loop lives (a worker process, a FastAPI server, a CLI `asyncio.run`), the kernel
-never spawns or assumes one. The `runtime.py` builders (`build_llm_provider`,
-`build_embedding_provider`) are plain sync functions that *return* async objects
-— construct the graph anywhere, drive it on a loop.
+never spawns or assumes one. The driver factory (`build_drivers`) is a
+plain sync function that *returns* async objects — construct the graph anywhere,
+drive it on a loop.
 
 The minimal app:
 
@@ -41,7 +41,7 @@ Fan-out over sessions is structured concurrency on the app side, one task per
 session with its own cost scope:
 
 ```python
-from agentix.llm.cost_recorder import session_scope
+from agentix.drivers.session import session_scope
 
 async def run_one(session):
     async with session_scope(session.id):     # per-task cost binding (I1)

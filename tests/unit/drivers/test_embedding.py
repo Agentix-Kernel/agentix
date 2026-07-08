@@ -5,14 +5,14 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from agentix.embeddings import (
-    CachedEmbeddingProvider,
-    CosineIndex,
+from agentix.drivers.embedding import (
+    CachedEmbeddingDriver,
     EmbeddingCache,
     EmbeddingError,
-    HubleEmbeddingProvider,
+    HubleEmbeddingDriver,
 )
 from agentix.storage import SqliteStore
+from agentix.storage.vector_index import CosineIndex
 from tests.unit.conftest import DeterministicEmbedder as _DeterministicEmbedder
 
 # ──────────────────────── CosineIndex ────────────────────────
@@ -80,7 +80,7 @@ async def test_embedding_cache_isolates_by_model(sqlite: SqliteStore) -> None:
     assert v1 != v2
 
 
-# ──────────────────────── CachedEmbeddingProvider ─────────────
+# ──────────────────────── CachedEmbeddingDriver ─────────────
 
 
 @pytest.mark.asyncio
@@ -89,7 +89,7 @@ async def test_cached_provider_short_circuits_repeat_calls(sqlite: SqliteStore) 
     receives zero requests on the repeat."""
     upstream = _DeterministicEmbedder()
     cache = EmbeddingCache(sqlite=sqlite)
-    cached = CachedEmbeddingProvider(upstream=upstream, cache=cache)
+    cached = CachedEmbeddingDriver(upstream=upstream, cache=cache)
 
     first = await cached.embed(["alpha", "beta"])
     assert len(first) == 2
@@ -115,7 +115,7 @@ async def test_cached_provider_partial_cache_only_misses_upstream(sqlite: Sqlite
     the upstream — and in a single batched call."""
     upstream = _DeterministicEmbedder()
     cache = EmbeddingCache(sqlite=sqlite)
-    cached = CachedEmbeddingProvider(upstream=upstream, cache=cache)
+    cached = CachedEmbeddingDriver(upstream=upstream, cache=cache)
 
     await cached.embed(["alpha"])  # primes cache for alpha
     upstream.calls.clear()
@@ -127,12 +127,12 @@ async def test_cached_provider_partial_cache_only_misses_upstream(sqlite: Sqlite
     assert sorted(upstream.calls[0]) == sorted(["beta", "gamma"])
 
 
-# ──────────────────────── HubleEmbeddingProvider ──────────────
+# ──────────────────────── HubleEmbeddingDriver ──────────────
 
 
 def _patch_huble_transport(monkeypatch: pytest.MonkeyPatch, handler):  # type: ignore[no-untyped-def]
     """Replace AsyncClient inside the provider with a MockTransport handler."""
-    import agentix.embeddings as embeddings_mod
+    import agentix.drivers.embedding as embeddings_mod
 
     real_async_client = httpx.AsyncClient
 
@@ -164,7 +164,7 @@ async def test_huble_embedding_round_trip(monkeypatch: pytest.MonkeyPatch) -> No
         )
 
     _patch_huble_transport(monkeypatch, handler)
-    provider = HubleEmbeddingProvider(
+    provider = HubleEmbeddingDriver(
         base_url="http://localhost:4000",
         api_key="test-key",
         model="text-embedding-3-small",
@@ -190,7 +190,7 @@ async def test_huble_embedding_404_surfaces_clear_error(monkeypatch: pytest.Monk
         return httpx.Response(404, text="not found")
 
     _patch_huble_transport(monkeypatch, handler)
-    provider = HubleEmbeddingProvider(base_url="http://localhost:4000", api_key="k", model="text-embedding-3-small")
+    provider = HubleEmbeddingDriver(base_url="http://localhost:4000", api_key="k", model="text-embedding-3-small")
     with pytest.raises(EmbeddingError, match="embeddings endpoint"):
         await provider.embed(["x"])
     await provider.aclose()
@@ -205,7 +205,7 @@ async def test_huble_embedding_malformed_response_raises(monkeypatch: pytest.Mon
         return httpx.Response(200, json={"unexpected": "shape"})
 
     _patch_huble_transport(monkeypatch, handler)
-    provider = HubleEmbeddingProvider(base_url="http://localhost:4000", api_key="k", model="text-embedding-3-small")
+    provider = HubleEmbeddingDriver(base_url="http://localhost:4000", api_key="k", model="text-embedding-3-small")
     with pytest.raises(EmbeddingError, match="malformed"):
         await provider.embed(["x"])
     await provider.aclose()
@@ -214,6 +214,6 @@ async def test_huble_embedding_malformed_response_raises(monkeypatch: pytest.Mon
 def test_huble_embedding_requires_base_url_and_key() -> None:
     """Construction-time guards — no silent fallback to a global default."""
     with pytest.raises(EmbeddingError, match="base_url"):
-        HubleEmbeddingProvider(base_url="", api_key="k", model="m")
+        HubleEmbeddingDriver(base_url="", api_key="k", model="m")
     with pytest.raises(EmbeddingError, match="api_key"):
-        HubleEmbeddingProvider(base_url="http://x", api_key="", model="m")
+        HubleEmbeddingDriver(base_url="http://x", api_key="", model="m")

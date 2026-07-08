@@ -29,13 +29,13 @@ import anthropic
 import structlog
 
 from agentix.core.types import Message, TokenUsage, ToolCall
-from agentix.drivers._compat import (
-    LlmInvalidRequest,
-    LlmRateLimit,
-    LlmUnavailable,
-)
 from agentix.drivers.adapters.anthropic_auth import TokenSource, resolve_token_source
-from agentix.drivers.base import DriverDescriptor
+from agentix.drivers.base import (
+    DriverDescriptor,
+    DriverInvalidRequest,
+    DriverRateLimited,
+    DriverUnavailable,
+)
 from agentix.drivers.chat import ChatRequest, ChatResponse
 
 log = structlog.get_logger(__name__)
@@ -200,13 +200,13 @@ class AnthropicChatDriver:
         try:
             response = await client.messages.create(**kwargs)
         except anthropic.RateLimitError as e:
-            raise LlmRateLimit(str(e), provider=self.name) from e
+            raise DriverRateLimited(str(e), driver=self.name) from e
         except anthropic.APIStatusError as e:
             if e.status_code and e.status_code >= 500:
-                raise LlmUnavailable(str(e), provider=self.name) from e
-            raise LlmInvalidRequest(str(e), provider=self.name) from e
+                raise DriverUnavailable(str(e), driver=self.name) from e
+            raise DriverInvalidRequest(str(e), driver=self.name) from e
         except (anthropic.APIConnectionError, anthropic.APITimeoutError) as e:
-            raise LlmUnavailable(str(e), provider=self.name) from e
+            raise DriverUnavailable(str(e), driver=self.name) from e
 
         return _from_anthropic_response(response, model)
 

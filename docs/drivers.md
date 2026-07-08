@@ -39,9 +39,9 @@ expandability mechanism.
 - **Error taxonomy** — `DriverError(message, *, driver, retryable=False)`;
   `DriverRateLimited` / `DriverUnavailable` (retryable) vs `DriverInvalidRequest`
   (not). Classification happens once, in the adapter; everything upstream (failover
-  chain, Retry middleware) just branches on `retryable`. The legacy `Llm*` names live
-  in `drivers/_compat.py`, dual-inherited into this taxonomy for the migration window
-  only — **removed in 0.5.0 final** along with every `agentix.llm.*` shim module.
+  chain, Retry middleware) just branches on `retryable`. The legacy `Llm*` names and every
+  `agentix.llm.*` / `agentix.embeddings` shim were **removed in 0.5.0**; the rename
+  table ships in `CHANGELOG.md`.
 
 ## 2. Chat driver family (`drivers/chat.py`, `drivers/adapters/`)
 
@@ -57,8 +57,7 @@ expandability mechanism.
   [`routing.md`](routing.md) §2.
 - `CostRecordingChatDriver` (`drivers/cost.py`) — the chat cost decorator; recording
   semantics canonical in [`budgets.md`](budgets.md) §3.
-- The dispatcher consumes a `ChatDriver` (constructor kwarg `driver=`; `provider=` is
-  the migration alias, removed in 0.5.0 final).
+- The dispatcher consumes a `ChatDriver` (constructor kwarg `driver=`).
 
 ## 3. Embedding driver family (`drivers/embedding.py`)
 
@@ -168,6 +167,3 @@ driver, not in the kernel.
   before a second consumer exists).
 - **Config collapse** — fold `anthropic:`/`huble:`/`melious:` into `drivers:` (v0.6).
 - **Lifecycle verbs** — `health()` / `warmup()` for local-runtime drivers.
-- **0.5.0 final removal** — delete `agentix/llm/` + `agentix/embeddings.py` shims,
-  `drivers/_compat.py`, `build_llm_provider`/`build_embedding_provider`, the
-  dispatcher `provider=` alias. Rename table ships in the changelog.

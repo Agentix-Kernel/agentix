@@ -18,7 +18,7 @@ Four sources, all implementing :class:`TokenSource`:
 
 :func:`resolve_token_source` is the factory used by AnthropicProvider:
 it tries the configured sources in order and raises
-:class:`LlmInvalidRequest` if none produce a token.
+:class:`DriverInvalidRequest` if none produce a token.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from agentix.drivers._compat import LlmInvalidRequest
+from agentix.drivers.base import DriverInvalidRequest
 
 _OAUTH_PREFIX = "sk-ant-oat"
 
@@ -45,7 +45,7 @@ class TokenSource(Protocol):
     """
 
     def get_token(self) -> tuple[str, bool]:
-        """Return ``(token, is_oauth)``. May raise :class:`LlmInvalidRequest`."""
+        """Return ``(token, is_oauth)``. May raise :class:`DriverInvalidRequest`."""
         ...
 
 
@@ -69,9 +69,9 @@ class EnvTokenSource:
     def get_token(self) -> tuple[str, bool]:
         value = os.environ.get(self.var_name)
         if not value:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"env var {self.var_name!r} is unset",
-                provider="anthropic",
+                driver="anthropic",
             )
         return value, value.startswith(_OAUTH_PREFIX)
 
@@ -91,21 +91,21 @@ class FileTokenSource:
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError as e:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"Claude credentials file not found at {self.path}",
-                provider="anthropic",
+                driver="anthropic",
             ) from e
         except (OSError, json.JSONDecodeError) as e:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"could not parse Claude credentials at {self.path}: {e}",
-                provider="anthropic",
+                driver="anthropic",
             ) from e
         oauth = payload.get("claudeAiOauth") or {}
         token = oauth.get("accessToken")
         if not token:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"no accessToken in claudeAiOauth at {self.path}",
-                provider="anthropic",
+                driver="anthropic",
             )
         return str(token), True
 
@@ -137,34 +137,34 @@ class KeychainTokenSource:
                 timeout=10.0,
             )
         except FileNotFoundError as e:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 "macOS 'security' CLI not available; Keychain token source only works on macOS",
-                provider="anthropic",
+                driver="anthropic",
             ) from e
         except subprocess.TimeoutExpired as e:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"'security find-generic-password -s {self.service_name}' timed out",
-                provider="anthropic",
+                driver="anthropic",
             ) from e
         if result.returncode != 0:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"Keychain lookup for service {self.service_name!r} failed "
                 f"(exit={result.returncode}): {result.stderr.strip()[:200]}",
-                provider="anthropic",
+                driver="anthropic",
             )
         try:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError as e:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"Keychain payload for {self.service_name!r} is not JSON: {e}",
-                provider="anthropic",
+                driver="anthropic",
             ) from e
         oauth = payload.get("claudeAiOauth") or {}
         token = oauth.get("accessToken")
         if not token:
-            raise LlmInvalidRequest(
+            raise DriverInvalidRequest(
                 f"no accessToken in Keychain service {self.service_name!r}",
-                provider="anthropic",
+                driver="anthropic",
             )
         return str(token), True
 
@@ -176,16 +176,16 @@ class ChainTokenSource:
     sources: tuple[TokenSource, ...]
 
     def get_token(self) -> tuple[str, bool]:
-        last_error: LlmInvalidRequest | None = None
+        last_error: DriverInvalidRequest | None = None
         for source in self.sources:
             try:
                 return source.get_token()
-            except LlmInvalidRequest as e:
+            except DriverInvalidRequest as e:
                 last_error = e
                 continue
-        raise last_error or LlmInvalidRequest(
+        raise last_error or DriverInvalidRequest(
             "no Claude credentials found (no sources configured)",
-            provider="anthropic",
+            driver="anthropic",
         )
 
 

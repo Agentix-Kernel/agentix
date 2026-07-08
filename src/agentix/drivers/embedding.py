@@ -46,9 +46,9 @@ __all__ = [
 class EmbeddingError(DriverError, RuntimeError):
     """Raised when an embedding driver fails or is misconfigured.
 
-    Re-based into the driver taxonomy; the ``RuntimeError`` base is kept
-    for legacy ``except RuntimeError`` consumers (dropped in 0.5.0 final).
-    Finer retryable classification (network vs config) is DIRECTION.
+    Part of the driver taxonomy; the ``RuntimeError`` base is kept for
+    ``except RuntimeError`` consumers. Finer retryable classification
+    (network vs config) is DIRECTION.
     """
 
     def __init__(self, message: str) -> None:

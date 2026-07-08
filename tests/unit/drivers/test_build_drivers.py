@@ -203,17 +203,3 @@ def test_dotted_path_driver_construction() -> None:
     dotted = registry.get("dotted")
     assert dotted.descriptor.kind == "database"
     assert dotted.api_key == "s3cr3t"  # type: ignore[attr-defined]
-
-
-# ── legacy runtime factories stay behaviourally identical ─────────
-
-
-def test_build_llm_provider_delegation_parity() -> None:
-    from agentix.runtime import build_llm_provider
-
-    cfg = _cfg(huble=HubleConfig(enabled=True, base_url="https://h.example", api_key="k"))
-    with patch("agentix.drivers.adapters.huble.HubleChatDriver", _FakeHuble):
-        bare = build_llm_provider(cfg)
-        chained = build_llm_provider(cfg, always_router=True)
-    assert isinstance(bare, _FakeHuble)
-    assert isinstance(chained, ChatFailoverChain)

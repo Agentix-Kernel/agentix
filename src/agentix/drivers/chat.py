@@ -5,9 +5,6 @@ chat adapter translates the kernel's canonical ``ChatRequest`` into its
 vendor-specific shape and back. The failover chain lives above the protocol
 and sequences drivers for fallback.
 
-``ChatRequest``/``ChatResponse`` are the re-homed ``LlmRequest``/
-``LlmResponse`` — field-identical; the old names remain aliases in
-``agentix.llm.base`` until 0.5.0 final.
 """
 
 from __future__ import annotations

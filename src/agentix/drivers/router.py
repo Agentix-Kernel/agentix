@@ -16,7 +16,6 @@ from collections.abc import Awaitable, Callable
 
 import structlog
 
-from agentix.drivers._compat import LlmError
 from agentix.drivers.base import DriverDescriptor, DriverError, DriverInvalidRequest
 from agentix.drivers.chat import ChatDriver, ChatRequest, ChatResponse
 
@@ -27,17 +26,12 @@ FailoverCallback = Callable[[str, str, DriverError], Awaitable[None]]
 log = structlog.get_logger(__name__)
 
 
-class NoDriversAvailable(LlmError):
-    """Every configured driver failed for the request.
-
-    Subclasses the migration-window ``LlmError`` (itself a ``DriverError``)
-    so both ``except DriverError`` and legacy ``except LlmError`` catch
-    chain exhaustion; re-based to plain ``DriverError`` in 0.5.0 final.
-    """
+class NoDriversAvailable(DriverError):
+    """Every configured driver failed for the request."""
 
     def __init__(self, attempts: list[tuple[str, str]]) -> None:
         detail = "; ".join(f"{name}: {err}" for name, err in attempts)
-        super().__init__(f"all providers failed ({detail})", provider="router", retryable=False)
+        super().__init__(f"all providers failed ({detail})", driver="router", retryable=False)
         self.attempts = attempts
 
 

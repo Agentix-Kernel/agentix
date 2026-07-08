@@ -42,7 +42,7 @@ KERNEL_SAFETY_KINDS: frozenset[str] = frozenset(
         "per_batch_verify_fail",
         "session_end_verify_fail",
         "memory_lock_timeout",
-        "provider_failover",  # ProviderRouter fell over to a fallback
+        "provider_failover",  # ChatFailoverChain fell over to a fallback
     }
 )
 

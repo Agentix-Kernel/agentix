@@ -37,8 +37,8 @@ idempotency/resume-key provider (design seam).
 ## Layout
 
 - `src/agentix/` — the kernel package (`core/`, `drivers/` — the external-system I/O
-  abstraction (chat/embedding/stt families; `llm/` + `embeddings.py` are migration shims
-  removed in 0.5.0 final), `tools/`, `skills/`, `a2a/`, `storage`, `config.py`, `runtime.py`).
+  abstraction (chat/embedding/stt families), `tools/`, `skills/`, `a2a/`, `storage`,
+  `config.py`).
 - `docs/` — kernel docs: `seams`, `async`, `sync`, `engine`, `drivers`, `routing`, `context`,
   `session`, `isolation`, `tools`, `skills`, `memory`, `budgets`, `a2a`, `eval`, `contracts`,
   `kernel-config-reference`, `sqlite_schema.sql`, + `contracts-consumer-guide.md`. The kernel

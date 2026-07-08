@@ -265,9 +265,7 @@ Three stores, one invariant: **data and memory never cross.**
 | `src/agentix/storage/` | • `SqliteStore`, `MinioStore`, `MemoryStore` |
 | `src/agentix/a2a/` | • `AgentCard`, `Capability` — the discovery model |
 | `src/agentix/config.py` | • `KernelConfig` + per-provider configs; apps subclass |
-| `src/agentix/runtime.py` | • legacy factory shims delegating to `build_drivers` (removed in 0.5.0 final) |
 | `src/agentix/events.py` | • Session event bus + the kernel's own neutral Contract-B envelope (drift-guarded against `contracts/`) |
-| `src/agentix/embeddings.py`, `src/agentix/llm/` | • migration shims over `agentix.drivers` (removed in 0.5.0 final) |
 
 ## How an app plugs in
 
