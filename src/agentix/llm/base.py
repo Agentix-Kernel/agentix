@@ -13,6 +13,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from agentix.core.types import Message, TokenUsage, ToolCall
+from agentix.drivers.base import DriverError
 
 
 class ToolSpec(BaseModel):
@@ -104,13 +105,21 @@ class LlmResponse(BaseModel):
     raw: dict[str, Any] = Field(default_factory=dict)
 
 
-class LlmError(Exception):
-    """Base class for provider errors surfaced to the router."""
+class LlmError(DriverError):
+    """Base class for provider errors surfaced to the router.
+
+    Re-based on the driver taxonomy (``agentix.drivers.base.DriverError``) —
+    the chat family's errors ARE driver errors. ``provider`` is kept as a
+    read-only alias of ``driver`` for the migration window (removed in
+    0.5.0 final).
+    """
 
     def __init__(self, message: str, *, provider: str, retryable: bool = False) -> None:
-        super().__init__(message)
-        self.provider = provider
-        self.retryable = retryable
+        super().__init__(message, driver=provider, retryable=retryable)
+
+    @property
+    def provider(self) -> str:
+        return self.driver
 
 
 class LlmRateLimit(LlmError):
