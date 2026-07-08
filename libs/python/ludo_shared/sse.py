@@ -4,7 +4,7 @@ One canonical implementation of the wire format that the gateway *encodes* and t
 *decode* (CRIE R-3 — previously hand-rolled in ludo-gateway projector + ludo-cli client).
 
 `decode_sse` is client-safe (used by public clients). `encode_sse` is used by the gateway
-relay. Contract A is SSE, NOT NDJSON — see contracts/README.md.
+relay. Contract A is SSE, NOT NDJSON — see agentix/docs/contracts.md.
 """
 
 from __future__ import annotations

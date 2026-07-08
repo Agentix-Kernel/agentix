@@ -218,7 +218,7 @@ Three stores, one invariant: **data and memory never cross.**
 - Versioned wire contracts as the single source of truth, generating Python, TypeScript and
   Swift.
 - Cross-repo drift guards so consumers never hand-maintain parallel copies.
-- Detail: [`docs/contracts-consumer-guide.md`](docs/contracts-consumer-guide.md) and [`contracts/`](contracts/).
+- Detail: [`docs/contracts.md`](docs/contracts.md) (contract set, codegen, drift guards, change rules); thin-client how-to: [`docs/contracts-consumer-guide.md`](docs/contracts-consumer-guide.md).
 
 ## Package tour
 
@@ -268,6 +268,7 @@ Canonical catalog with mechanisms and examples: [`docs/seams.md`](docs/seams.md)
 | [`docs/eval.md`](docs/eval.md) | • Honest outcomes, adversarial refute<br>• Verdict spine, Grader A/B, activatable judge |
 | [`docs/kernel-config-reference.md`](docs/kernel-config-reference.md) | • Env vars the kernel reads<br>• provider activation, pricing |
 | [`docs/sqlite_schema.sql`](docs/sqlite_schema.sql) | • Operational-store DDL |
+| [`docs/contracts.md`](docs/contracts.md) | • Contract set A/B/C + shared types<br>• codegen, shared libs, drift guards, change rules |
 | [`docs/contracts-consumer-guide.md`](docs/contracts-consumer-guide.md) | • Thin-client consumption of the public REST + SSE contract |
 
 ## Repo layout (shared machinery)
@@ -276,7 +277,7 @@ Beyond the kernel package, this repo owns the cross-repo machinery consumers ven
 
 | Path | What |
 |---|---|
-| `contracts/` | • Canonical versioned wire contracts (OpenAPI + JSON Schema) + shared types |
+| `contracts/` | • Canonical versioned wire contracts (OpenAPI + JSON Schema) + shared types — framework: [`docs/contracts.md`](docs/contracts.md) |
 | `constants/cluster.yaml` | • Single source for shared values (network, ports, env stages, locale) |
 | `templates/` | • `gitignore.base` · `ruff.toml` · `env.template` — vendored/aligned into consumer repos |
 | `libs/` | • Canonical shared wire-contract packages, generated from `contracts/` + `constants/` by `scripts/gen_shared.py`; consumers **vendor** them — the kernel wheel ships `src/agentix` only |

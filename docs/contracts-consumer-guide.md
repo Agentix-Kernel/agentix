@@ -4,6 +4,8 @@ How any **thin client** (desktop, CLI, mobile, web) consumes the gateway's **Con
 (REST + SSE). Client-agnostic; generalized from `ludo-desktop/MacOS/prd_macos.md` §3/5/7.
 The canonical schema is [`../contracts/contract_a.openapi.yaml`](../contracts/contract_a.openapi.yaml)
 — generate or hand-write typed DTOs **from it**, never from a sibling client's copy.
+The contracts framework (authorship, vendoring, drift guards, change rules) is
+[`contracts.md`](contracts.md).
 
 A client is a **thin** client: no migration logic, no MinIO/agent/broker access, no customer PII
 beyond the creds the user types for their own Odoo. Everything flows through the gateway (Contract A).

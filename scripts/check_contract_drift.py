@@ -2,7 +2,7 @@
 """check_contract_drift.py — fail if a consumer's vendored contract copy has drifted
 from the canonical set in `agentix/contracts/`.
 
-`agentix/contracts/` is the single source of truth (contracts/README.md). Clients
+`agentix/contracts/` is the single source of truth (docs/contracts.md). Clients
 vendor copies; this guards they stay byte-identical. Run from `agentix/` in CI / before
 a release. Best-effort: a sibling repo not checked out is skipped (reported), not a failure.
 
