@@ -99,7 +99,8 @@ turn = await engine.run_turn(session, Message(role="user", content="Summarise da
 - The innermost dispatch is a `TurnDispatcher` protocol, so tests swap in fakes without
   touching the chain.
 - The provider layer underneath (adapters, failover router, OAuth token sources):
-  [`docs/llm.md`](docs/llm.md).
+  [`docs/llm.md`](docs/llm.md); which model serves a request (chain order, failover,
+  routing direction): [`docs/routing.md`](docs/routing.md).
 - Detail: [`docs/engine.md`](docs/engine.md) (run_turn contract, middleware order, the nine layers).
 
 ### Cognitive escalation
@@ -265,7 +266,8 @@ Canonical catalog with mechanisms and examples: [`docs/seams.md`](docs/seams.md)
 | [`docs/skills.md`](docs/skills.md) | • Skill bundles, catalog<br>• progressive disclosure, loader |
 | [`docs/session.md`](docs/session.md) | • Session object, persistence<br>• checkpoints, resume, lease |
 | [`docs/engine.md`](docs/engine.md) | • Turn engine, middleware chain + order<br>• the nine layers, dispatcher seams |
-| [`docs/llm.md`](docs/llm.md) | • Provider protocol, adapters, OAuth token sources<br>• failover router, activation priority |
+| [`docs/llm.md`](docs/llm.md) | • Provider protocol, adapters, OAuth token sources<br>• activation predicates |
+| [`docs/routing.md`](docs/routing.md) | • Model routing: chain order, failover semantics<br>• direction: modality-general registry, policy seam |
 | [`docs/context.md`](docs/context.md) | • Window assembly, budget<br>• compression, eviction tiers, window report |
 | [`docs/memory.md`](docs/memory.md) | • Working memory, memory tiers<br>• page store, semantic recall |
 | [`docs/budgets.md`](docs/budgets.md) | • Money budget: cost recording, pricing table<br>• enforcement (compress-before-abort), account ceilings |
