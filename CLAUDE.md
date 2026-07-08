@@ -36,7 +36,7 @@ middleware append, storage subclassing, and the event-bus sink.
 
 - `src/agentix/` — the kernel package (`core/`, `llm/`, `tools/`, `skills/`, `a2a/`, `storage`,
   `config.py`, `runtime.py`).
-- `docs/` — kernel docs: `seams`, `context`, `session`, `isolation`, `tools`, `skills`,
+- `docs/` — kernel docs: `seams`, `engine`, `llm`, `context`, `session`, `isolation`, `tools`, `skills`,
   `memory`, `budgets`, `a2a`, `eval`, `contracts`, `kernel-config-reference`, `sqlite_schema.sql`,
   + `contracts-consumer-guide.md`. The kernel overview lives in `README.md`.
 - `contracts/` · `constants/` · `templates/` · `libs/` · `scripts/` — shared vendoring machinery
