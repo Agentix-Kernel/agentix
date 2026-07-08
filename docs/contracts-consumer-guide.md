@@ -109,7 +109,7 @@ Wrap every request and the SSE reopen in a bounded retry with **exponential back
 - **Attempt ceiling**: **commands/queries are bounded** (a max-attempt cap); the **SSE stream
   reconnects forever by design** (a live feed), but jittered so restarts don't herd the gateway.
   This is the canonical policy every client conforms to — see
-  [`proposals/client-sdk-direction.md`](proposals/client-sdk-direction.md) (the build-vs-skip decision).
+  `ludo-agent/docs/proposals/client-sdk-direction.md` (the build-vs-skip decision).
 - **Idempotency**: enqueue endpoints (`approve`/`resume`, `202`) take an `Idempotency-Key` —
   reuse the *same* key across retries of the same logical action so a replay can't double-submit.
   Pure reads (`GET`) are naturally safe to retry.

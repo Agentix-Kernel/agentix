@@ -33,7 +33,7 @@ NATS constants — data contracts, not app logic).
 - `src/agentix/` — the kernel package (`core/`, `llm/`, `tools/`, `skills/`, `a2a/`, `storage`,
   `config.py`, `runtime.py`).
 - `docs/` — kernel docs: `overview`, `context`, `session`, `isolation`, `tools`, `skills`,
-  `kernel-config-reference`, `sqlite_schema.sql`, + `contracts-consumer-guide.md`.
+  `memory`, `kernel-config-reference`, `sqlite_schema.sql`, + `contracts-consumer-guide.md`.
 - `contracts/` · `constants/` · `templates/` · `libs/` · `scripts/` — shared vendoring machinery.
 - `tests/` — kernel unit + integration; includes the two purity gates above.
 

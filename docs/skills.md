@@ -125,7 +125,7 @@ as a carrier for live legacy bundles and their trigger wiring.
 
 *Everything below is DIRECTION — converged design from the reference cluster
 (absorbed from the retired `proposals/agent-skills-catalog.md`), not the code
-today. Cluster context: [`proposals/agentic-cluster-a2a.md`](proposals/agentic-cluster-a2a.md)
+today. Cluster context: `ludo-agent/docs/proposals/agentic-cluster-a2a.md`
 (agent map, NATS trust zones, ActionGate). The server-side business/ops agents are
 W4 / kernel-phase — this names their skill shape; it does not ship runnable agents.*
 

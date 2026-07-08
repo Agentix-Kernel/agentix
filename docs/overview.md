@@ -20,7 +20,7 @@
 - Escalations descend the escalation ladder — compiled recipe (model stays asleep) → consult skill → novel reasoning — so the cheapest competent path wins; the loop then re-runs the step to re-prove it.
 - If the budget is spent before the step proves clean, the agent performs an *operator handoff* (distinct term: escalation = body wakes the model; handoff = agent gives up to a human).
 - The share of escalations absorbed at the compiled tier is the system's intelligence; the product metric is *escalations/customer → 0*.
-- Detail: `docs/tools.md` (the ladder), `proposals/eval-validation.md` (the metric rollup); reference implementation `ludo-agent/src/ludo/core/compose_loop.py`.
+- Detail: `docs/tools.md` (the ladder), `ludo-agent/docs/proposals/eval-validation.md` (the metric rollup); reference implementation `ludo-agent/src/ludo/core/compose_loop.py`.
 
 ### Four calling verbs.
 
@@ -47,7 +47,7 @@ Detail and worked examples: `docs/tools.md`.
 
 ### Working memory.
 
-A structured tried / failed / learned log that survives context compression, auto-recorded on tool failure and on recoveries that overturn a blocked path, and rendered into a system message every turn.
+A structured tried / failed / learned log that survives context compression, auto-recorded on tool failure and on recoveries that overturn a blocked path, and rendered into a system message every turn. Detail: `docs/memory.md`.
 
 ### Sessions. 
 
@@ -93,6 +93,8 @@ Three classifications
 - Learnings (general)
 
 .. with verbs to reconcile a finding into a rule and promote it on cross-case evidence.
+
+Detail: `docs/memory.md` (working memory, page store, semantic recall, maintain seam).
 
 ### A2A over NATS.
 

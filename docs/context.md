@@ -45,7 +45,7 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
    conclusions, not raw context. Orchestrator context != worker context. Two planes, don't
    conflate: the *crossing* law (only distilled context crosses a Session boundary) is
    canonical as [`isolation.md`](isolation.md) P-ISO-2; the inter-agent NATS-Account isolation
-   is `proposals/agentic-cluster-a2a.md`.
+   is `ludo-agent/docs/proposals/agentic-cluster-a2a.md`.
 7. **Observability** — per-step window report: what entered, why, token cost. Ties to metrics + omg.
 
 ## Architecture direction (draft)

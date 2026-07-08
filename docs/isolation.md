@@ -30,7 +30,7 @@ Two sub-principles everything references:
 | Plane | Boundary | Mechanism | Owner doc |
 |---|---|---|---|
 | **Intra-process** | Session ↔ Session in one worker | per-task state-scoping + structured concurrency | **this doc** |
-| **Inter-process** | agent ↔ agent across workers | NATS trust-zone Accounts (deny-by-default export/import) | [`proposals/agentic-cluster-a2a.md`](proposals/agentic-cluster-a2a.md) Principle 4 |
+| **Inter-process** | agent ↔ agent across workers | NATS trust-zone Accounts (deny-by-default export/import) | `ludo-agent/docs/proposals/agentic-cluster-a2a.md` Principle 4 |
 
 The two planes share **exactly one law — P-ISO-2** (only distilled context crosses). Stated
 canonically here; referenced by context.md dim 6 and a2a Principle 4. **CRIE rule:**
