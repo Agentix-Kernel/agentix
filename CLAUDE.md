@@ -36,9 +36,9 @@ middleware append, storage subclassing, and the event-bus sink.
 
 - `src/agentix/` — the kernel package (`core/`, `llm/`, `tools/`, `skills/`, `a2a/`, `storage`,
   `config.py`, `runtime.py`).
-- `docs/` — kernel docs: `seams`, `engine`, `llm`, `context`, `session`, `isolation`, `tools`, `skills`,
-  `memory`, `budgets`, `a2a`, `eval`, `contracts`, `kernel-config-reference`, `sqlite_schema.sql`,
-  + `contracts-consumer-guide.md`. The kernel overview lives in `README.md`.
+- `docs/` — kernel docs: `seams`, `engine`, `llm`, `routing`, `context`, `session`, `isolation`, `tools`,
+  `skills`, `memory`, `budgets`, `a2a`, `eval`, `contracts`, `kernel-config-reference`,
+  `sqlite_schema.sql`, + `contracts-consumer-guide.md`. The kernel overview lives in `README.md`.
 - `contracts/` · `constants/` · `templates/` · `libs/` · `scripts/` — shared vendoring machinery
   (consumers vendor; never imported by the kernel, never in the wheel).
 - `tests/` — kernel unit + integration; includes the three purity/drift gates above.

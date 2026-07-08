@@ -4,8 +4,9 @@
 
 **Single source of truth for the provider layer in `docs/`.** Everything here is
 **landed** (code: `src/agentix/llm/`, `runtime.py`, provider configs in
-`config.py`) except the one marked direction item in §4. Cross-cutting wrappers
-that ride on this layer are owned elsewhere and referenced in §5.
+`config.py`). Cross-cutting wrappers that ride on this layer are owned elsewhere
+and referenced in §5; **routing** (which model serves a request — chain order,
+failover semantics, the policy direction) is [`routing.md`](routing.md).
 
 ---
 
@@ -46,27 +47,20 @@ so per-provider features stay first-class:
   runtime and app config reports share it (they used to mirror the predicates
   and drift). Melious/HUBLE activate on a plain `enabled` flag; Anthropic on the
   compound "any credential present" predicate (`anthropic_active`).
-- **Failover priority** when several are active: direct gateway first (no extra
-  hop), then HUBLE, then Anthropic (`_PROVIDER_PRIORITY`).
+- **Failover priority** when several are active (`_PROVIDER_PRIORITY`) and the
+  chain the factory builds are routing concerns — canonical in
+  [`routing.md`](routing.md) §1.
 - `build_llm_provider(cfg, sqlite=…)` builds the active adapters in priority
   order, wraps **each** in `CostRecordingProvider` when a store is passed
   ([`budgets.md`](budgets.md) §3), and returns a single provider — the router
-  when more than one is active.
+  when more than one is active, or always with `always_router=True`.
 
 ## 4. The router (`llm/router.py`)
 
 `ProviderRouter` holds the ordered chain and is itself `Provider`-compatible, so
-callers never know whether they hold one adapter or a chain.
-
-- Dispatch tries each provider in order; **first success wins**.
-- Failover happens only on **retryable** errors; `LlmInvalidRequest` re-raises
-  immediately (a malformed request won't get better on the next provider).
-- Every hop can notify an async `FailoverCallback` — the event-bus hook, so
-  operators see failovers live without blocking dispatch.
-- If the whole chain fails: `NoProvidersAvailable` carries the per-provider
-  attempt list.
-- *Direction:* cost-aware routing (prefer the cheapest provider that satisfies
-  the request) — v0.1 ships plain ordered fallback.
+callers never know whether they hold one adapter or a chain. Failover semantics,
+per-call knobs and the routing-policy direction (cost-aware, modality-general)
+are canonical in [`routing.md`](routing.md) — not restated here.
 
 ## 5. Cross-cutting wrappers (owned elsewhere)
 
