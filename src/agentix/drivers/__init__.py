@@ -14,14 +14,26 @@ from agentix.drivers.base import (
     DriverRateLimited,
     DriverUnavailable,
 )
+from agentix.drivers.chat import (
+    ChatDriver,
+    ChatRequest,
+    ChatResponse,
+    ToolSpec,
+    tool_to_spec,
+)
 
 __all__ = [
     "KNOWN_MODALITIES",
     "KNOWN_SOURCES",
+    "ChatDriver",
+    "ChatRequest",
+    "ChatResponse",
     "Driver",
     "DriverDescriptor",
     "DriverError",
     "DriverInvalidRequest",
     "DriverRateLimited",
     "DriverUnavailable",
+    "ToolSpec",
+    "tool_to_spec",
 ]
