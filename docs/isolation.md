@@ -8,7 +8,8 @@ canonical model with per-invariant landed status (code:
 `storage/memory.py`, plus session.md §6); sections 7–8 are **DIRECTION**. The third
 side of the Session triangle: [`session.md`](session.md) = the durable object,
 [`context.md`](context.md) = the per-step window, **this doc = how concurrent runs
-stay isolated at runtime**. Rewritten 2026-07-08 from the 2026-07-06 planning doc;
+stay isolated at runtime**. The async execution model these invariants protect is
+[`async.md`](async.md). Rewritten 2026-07-08 from the 2026-07-06 planning doc;
 history in git.
 
 ---

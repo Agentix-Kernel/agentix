@@ -26,19 +26,21 @@ kernel wheel ships no branded package. Three CI gates enforce it:
   (`agentix.event_types`/`agentix.events`) stays equal to `contracts/session-event.schema.json`
   without importing a generated package.
 
-Apps plug in via the 11 seams — canonical catalog in `docs/seams.md`: `KernelConfig` subclass,
+Apps plug in via the 12 seams — canonical catalog in `docs/seams.md`: `KernelConfig` subclass,
 `SafetyGate` hooks (`rollback`/`_resolve_contract`/`_derive_verifier_fields`), the dispatcher's
 `TerminationPolicy`/`DispatchGuard`, `Tool`/exception `to_error_details()`, `ToolContext`
 handles, the `register_allowed_hosts`/`register_allowed_binaries` allowlist extenders, skills,
-middleware append, storage subclassing, and the event-bus sink.
+the `MemoryMaintain` middleware slot, storage subclassing, the event-bus sink, and the
+idempotency/resume-key provider (design seam).
 
 ## Layout
 
 - `src/agentix/` — the kernel package (`core/`, `llm/`, `tools/`, `skills/`, `a2a/`, `storage`,
   `config.py`, `runtime.py`).
-- `docs/` — kernel docs: `seams`, `engine`, `llm`, `routing`, `context`, `session`, `isolation`, `tools`,
-  `skills`, `memory`, `budgets`, `a2a`, `eval`, `contracts`, `kernel-config-reference`,
-  `sqlite_schema.sql`, + `contracts-consumer-guide.md`. The kernel overview lives in `README.md`.
+- `docs/` — kernel docs: `seams`, `async`, `sync`, `engine`, `llm`, `routing`, `context`, `session`,
+  `isolation`, `tools`, `skills`, `memory`, `budgets`, `a2a`, `eval`, `contracts`,
+  `kernel-config-reference`, `sqlite_schema.sql`, + `contracts-consumer-guide.md`. The kernel
+  overview lives in `README.md`.
 - `contracts/` · `constants/` · `templates/` · `libs/` · `scripts/` — shared vendoring machinery
   (consumers vendor; never imported by the kernel, never in the wheel).
 - `tests/` — kernel unit + integration; includes the three purity/drift gates above.

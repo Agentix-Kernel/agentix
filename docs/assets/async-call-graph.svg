@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 830" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#444"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="980" height="830" fill="#ffffff"/>
+
+  <text x="490" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#222">Async call-graph: agentic app to Agentix kernel (one turn)</text>
+
+  <!-- seam -->
+  <line x1="330" y1="70" x2="330" y2="810" stroke="#999" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="165" y="64" text-anchor="middle" font-size="13" font-weight="bold" fill="#4a7ab5">APP  (example: ludo-agent)</text>
+  <text x="655" y="64" text-anchor="middle" font-size="13" font-weight="bold" fill="#8a7a55">AGENTIX KERNEL</text>
+
+  <!-- legend -->
+  <rect x="370" y="80" width="560" height="56" rx="6" fill="#fafafa" stroke="#cccccc"/>
+  <line x1="386" y1="100" x2="430" y2="100" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="440" y="104" font-size="11" fill="#222">solid arrow = awaited call on the event loop</text>
+  <rect x="386" y="112" width="44" height="14" fill="#ffffff" stroke="#888" stroke-dasharray="4 3"/>
+  <text x="440" y="123" font-size="11" fill="#222">dashed box = blocking work offloaded to a worker thread</text>
+
+  <!-- APP: entry surfaces -->
+  <rect x="20" y="100" width="280" height="60" rx="6" fill="#eef4fb" stroke="#4a7ab5"/>
+  <text x="160" y="122" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">Worker consumer</text>
+  <text x="160" y="140" text-anchor="middle" font-size="11" fill="#333">queue pull, batch fan-out under asyncio.TaskGroup</text>
+
+  <rect x="20" y="180" width="280" height="60" rx="6" fill="#eef4fb" stroke="#4a7ab5"/>
+  <text x="160" y="202" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">CLI / service entry</text>
+  <text x="160" y="220" text-anchor="middle" font-size="11" fill="#333">asyncio.run(main()) — the app owns the loop</text>
+
+  <line x1="90" y1="160" x2="90" y2="252" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="230" y1="240" x2="230" y2="252" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- APP: session -->
+  <rect x="20" y="256" width="280" height="56" rx="6" fill="#eef4fb" stroke="#4a7ab5"/>
+  <text x="160" y="276" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">resume_or_create / create_session</text>
+  <text x="160" y="294" text-anchor="middle" font-size="11" fill="#333">async with session_scope(session.id)</text>
+
+  <!-- entry call across the seam -->
+  <line x1="300" y1="284" x2="370" y2="284" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="335" y="276" text-anchor="middle" font-size="11" font-style="italic" fill="#444">await</text>
+
+  <text x="160" y="500" text-anchor="middle" font-size="11" font-style="italic" fill="#888">the app stays thin:</text>
+  <text x="160" y="516" text-anchor="middle" font-size="11" font-style="italic" fill="#888">sessions in, events out</text>
+
+  <!-- KERNEL: engine -->
+  <rect x="370" y="256" width="560" height="56" rx="6" fill="#f7f4ee" stroke="#8a7a55"/>
+  <text x="650" y="276" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">Engine.run_turn(session, msg) — one awaited turn</text>
+  <text x="650" y="294" text-anchor="middle" font-size="11" fill="#333">composes the middleware chain around the dispatcher (engine.md)</text>
+
+  <line x1="650" y1="312" x2="650" y2="336" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- KERNEL: middleware -->
+  <rect x="370" y="340" width="560" height="60" rx="6" fill="#f7f4ee" stroke="#8a7a55"/>
+  <text x="650" y="360" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">Middleware chain — 9 named slots (engine.md §3)</text>
+  <text x="650" y="378" text-anchor="middle" font-size="10" fill="#333">TrajectoryCapture · CostTracking · TokenBudget · ToolCallCountCap · LoopDetection · Retry · DanglingToolCall · SafetyGate · MemoryMaintain</text>
+
+  <line x1="650" y1="400" x2="650" y2="424" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- KERNEL: dispatcher loop -->
+  <rect x="370" y="428" width="560" height="192" rx="6" fill="#fdfbf7" stroke="#8a7a55"/>
+  <text x="650" y="448" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">AgentDispatcher — the LLM/tool loop</text>
+
+  <rect x="386" y="458" width="528" height="34" rx="4" fill="#ffffff" stroke="#b3a67f"/>
+  <text x="650" y="479" text-anchor="middle" font-size="11" fill="#222">1 · ContextManager.assemble — window within budget (context.md)</text>
+
+  <rect x="386" y="500" width="528" height="34" rx="4" fill="#ffffff" stroke="#b3a67f"/>
+  <text x="650" y="521" text-anchor="middle" font-size="11" fill="#222">2 · llm_capacity() gate → await provider.complete — router → adapters (llm.md, routing.md)</text>
+
+  <rect x="386" y="542" width="528" height="34" rx="4" fill="#ffffff" stroke="#b3a67f"/>
+  <text x="650" y="563" text-anchor="middle" font-size="11" fill="#222">3 · tool calls: DispatchGuard → SafetyGate → await Tool.call (tools.md)</text>
+
+  <text x="650" y="602" text-anchor="middle" font-size="11" font-style="italic" fill="#666">repeat 1–3 until no tool calls, termination policy, or max iterations</text>
+
+  <line x1="650" y1="620" x2="650" y2="644" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- KERNEL: persistence -->
+  <rect x="370" y="648" width="560" height="72" rx="6" fill="#f7f4ee" stroke="#8a7a55"/>
+  <text x="650" y="666" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">Checkpoint + persistence (session.md §3)</text>
+  <rect x="392" y="676" width="252" height="32" rx="4" fill="#ffffff" stroke="#888" stroke-dasharray="4 3"/>
+  <text x="518" y="696" text-anchor="middle" font-size="11" fill="#222">SQLite — aiosqlite worker thread</text>
+  <rect x="656" y="676" width="252" height="32" rx="4" fill="#ffffff" stroke="#888" stroke-dasharray="4 3"/>
+  <text x="782" y="696" text-anchor="middle" font-size="11" fill="#222">MinIO — asyncio.to_thread</text>
+
+  <line x1="650" y1="720" x2="650" y2="744" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- KERNEL: events out -->
+  <rect x="370" y="748" width="560" height="48" rx="6" fill="#f7f4ee" stroke="#8a7a55"/>
+  <text x="650" y="768" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">events.bus — neutral SessionEvent envelope</text>
+  <text x="650" y="785" text-anchor="middle" font-size="11" fill="#333">the one seam that meets a wire contract (seams.md #11, contracts.md §2)</text>
+
+  <!-- events back across the seam -->
+  <line x1="370" y1="772" x2="300" y2="772" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="335" y="764" text-anchor="middle" font-size="11" font-style="italic" fill="#444">await</text>
+
+  <!-- APP: event sink -->
+  <rect x="20" y="744" width="280" height="56" rx="6" fill="#eef4fb" stroke="#4a7ab5"/>
+  <text x="160" y="764" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">App event sink</text>
+  <text x="160" y="782" text-anchor="middle" font-size="11" fill="#333">bus.add_sink(...) — e.g. forward to a broker</text>
+</svg>

@@ -103,6 +103,18 @@ turn = await engine.run_turn(session, Message(role="user", content="Summarise da
   routing direction): [`docs/routing.md`](docs/routing.md).
 - Detail: [`docs/engine.md`](docs/engine.md) (run_turn contract, middleware order, the nine layers).
 
+### Async execution model
+
+- The kernel is **async-only, and the app owns the event loop** — every surface is `async def`,
+  no `asyncio.run` inside the kernel; blocking work (SQLite, object store, file I/O,
+  subprocesses) is always pushed off the loop.
+- Call-graph from an agentic app into the kernel:
+  [`docs/assets/async-call-graph.svg`](docs/assets/async-call-graph.svg).
+- Sync call-sites and OT (industrial, time-sensitive) workloads are served *on* the async
+  core — a facade plus determinism facilities, not a kernel fork: [`docs/sync.md`](docs/sync.md).
+- Detail: [`docs/async.md`](docs/async.md) (substrate, offload discipline, loop/task-scoped
+  state, app facilities).
+
 ### Cognitive escalation
 
 - An *escalation* happens when an automated step cannot prove its result is correct.
@@ -266,6 +278,8 @@ Canonical catalog with mechanisms and examples: [`docs/seams.md`](docs/seams.md)
 | [`docs/skills.md`](docs/skills.md) | • Skill bundles, catalog<br>• progressive disclosure, loader |
 | [`docs/session.md`](docs/session.md) | • Session object, persistence<br>• checkpoints, resume, lease |
 | [`docs/engine.md`](docs/engine.md) | • Turn engine, middleware chain + order<br>• the nine layers, dispatcher seams |
+| [`docs/async.md`](docs/async.md) | • Async execution model: substrate, offload discipline<br>• loop/task-scoped state, app facilities, call-graph |
+| [`docs/sync.md`](docs/sync.md) | • OT / synchronous-integration plan: one-kernel decision<br>• SLM local-inference considerations, sync facade design |
 | [`docs/llm.md`](docs/llm.md) | • Provider protocol, adapters, OAuth token sources<br>• activation predicates |
 | [`docs/routing.md`](docs/routing.md) | • Model routing: chain order, failover semantics<br>• direction: modality-general registry, policy seam |
 | [`docs/context.md`](docs/context.md) | • Window assembly, budget<br>• compression, eviction tiers, window report |
