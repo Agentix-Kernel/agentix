@@ -18,6 +18,7 @@ def build_llm_provider(  # type: ignore[no-untyped-def]
     cfg: KernelConfig,
     sqlite: SqliteStore | None = None,
     model_override: str | None = None,
+    always_router: bool = False,
 ):
     """Build the LLM provider chain with auto-failover.
 
@@ -32,6 +33,11 @@ def build_llm_provider(  # type: ignore[no-untyped-def]
     :class:`CostRecordingProvider`, recording cost to SQLite per
     successful LLM call. Optional for non-migration call sites with no
     session row.
+
+    **always_router**: wrap even a single provider in a
+    ``ProviderRouter``, for callers that depend on the router surface
+    (e.g. ``set_failover_callback``) and would otherwise need
+    isinstance special-casing.
     """
     import os
 
@@ -76,7 +82,7 @@ def build_llm_provider(  # type: ignore[no-untyped-def]
     if not providers:
         # Last-resort: Anthropic with defaults when no provider configured.
         providers.append(_wrap(AnthropicProvider(model=cfg.anthropic.model)))
-    if len(providers) == 1:
+    if len(providers) == 1 and not always_router:
         return providers[0]
     return ProviderRouter(providers)
 
