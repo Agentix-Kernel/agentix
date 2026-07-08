@@ -1,170 +1,172 @@
-# Session Management
+# Sessions
 
-**Status:** planning · **Scope:** Agentix kernel `[K]` (Session abstraction) + LUDO app `[A]` (run orchestration) · **Opened:** 2026-07-06
+**Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
-Living design + worklog for the **Session** — the agent's single run (1:1 with a
-control-plane Migration), the ephemeral `s_…` id. Records what exists today (grounded in
-code) and the gaps the *rest* of the Agentix architecture will force. Companion to
-[`context.md`](context.md) (the per-step window) and [`isolation.md`](isolation.md) (how
-concurrent runs stay isolated at runtime) — the three sides of the Session triangle.
+**Single source of truth for sessions in `docs/`.** Sections 1–7 document the landed
+kernel session subsystem (code: `src/agentix/core/session.py`, `core/checkpoint.py`,
+`storage/sqlite_store.py`, the dispatcher persist path); sections 8–9 are
+**DIRECTION**. The Session is one corner of a triangle: [`context.md`](context.md)
+owns the per-step model *window* over the same state, and
+[`isolation.md`](isolation.md) owns how concurrent runs stay isolated at runtime
+(invariants I1–I7). Rewritten 2026-07-08 from the 2026-07-06 planning worklog —
+most of its gap list has since landed; history in git.
 
 ---
 
-## What a Session is
+## 1. What a Session is
 
-`Migration` (control-plane) -> **`Session`** (agent's run, 1:1; `s_…`; stored as
-`ludo_session_id` control-plane-side, `sessions.id` agent-side) -> `N Jobs` -> `Turns`
-(Cortex round-trips). Vocabulary lock: workspace `CLAUDE.md` § Execution model.
+The **checkpoint-first, resumable unit of an agent run** — app-agnostic, 1:1 with
+one control-plane job. `core/session.py`; created via `create_session(...)`.
 
-## What EXISTS today (considerations already taken)
+| Field | Why it exists |
+|---|---|
+| `id` (`s_…`) | minted by the kernel; the agent-side identity of the run |
+| `customer_id` | the **opaque per-tenant id** — no PII ever enters session state |
+| `status` | lifecycle: `running` \| `paused` \| `completed` \| `failed` |
+| `messages`, `turn_index` | the conversation history the engine snapshots per turn |
+| `app_meta` | the app's session scope, **opaque to the kernel** (the reference app stores source/target version + target models here) — this is what keeps the kernel domain-free |
+| `control_plane_id` | binds the Session to the control plane's job id, so the gateway can project a resumable stream and drive resume without a side mapping; NULL for local runs |
+| `parent_session_id` | A2A delegation link — the Session that spawned this one; crossing rules (only distilled context crosses) are enforced above the store |
+| `working_memory` | the tried/failed/learned log ([`memory.md`](memory.md) §2) |
+| `budget_usd`, `total_*_tokens`, `total_cost_usd` | the cost ledger (§7) |
 
-Grounded map (file:line as of 2026-07-06):
+## 2. Persistence — two stores, one ordering rule
 
-- **Session is a first-class KERNEL abstraction** — `agentix/core/session.py` owns the
-  object + `create_session` / `save` / `resume_from`; the `s_…` id is minted here. App scope
-  is pushed into an opaque `app_meta` blob, so the kernel stays Odoo-free. Clean `[K]/[A]`
-  split. `agentix/storage/sqlite_store.py` owns the `sessions` + `turns` schema
-  (`_SCHEMA_VERSION = 12`). The app only subclasses (`ludo/storage/ludo_sqlite.py`) to add
-  migration tables + reads scope from `app_meta`.
-- **PII-safe identity** — `sessions.customer_id` = the opaque `account_id`; `slug->account_id`
-  resolution happens only at the operator/CLI edge (`ludo/cli/_customer_provider.py`), never
-  in the worker (`worker/registry.py` passes `msg.account_id` straight through).
-- **Two-store persistence, crash-correct ordering** — SQLite = metadata + `checkpoint`
-  pointer; MinIO = full snapshot blob (`blobs/{cust}/checkpoints/{sid}/{name}.json`).
-  `save()` writes MinIO-then-SQLite deliberately (orphan blob is harmless; dangling pointer
-  is not). `session.py:98-111`.
-- **State-checkpoint WRITE path is live** — a `"latest"` snapshot is cut after every turn
-  (dispatcher-throttled, `agent_dispatcher.py` cadence). Captures `messages`, `working_memory`
-  (tried/failed/learned), budget/tokens/cost, `status`, `app_meta`.
-- **Turn tracking in the kernel** — `turns` table + `turns_fts` (FTS5) mirror, written as a
-  side-effect of the `TrajectoryCapture` middleware, not the action layer.
-- **Cost + honesty accounting** — per-session/turn token + `cost_usd` deltas; `outcome` +
-  `intervention_type` columns feed the autonomy metric directly.
-- **Resumability as row-level idempotency** — deterministic-xmlid census
-  (`actions/.../drain_model.py`) makes broker redelivery a no-op-or-update (Principle 3);
-  intra-tool cursor resume via `resume_from_source_id_gt`. At-least-once + idempotent
-  execution, no dedup table.
-- **Per-customer memory lock** — serialises memory writes across parallel sessions for the
-  same customer (`middleware/memory_maintain.py` -> `storage/memory.py:lock_for_customer`).
-- `status` lifecycle: `running | paused | completed | failed`. Read API: `GET /sessions[/{id}]`.
+Split by kind: **SQLite** holds operational metadata (tenant, status, totals,
+checkpoint pointer, `app_meta`); the **object store** holds the full state blob
+(`checkpoints/{session_id}/{checkpoint}.json` via `MinioStore.key_checkpoint`).
 
-## The GAPS — mapped to the rest of the architecture
+`save()` writes **blob first, pointer second** — deliberately. If the process dies
+between the two, an unreferenced blob is harmless (bucket lifecycle collects it);
+the reverse order could leave SQLite pointing at a blob that never landed, and
+`resume_from` would fail on a checkpoint the row claims exists.
 
-Theme: session *write* + *row-level re-run* are live, but session *identity, ownership, and
-in-context recovery* are unwired — and the remaining kernel components lean on exactly those.
-Ranked by leverage.
+Schema is versioned (currently **v14**) with idempotent migrations; full DDL:
+[`sqlite_schema.sql`](sqlite_schema.sql).
 
-1. **In-context resume is built but wired to nothing — and the live substitute is
-   app-specific.** `resume_from` fully rebuilds messages/working_memory but is called only in
-   tests; production always starts a *fresh* `Session`. Every redelivery re-pays Cortex tokens
-   and discards within-session tried/failed/learned progress. Row census protects *data*, not
-   *reasoning state* — **and the census is Odoo-specific (`ir.model.data` xmlids), so a
-   non-migration app on Agentix inherits *no* recovery at all.** → Wire
-   `worker/consumer -> resume_from` *and* make resume kernel-generic (see genericity clause in
-   the alignment contract). Highest-leverage fix; the generic infra already exists.
-2. **No session ownership/lease or orphan reaper (blocks leaving single-replica).** No
-   session-level lock / single-flight. Safe today only via single-replica + idempotent census.
-   When the **gateway + broker** fan jobs to N workers, two workers can run the same
-   `session_id`; a dead worker leaves a session `running` forever (no heartbeat/TTL).
-   → Session lease/claim (gateway is the `account_id` authority = natural owner) + liveness reaper.
-   → runtime invariants: [`isolation.md`](isolation.md) **I7** (inter-process lease/reaper) sits on
-   top of **I1–I6** (the intra-process gather-safe set).
-3. **Operator-review "checkpoint" is a placeholder — the human-oversight seam.**
-   `checkpoint_requested` event + `checkpoint_required` flag are *reserved, no emitter*; named
-   phase checkpoints (`blueprint_generated`…) declared but unconsumed; `status="paused"` has no
-   resume-from-paused caller. The **autonomy bar**, `estimate`/`dry-run` modes, and
-   **activatable agents** all depend on pause->operator-decision->resume, which is a no-op today.
-4. **Session ↔ Job state not reconciled with the broker.** Snapshot captures turns, not the
-   Job queue — no pending/done-Job set, so the session can't answer "which Jobs remain."
-   arch.md flags the "future first-class per-Job row." Crash granularity = turn snapshot + row
-   census, with queue position lost.
-5. **Control-plane ↔ agent session-id binding is documented, not stored.** Gateway assigns
-   `ludo_session_id`; agent uses `session.id`; the link lives only in `worker/payload.py`
-   prose. The gateway needs it to project resumable SSE + drive resume.
-   → Persist e.g. `sessions.control_plane_id`.
-6. **Snapshot = unbounded raw history → the core misalignment with context-management.**
-   The blob stores full `messages`; long sessions grow without bound and resume would
-   rehydrate an ever-larger window. Resolved by the alignment contract below — the snapshot
-   must carry the *managed* window, not raw history. See [`context.md`](context.md).
-7. **Session is the natural eval unit, only half-connected.** `outcome`/`intervention_type`
-   feed the autonomy metric, and turns+FTS+working_memory are a ready trajectory substrate,
-   but there's no systematic hand-off of a completed session into **Verdict / Grader B**.
-   Cheap win — data already exists.
-8. **A2A introduces a session hierarchy not yet modelled.** When `delegate` spawns sub-agent
-   work, there's no parent/child session linkage or isolation contract (sub-agent returns a
-   distilled conclusion, not raw context). Needs a session-relationship model before A2A lands.
-   → the *runtime relationship* (child task vs remote session, distilled crossing) is canonical
-   in [`isolation.md`](isolation.md) § Session hierarchy; the *stored* `parent_session_id`/
-   correlation field stays this doc's open decision.
+## 3. Checkpoints — hybrid granularity
 
-## Session ↔ Context alignment (canonical contract)
+- **Per-turn `"latest"`** — the dispatcher persists each tool dispatch to SQLite,
+  and cuts the blob snapshot **throttled**: every 5th dispatch, or immediately
+  whenever working memory gained an attempt (lessons never lost to a crash). It
+  sets `turn.checkpoint_saved_by_dispatcher` so the engine skips its redundant
+  per-turn save. All best-effort — a persist failure logs, never kills the run.
+- **Named phase checkpoints** (`core/checkpoint.py`) — `save_checkpoint(session,
+  name)` at phase boundaries, `load_checkpoint` to read one back; the ordered
+  vocabulary lives in `ORDERED_CHECKPOINTS`. These are what operators resume from
+  by name.
 
-Session-management and context-management are **the same object seen from two sides**: the
-Session is the *durable store* of a run's context; the ContextManager ([`context.md`](context.md))
-is the *per-step policy* over it. They are **NOT aligned today** — the snapshot persists raw
-`messages`, `working_memory` is an ad-hoc second compressor, and the cost budget and the
-window budget are unrelated. This contract aligns them (single source of truth; `context.md`
-links here).
+## 4. Resume
 
-1. **One managed context state, kernel-owned.** The Session persists a single working context
-   (summary + recent messages + `working_memory`, *post-eviction*); the ContextManager is its
-   only shaper. Both are `[K]` — the app never touches the window shape, only feeds *sources*
-   (via `app_meta` + provider extension points).
-2. **Session = durable ledger; ContextManager = per-step policy.** Session owns persistence
-   (snapshot/resume) + cost accounting; ContextManager owns assemble/budget/compress/evict. No
-   compression logic in the action or session layer.
-3. **Snapshot stores the managed window, not raw history** — so the blob and resume stay
-   bounded regardless of session length.
-4. **Resume rehydrates *through* the ContextManager — and resume must be kernel-generic.**
-   `resume_from` reconstructs the managed context; the next step assembles from it. Today the
-   *live* recovery path is the Odoo-xmlid census (app-specific), so the generic kernel delivers
-   no recovery to a non-migration app. Fix: wire `resume_from` **and** define a generic
-   **idempotency / resume-key extension point** the app implements (LUDO's xmlid census = one
-   impl). This makes session.md **S0 (wire resume)** and context.md **S2 (compression + resume)**
-   the *same co-designed work* — not two passes.
-5. **Two budgets, reconciled.** ContextManager owns the per-step *window/token* budget and
-   reports consumption into the Session's *cost* ledger (`total_*_tokens`, `cost_usd`). One
-   flow, no double-count. Under parallelism the budget must also be *scoped per session-task*
-   and *ceilinged per customer* — see [`isolation.md`](isolation.md) I4/I5 (else parallel jobs
-   spend N×).
-6. **`working_memory` is the seed, not a rival.** Today's session-owned tried/failed/learned
-   distillation folds into the ContextManager's managed state — one compression owner, not two
-   (CRIE).
+- `resume_from(session_id)` rebuilds the in-memory `Session` from the SQLite row +
+  checkpoint blob — messages, working memory, totals, `app_meta`, all of it.
+- `resume_or_create(control_plane_id=…)` is **the generic resume-on-redelivery
+  seam**: the control plane reuses a stable job id on every redelivery; the first
+  run creates a Session bound to it, a redelivery finds that Session and restores
+  its in-context reasoning instead of starting over and re-paying model tokens.
+  - Only `running`/`paused` are resumable; `completed`/`failed` are terminal — a
+    redelivery starts fresh.
+  - A resumable row whose blob is gone falls through to a **fresh create under the
+    same binding** rather than wedging the job.
+  - Returns `(session, resumed)`; when `resumed=True` the caller **must not
+    re-seed** the conversation — the restored messages already carry the system
+    prompt and first user message.
+- What *work* is already done on the outside is the app's idempotency concern
+  (e.g. the reference app's deterministic record census makes redelivered writes
+  no-op-or-update); the kernel restores only the agent's own state.
 
-**Genericity check:** with this contract the *abstraction* is app-agnostic (Session +
-ContextManager `[K]`; migration specifics stay in `app_meta` + providers). The one thing that
-is *not* generic today is the live resume mechanism (clause 4) — closing that is what makes
-sessions+context genuinely reusable across apps.
+Tests: `tests/unit/core/test_session_resume.py`.
 
-## Open decisions
+## 5. The operator-checkpoint seam — pause for review
 
-- [ ] Where the session lease lives (gateway-owned vs agent-owned vs broker consumer group).
-- [ ] Persist `control_plane_id` on `sessions`, or keep the mapping gateway-side only?
-- [ ] Does `resume_from` rehydrate on every redelivery, or only when a snapshot is "fresh enough"?
-- [ ] Per-Job persistence: first-class `jobs` row vs. deriving from broker ack state.
-- [ ] Snapshot content policy once context-management lands (raw vs. managed window).
-- [ ] Session-hierarchy shape for A2A (parent_session_id? separate correlation id?) — runtime shape → [`isolation.md`](isolation.md); persisted field → here.
-- [ ] The generic idempotency / resume-key extension point (LUDO xmlid census = one impl) — its interface.
-- [ ] Budget split: ContextManager owns the window/token budget; how it reconciles into the `sessions` cost ledger.
+`request_checkpoint(session, reason=…)` is how an app pauses a run at an
+autonomy-bar decision point: it marks the session `paused`, persists a checkpoint,
+and emits a `checkpoint_requested` event (`checkpoint_required=True`) so the
+control plane can surface "awaiting operator review". A paused session is
+resumable — `resume_or_create` restores it and the driver reactivates it to
+`running` when the operator resumes via the control plane's resume command.
 
-## Roadmap / slices
+The event rides the in-process bus (`events.py`: subscribe-queue fan-out, no
+persistence, live observation); the app's worker bridges bus events onto the
+broker as the wire contract.
 
-Sequenced by leverage + dependency:
+## 6. Lease + orphan reaper
 
-- **S0 — Wire in-context resume** (`consumer -> resume_from`). Infra exists; biggest single win.
-- **S1 — Operator-checkpoint seam** (emit `checkpoint_requested`, wire pause->resume). Unlocks
-  the autonomy bar + activation.
-- **S2 — Session lease + orphan reaper.** Becomes urgent the day single-replica is dropped.
-- **S3 — Control-plane id binding + per-Job state + eval hand-off.** As gateway/eval land.
-- **S4 — A2A session hierarchy.** As A2A lands.
+Sessions carry a **lease** so a fleet of workers can tell a live run from an
+orphaned one (isolation.md **I7**; schema v14):
 
-## Worklog
+- `claim_session_lease(session_id, leased_by, ttl_seconds)` — a worker takes the
+  lease when it starts or resumes a run (`leased_by` = worker id,
+  `lease_expires_at` = now + ttl).
+- `renew_session_lease(...)` — the per-turn heartbeat; a long but live run is
+  never reaped.
+- `reap_expired_sessions()` — flips `running` rows with an expired lease to
+  `failed` (their worker died) and returns the reaped ids; safe to run
+  periodically from any worker.
+- `lease_expires_at IS NULL` = unleased — single-flight / local runs opt out and
+  the reaper ignores them.
 
-- **2026-07-06** — doc opened from a two-part code map (session lifecycle/state/turns +
-  checkpoint/resume). What exists + 8 gaps captured. No code yet.
-- **2026-07-06** — added the canonical Session↔Context alignment contract (6 clauses +
-  genericity check); flagged that the only live recovery path (Odoo-xmlid census) is
-  app-specific, so a generic kernel needs a resume-key extension point. Cross-linked `context.md`.
-- **2026-07-06** — spun the runtime/isolation plane out into [`isolation.md`](isolation.md)
-  (axiom + I1–I7 gather-safe invariants). This doc keeps the durable object + alignment contract;
-  the persisted session-hierarchy field stays here. GAP #2/#8 + clause 5 now link the invariants.
+Tests: `tests/unit/storage/test_session_lease.py`.
+
+## 7. Turns, cost and the honesty ledger
+
+- **Turns** — the `turns` table plus a `turns_fts` (FTS5) mirror, written as a
+  side-effect of the TrajectoryCapture middleware and the dispatcher persist path
+  (never by the action layer). A searchable trajectory substrate.
+- **Cost** — token + `cost_usd` deltas recorded per session/turn at each LLM call,
+  not after the fact; `budget_usd` is the ceiling ([`overview.md`](overview.md)
+  § Budgets).
+- **Honesty** — `sessions.outcome` (derived from session-end verification, not the
+  model's own claim) and `intervention_type` (the human-touchpoint metric) feed
+  the autonomy metric directly.
+- Read API: `GET /sessions[/{id}]` on the app's read-only HTTP surface.
+
+---
+
+*Everything below is DIRECTION — converged design, not the code today.*
+
+## 8. Session ↔ Context alignment (canonical contract)
+
+Session-management and context-management are **the same object seen from two
+sides**: the Session is the *durable store* of a run's context; the ContextManager
+([`context.md`](context.md)) is the *per-step policy* over it. The contract
+(context.md links here as canonical):
+
+1. **One managed context state, kernel-owned.** The Session persists a single
+   working context (summary + recent messages + working memory, *post-eviction*);
+   the ContextManager is its only shaper. The app never touches the window shape,
+   only feeds sources (`app_meta` + provider extension points).
+2. **Session = durable ledger; ContextManager = per-step policy.** Session owns
+   persistence + cost accounting; ContextManager owns
+   assemble/budget/compress/evict. No compression logic in the action or session
+   layer. *(Landed: the ContextManager owns assembly + the window report.)*
+3. **Snapshot stores the managed window, not raw history.** *(Open — the blob
+   still persists full `messages`, so long sessions grow unbounded and resume
+   rehydrates an ever-larger window.)*
+4. **Resume rehydrates through the ContextManager, kernel-generically.** *(The
+   wiring half landed — `resume_or_create` is generic and driver-consumed. The
+   app-side idempotency/resume-key extension point stays an app seam; the
+   reference app's record census is one implementation.)*
+5. **Two budgets, reconciled.** ContextManager owns the per-step window/token
+   budget and reports consumption into the Session's cost ledger — one flow, no
+   double-count; scoped per session-task and ceilinged per customer
+   (isolation.md I4/I5). *(Reconciliation detail open.)*
+6. **Working memory is the seed, not a rival.** The session-owned
+   tried/failed/learned distillation folds into the ContextManager's managed
+   state — one compression owner, not two.
+
+With this contract the abstraction is fully app-agnostic; clauses 3 and 5 are the
+remaining work.
+
+## 9. Open decisions
+
+- [ ] Per-Job persistence: a first-class `jobs` row vs deriving pending/done state
+  from broker ack — today a crash keeps the turn snapshot + app idempotency but
+  loses queue position.
+- [ ] Snapshot content policy once clause 3 lands: the managed window replaces raw
+  `messages` in the blob.
+- [ ] Eval hand-off: a completed session is the natural eval unit
+  (`outcome`/`intervention_type` + turns/FTS/working-memory already exist) but
+  nothing systematically hands it to the Verdict graders yet.
+- [ ] Resume freshness: does `resume_or_create` rehydrate on every redelivery, or
+  only when the checkpoint is recent enough to be worth restoring?

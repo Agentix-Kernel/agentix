@@ -64,15 +64,16 @@ schemas each assemble themselves). Consolidating it into one owner is the CRIE w
 Canonical contract + genericity check: [`session.md`](session.md) § Session ↔ Context
 alignment (single source of truth — not restated here). In short: **the Session is the durable
 store of a run's context; the ContextManager is the per-step policy over it — one object, two
-sides.** They are *not* aligned today (the session snapshot persists raw `messages`;
-`working_memory` is an ad-hoc second compressor). Policy-side consequences for this doc:
+sides.** Remaining misalignment: the session snapshot still persists raw `messages`
+(session.md clause 3). Resume itself is wired and kernel-generic (`resume_or_create`).
+Policy-side consequences for this doc:
 
 - The ContextManager writes the **managed** window that the Session snapshots (not raw
   history) — so **S2 (compression) and the session's resume are the same co-designed work.**
 - The ContextManager owns the per-step **window/token** budget and reports consumption into the
   Session's **cost** ledger — two budgets, one flow.
-- Both are `[K]`; the app feeds only *sources*. Resume must be kernel-generic (a resume-key
-  extension point) or a non-migration app inherits no recovery — see session.md clause 4.
+- Both are `[K]`; the app feeds only *sources*. The app-side idempotency/resume-key seam stays
+  the app's (the reference app's record census is one implementation) — see session.md clause 4.
 - The per-step budget is owned here but *scoped per session-task* and *ceilinged per customer* by
   [`isolation.md`](isolation.md) I4/I5, so parallel sessions don't spend N× or overload Odoo/LLM.
 

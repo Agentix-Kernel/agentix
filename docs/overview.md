@@ -55,6 +55,7 @@ A structured tried / failed / learned log that survives context compression, aut
 - Operational state in SQLite, full state blob in object storage.
 - App scope is opaque `app_meta`.
 - Sessions carry a control-plane binding and a parent link for streaming and delegation hierarchy.
+- Detail: `docs/session.md` (object, persistence, checkpoints, resume, operator pause, lease).
 
 ### Context management.
 
