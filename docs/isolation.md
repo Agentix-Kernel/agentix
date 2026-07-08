@@ -84,7 +84,7 @@ The rules that make `gather`-over-Sessions (or a 2nd worker) safe. Each = a per-
 **Defect → invariant map:** never-unbound ContextVar → **I1** · shared aiosqlite conn / no
 busy_timeout → **I2** · unlocked rename dirs → **I3** · no per-customer ceiling → **I4** ·
 per-instance LLM/Odoo limit → **I5** · structured-concurrency / contextvar-copy → **I6** · no
-lease/reaper → **I7**. (Defects catalogued in session.md GAP #2 + the multi-agent readiness analysis.)
+lease/reaper → **I7** (the lease/reaper has since landed — session.md §6). (Defects catalogued in the multi-agent readiness analysis.)
 
 ## Intra-session concurrency (the sub-boundary)
 
