@@ -1,149 +1,148 @@
 # Isolation & the in-process runtime model
 
-**Status:** planning · **Scope:** Agentix kernel `[K]` · **Opened:** 2026-07-06
+**Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
-The third side of the Session triangle: [`session.md`](session.md) = the durable object,
-[`context.md`](context.md) = the per-step window, **this doc = how concurrent runs stay
-isolated at runtime**. Reconciles session + context + multi-agent + genericity with
-asyncio/concurrency into one model. Aligns to `CLAUDE.md` § Execution model
-(Migration→Session→Job→Turn).
+**Single source of truth for runtime isolation in `docs/`.** Sections 1–6 are the
+canonical model with per-invariant landed status (code:
+`src/agentix/llm/cost_recorder.py`, `llm/limiter.py`, `storage/sqlite_store.py`,
+`storage/memory.py`, plus session.md §6); sections 7–8 are **DIRECTION**. The third
+side of the Session triangle: [`session.md`](session.md) = the durable object,
+[`context.md`](context.md) = the per-step window, **this doc = how concurrent runs
+stay isolated at runtime**. Rewritten 2026-07-08 from the 2026-07-06 planning doc;
+history in git.
 
 ---
 
-## The isolation axiom (canonical)
+## 1. The isolation axiom (canonical)
 
-> **A Session is the unit of isolation.** One Session owns one context and one set of mutable
-> state, scoped to a **task-tree rooted at a session task**. An **agent** is the actor that
-> *runs* Sessions (1:N — many over its life, serially today, concurrently once `gather`-ed).
-> Isolation between Sessions is enforced **within a process** by per-task state-scoping
-> (contextvar-inherited, structured concurrency) and **across processes** by NATS-Account walls
-> (the A2A proposal). **Only distilled briefs/summaries cross any Session boundary** — child
-> task, sub-agent, or A2A peer. Session-owned state is per-task; shared external capacity
-> (LLM/Odoo limits) is governed by one process-global limiter.
+> **A Session is the unit of isolation.** One Session owns one context and one set of
+> mutable state, scoped to a **task-tree rooted at a session task**. An **agent** is
+> the actor that *runs* Sessions (1:N — many over its life). Isolation between
+> Sessions is enforced **within a process** by per-task state-scoping
+> (contextvar-inherited, structured concurrency) and **across processes** by
+> NATS-Account walls (the A2A design). **Only distilled briefs/summaries cross any
+> Session boundary** — child task, sub-agent, or A2A peer. Session-owned state is
+> per-task; shared external capacity (LLM/target-system limits) is governed by one
+> process-global limiter.
 
 Two sub-principles everything references:
-- **P-ISO-1 (identity).** Session = context = task-tree root. **Session ≠ agent** (agent:session is 1:N).
-- **P-ISO-2 (crossing).** Every boundary crossing passes *distilled* context, never raw shared state.
 
-## Two isolation planes
+- **P-ISO-1 (identity).** Session = context = task-tree root. **Session ≠ agent**
+  (agent:session is 1:N).
+- **P-ISO-2 (crossing).** Every boundary crossing passes *distilled* context, never
+  raw shared state.
+
+## 2. Two isolation planes
 
 | Plane | Boundary | Mechanism | Owner doc |
 |---|---|---|---|
 | **Intra-process** | Session ↔ Session in one worker | per-task state-scoping + structured concurrency | **this doc** |
 | **Inter-process** | agent ↔ agent across workers | NATS trust-zone Accounts (deny-by-default export/import) | `ludo-agent/docs/proposals/agentic-cluster-a2a.md` Principle 4 |
 
-The two planes share **exactly one law — P-ISO-2** (only distilled context crosses). Stated
-canonically here; referenced by context.md §8 and a2a Principle 4. **CRIE rule:**
-intra-process isolation lives here; inter-process/inter-agent isolation lives in the a2a
-proposal — reference it, don't restate it.
+The two planes share **exactly one law — P-ISO-2**. Stated canonically here;
+referenced by context.md §8 and a2a Principle 4. **CRIE rule:** intra-process
+isolation lives here; inter-process/inter-agent isolation lives in the a2a design —
+reference it, don't restate it.
 
-## What EXISTS today (grounded)
+## 3. The concurrency invariants I1–I7
 
-- **Single-flight is the only isolation.** The worker runs **one job at a time**
-  (`worker/consumer.py`: `batch=1`, serial `for m in msgs: await run_job`, no
-  `gather`/`create_task`). Two Sessions never interleave in one process → today's safety is
-  single-flight, not per-task scoping.
-- **Intra-session async IS real** — a Session already fans Odoo RPC out under a per-instance
-  `asyncio.Semaphore` (`odoo/client.py`), with threaded SQLite (aiosqlite) + MinIO (`to_thread`).
-  So a Session is *already* a task-tree; concurrency exists **inside** a run, not across runs.
-- **Per-session isolation that's sound:** Engine/dispatcher/registry/ToolContext built fresh per
-  run; MinIO keys session-scoped; event bus keyed by `session_id`; atomic SQL `+=` cost increment.
-- **The interleave-unsafe shared state** (masked only by single-flight): a never-unbound
-  `bind_session` ContextVar; one shared `aiosqlite` connection; unlocked shared rename-map dirs;
-  no persisted per-customer budget ceiling; per-instance (not global) LLM/Odoo limits.
+The rules that make `gather`-over-Sessions (or a second worker) safe. Each pairs a
+per-task-scoping rule with the defect it neutralises. **I1–I6 = gather-safe within a
+process; I7 = safe across processes.** Baseline: the production worker still runs
+**single-flight by default** (`batch=1`, serial) — the invariants are what make
+`batch>1` or a second replica safe, not a claim that concurrency is on.
 
-## The concurrency invariants (canonical — the actionable core)
+- **I1 — Session context is task-scoped, never process-global.** *Fixes cost
+  misattribution.* One task per Session (asyncio copies the contextvar snapshot into
+  the task); binding is symmetric. **Landed:** `bind_session` returns a
+  `contextvars.Token`, `unbind_session(token)` restores, and the `session_scope`
+  async context manager wraps a run (`llm/cost_recorder.py`) — the never-unbound
+  set is gone.
+- **I2 — No shared mutable DB connection across Sessions; writes atomic + isolated.**
+  **Half landed:** the cross-process half is in — WAL + `PRAGMA busy_timeout=30000`,
+  so a second worker on the same file *waits* instead of failing `SQLITE_BUSY`
+  (`storage/sqlite_store.py`, agentix#39). The in-process half is deferred: the
+  store keeps one long-lived aiosqlite connection, safe only under single-flight —
+  `gather` needs a per-task connection or a transaction lock (§8).
+- **I3 — Session-shared filesystem state is scoped or locked.** **Kernel primitive
+  landed:** `MemoryStore.lock(name)` namespaced advisory locks
+  ([`memory.md`](memory.md) §3) cover same-process and cross-process contention;
+  applying them to app-shared dirs (e.g. the reference app's rename maps) is the
+  app's job.
+- **I4 — Budget scoped per Session, ceilinged per account.** **Half landed:** each
+  session owns its window budget (context.md) reporting into its own cost ledger
+  (session.md §7). The **persisted per-account ceiling** that caps aggregate spend
+  across parallel Sessions is control-plane-owned — direction (§7).
+- **I5 — External-resource concurrency bounded globally, not per-instance.**
+  **Landed:** `llm/limiter.py` — one process-global semaphore (per event loop,
+  default 8, `configure_llm_capacity` at startup) acquired around every
+  `provider.complete`; closes agentix#40. *The deliberate carve-out: session state
+  is per-task, but shared external capacity is intentionally global.*
+- **I6 — Structured concurrency: no session-child task outlives its Session.**
+  Intra-session fan-out is awaited under the session root; no orphan `create_task`
+  touching a finalized session — this is what "one task-tree" encodes, and it
+  protects I1's contextvar copy. **Reference-app side:** the worker consumer's
+  `batch>1` path fans the fetched batch out under a `TaskGroup` (per-task
+  contextvar copy keeps I1 safe); `batch=1` stays the serial default.
+- **I7 — (inter-process) Session single-flight lease + orphan reaper.** At most one
+  worker runs a given `session_id`; a dead worker's session is reaped. **Landed:**
+  schema v14 lease columns + `claim`/`renew`/`reap_expired_sessions`
+  ([`session.md`](session.md) §6); the agent claims on start and renews each turn;
+  the reaper is available but not auto-run while single-replica.
 
-The rules that make `gather`-over-Sessions (or a 2nd worker) safe. Each = a per-task-scoping rule
-+ the defect it neutralises. **I1–I6 = gather-safe within a process; I7 = safe across processes.**
+## 4. Intra-session concurrency (the sub-boundary)
 
-- **I1 — Session context is task-scoped, never process-global.** One `create_task` per Session
-  (asyncio copies the contextvar snapshot into the task); `bind_session` entered/exited
-  *symmetrically* in that scope (context-manager, not a never-unbound set). *Fixes cost
-  misattribution.* The create_task context-copy already does most of the work — a session-per-task
-  model fixes it almost for free.
-- **I2 — No shared mutable DB connection across Sessions; writes atomic + isolated.** Connection
-  per session-task (or a real transaction lock); `execute`+`commit` wrapped so a commit flushes
-  only that session's writes; `busy_timeout` + WAL so a 2nd process *waits* instead of `SQLITE_BUSY`.
-- **I3 — Session-shared filesystem state is scoped or locked.** Rename-map / snapshot-restore dirs
-  keyed per session (or version-pair) and guarded by the existing `lock_for_customer` before
-  snapshot/restore.
-- **I4 — Budget scoped per Session, ceilinged per customer.** Each session-task owns its
-  window/token budget (context.md) reporting into its own cost ledger (session.md clause 5); a
-  **persisted per-account ceiling** caps aggregate spend across parallel Sessions.
-- **I5 — External-resource concurrency bounded globally, not per-instance.** LLM + Odoo go through
-  a **shared per-account/per-deployment limiter**, not a per-Session semaphore. *The deliberate
-  carve-out: session state is per-task, but shared external capacity is intentionally global.*
-- **I6 — Structured concurrency: no session-child task outlives its Session.** Intra-session
-  fan-out awaited under the session root (TaskGroup-style); no orphan `create_task` touching a
-  finalized session. This is what "one task-tree" encodes; it protects I1's contextvar copy.
-- **I7 — (inter-process) Session single-flight lease + orphan reaper.** At most one worker runs a
-  given `session_id`; a dead worker's session is reaped. Gateway = `account_id` authority = owner.
-  *Not part of the intra-process gather-safe set — the cross-process extension.*
+A Session fans out child tasks (RPC, I/O). Child tasks inherit a **copy** of the
+parent's contextvar context at `create_task` time → they read the correct
+`session_id`, so cost books correctly (this is *why* I1 works). The only rule:
+**structured concurrency** (I6) — children are awaited under the session root and
+never touch session state after it finalizes. Shared *session-owned* resources
+(working memory, app caches, the DB handle) still need per-child scoping or
+serialization even inside one Session.
 
-**Defect → invariant map:** never-unbound ContextVar → **I1** · shared aiosqlite conn / no
-busy_timeout → **I2** · unlocked rename dirs → **I3** · no per-customer ceiling → **I4** ·
-per-instance LLM/Odoo limit → **I5** · structured-concurrency / contextvar-copy → **I6** · no
-lease/reaper → **I7** (the lease/reaper has since landed — session.md §6). (Defects catalogued in the multi-agent readiness analysis.)
+## 5. Session hierarchy: delegation & sub-agents
 
-## Intra-session concurrency (the sub-boundary)
+`delegate` / a sub-agent = a **child Session** with its **own context window**
+(orchestrator context ≠ worker context) — **not** a sub-task sharing the parent's
+session. Same identity model, two transports: **in-process** = a child
+session-task; **over A2A** = a remote session in another NATS Account. Both obey
+P-ISO-2 (a distilled brief in, a distilled summary out). The persisted link has
+landed: `Session.parent_session_id` ([`session.md`](session.md) §1) — this doc owns
+the runtime relationship; session.md owns the stored field. A2A crossing rules: a2a
+design Principle 4 (referenced, not restated).
 
-A Session fans out child tasks (Odoo RPC, I/O). Child tasks inherit a **copy** of the parent's
-contextvar context at `create_task` time → they read the correct `session_id`, so cost books
-correctly (this is *why* I1 works). The only rule: **structured concurrency** (I6) — children are
-awaited under the session root and never touch session state after it finalizes. Shared
-*session-owned* resources (working_memory, the rename-map, the DB handle) still need per-child
-scoping or serialization even inside one Session.
+## 6. What is `[K]` vs `[A]`
 
-## Session hierarchy: delegation & sub-agents
+- **`[K]` kernel:** the Session boundary, per-task state-scoping (`session_scope`),
+  structured concurrency, the I1–I7 invariants, the global external-capacity
+  limiter, the lease/reaper store API. Any app inherits gather-safe isolation.
+- **`[A]` app:** the idempotency / resume-key provider (the reference app's
+  record census is one implementation) + the source feeds. With
+  `resume_or_create` generic (session.md §4), the abstraction is app-agnostic; the
+  app supplies only what "work already done outside" means in its domain.
 
-`delegate` / a sub-agent = a **child Session** with its **own context window** (context.md dim 6:
-orchestrator context ≠ worker context) — **not** a sub-task sharing the parent's session. Same
-identity model, two transports: **in-process** = a child session-task; **over A2A** = a remote
-session in another NATS Account. Both obey P-ISO-2 (a distilled brief in, a distilled summary out).
-This needs the `parent_session_id`/correlation field the flat `Session` forbids today
-(`extra="forbid"`) — so **isolation.md owns the runtime relationship; session.md owns the persisted
-field** (its GAP #8 + open decision). A2A crossing rules: a2a proposal Principle 4 (referenced).
+---
 
-## What is `[K]` vs `[A]`
+*Everything below is DIRECTION — converged design, not the code today.*
 
-- **`[K]` kernel:** the Session boundary, per-task state-scoping, structured concurrency, the I1–I7
-  invariants, the global external-capacity limiter. Generic — any app inherits gather-safe isolation.
-- **`[A]` app:** the resume-key / idempotency provider (LUDO's Odoo-xmlid census = one impl) + the
-  source feeds. Genericity closes only when the kernel owns I1–I7 rather than leaning on an app
-  trick (session.md clause 4).
+## 7. Enabling gather-over-Sessions
 
-## Open decisions
+What remains before concurrent Sessions in one process (or `batch>1` by default):
 
-- [ ] `asyncio.TaskGroup` vs. manual `gather` for the session task-tree (structured-concurrency primitive).
-- [ ] Connection-per-task vs. a transaction lock for I2 — which under aiosqlite.
-- [ ] Where the global external-capacity limiter lives (per-account token-bucket owner).
-- [ ] Is I7 (lease/reaper) folded into the runtime component or split as an inter-process concern?
-- [ ] Kernel component # (agentix#1): ContextManager = #20 (context.md); this **SessionRuntime** = #21.
+- **I2's in-process half** — per-task DB connection or a transaction lock, so a
+  commit flushes only that session's writes (agentix#39).
+- **I4's account ceiling** — a persisted per-account spend ceiling enforced by the
+  control plane, so N parallel sessions for one customer can't spend N×.
+- Flip the consumer default past `batch=1` only after both close; I1/I3/I5/I6
+  already hold.
 
-## Roadmap / slices
+## 8. Open decisions
 
-Isolation only *bites* once concurrency is introduced, so this tracks the concurrency-enablement path:
-
-- **S0 — Symmetric session binding + per-task scoping** (I1). Cheap; also fixes the live cost leak.
-- **S1 — DB + filesystem interleave-safety** (I2, I3). Prereq for any in-process `gather`.
-- **S2 — Global external-capacity limiter + per-customer ceiling** (I4, I5).
-- **S3 — Structured-concurrency the session task-tree** (I6); then enable `gather`-over-Sessions.
-- **S4 — Session lease + reaper** (I7) — cross-process; with the gateway.
-- **S5 — Session hierarchy field** (parent/correlation) — unblocks in-proc + A2A delegation.
-
-## Worklog
-
-- **2026-07-06** — doc opened to reconcile session + context + multi-agent + genericity with
-  asyncio/concurrency. Canonical: the isolation axiom (P-ISO-1 / P-ISO-2), the two planes, and the
-  I1–I7 invariants (each mapped to a concrete defect). References session.md (durable object +
-  alignment contract), context.md (window policy), a2a proposal (inter-process plane).
-- **2026-07-06** — invariants built out. **I5** — global LLM capacity limiter
-  (`llm/limiter.py`, per-loop semaphore) wraps every `provider.complete`; closes agentix#40.
-  **I6** — consumer gains a structured-concurrency path: `batch>1` fans the fetched batch out
-  under a `TaskGroup` (per-task contextvar copy keeps I1 safe), `batch=1` stays serial (default,
-  prod unchanged). **I7** — session lease (`sessions.lease_expires_at`/`leased_by`, schema v14) +
-  `claim`/`renew`/`reap_expired_sessions`; the agent claims on start + renews each turn; the
-  reaper is available but not auto-run (single-replica has no orphans). Operator-checkpoint seam:
-  `request_checkpoint` (pause + persist + emit `checkpoint_requested`), resumable via
-  resume_or_create; driver reactivates paused→running on resume.
+- [ ] I2 mechanism: connection-per-task vs a transaction lock — which under
+  aiosqlite.
+- [ ] Where the per-account token-bucket limiter lives once there are multiple
+  workers (I4/I5 across processes; the gateway as `account_id` authority is the
+  natural owner).
+- [ ] **SessionRuntime** as kernel component #21 (agentix#1): whether the runtime
+  model (task-tree root, lease lifecycle, limiter wiring) gets a first-class object
+  or stays a set of enforced invariants.

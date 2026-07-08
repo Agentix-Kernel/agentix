@@ -81,6 +81,7 @@ A structured tried / failed / learned log that survives context compression, aut
 - One session = one context = one task-tree root;
 - Only distilled context crosses any boundary.
 - Per-task cost and DB scoping, structured concurrency, a session lease with an orphan reaper, and trust-zone NATS accounts (edge / control / internal), deny-by-default.
+- Detail: `docs/isolation.md` (axiom, planes, invariants I1-I7, session hierarchy).
 
 ### Safety and guardrails.
 
