@@ -5,8 +5,9 @@
 - A **deterministic body** runs the routine work; an LLM (the *Cortex*) is woken only on
   **cognitive escalation** — when an automated step cannot prove its result is correct.
 - Apps supply domain tools, prompts and memory sources; the kernel supplies everything else —
-  the engine and middleware spine, the LLM provider router, sessions and checkpoints, context
-  management, tools and skills, three-store persistence, budgets, isolation and safety.
+  the engine and middleware spine, the driver framework for external-system I/O (models of
+  any modality, with chat failover), sessions and checkpoints, context management, tools and
+  skills, three-store persistence, budgets, isolation and safety.
 - A strict `[K]` kernel / `[A]` app split keeps domain vocabulary out of the core, enforced by
   CI purity gates.
 - The kernel is the frozen API + principles; any terminal, web, mobile or desktop agent app
@@ -35,7 +36,7 @@ from agentix.core.agent_dispatcher import AgentDispatcher
 from agentix.core.engine import Engine
 from agentix.core.session import create_session
 from agentix.core.types import Message
-from agentix.runtime import build_llm_provider
+from agentix.drivers import build_drivers
 from agentix.storage import MemoryStore, MinioConfig, MinioStore, SqliteStore
 from agentix.tools.base import ToolContext
 from agentix.tools.builtin import register_kernel_tools
@@ -62,8 +63,9 @@ register_kernel_tools(registry)      # always-on read-only primitives
 
 session = await create_session(sqlite, customer_id="tenant-1", budget_usd=50.0)
 
+drivers = build_drivers(cfg, sqlite=sqlite)            # every declared driver, one registry
 dispatcher = AgentDispatcher(
-    provider=build_llm_provider(cfg, sqlite=sqlite),   # provider chain with auto-failover
+    driver=drivers.chat(),                             # chat chain with auto-failover
     registry=registry,
     safety_gate=SafetyGate(sqlite=sqlite),             # verify-then-rollback on mutations
     ctx_factory=lambda turn: ToolContext(session=session, sqlite=sqlite, minio=minio, memory=memory),
@@ -98,9 +100,9 @@ turn = await engine.run_turn(session, Message(role="user", content="Summarise da
 - Messages are an opaque list the engine snapshots per turn.
 - The innermost dispatch is a `TurnDispatcher` protocol, so tests swap in fakes without
   touching the chain.
-- The provider layer underneath (adapters, failover router, OAuth token sources):
-  [`docs/llm.md`](docs/llm.md); which model serves a request (chain order, failover,
-  routing direction): [`docs/routing.md`](docs/routing.md).
+- The driver layer underneath (descriptor/registry, chat adapters incl. OAuth token
+  sources, failover chain): [`docs/drivers.md`](docs/drivers.md); which model serves a
+  request (chain order, failover, routing direction): [`docs/routing.md`](docs/routing.md).
 - Detail: [`docs/engine.md`](docs/engine.md) (run_turn contract, middleware order, the nine layers).
 
 ### Async and sync operation
@@ -257,19 +259,19 @@ Three stores, one invariant: **data and memory never cross.**
 | Path | What lives there |
 |---|---|
 | `src/agentix/core/` | • Engine spine: `Engine`, `AgentDispatcher`<br>• `Session` + `create_session`, checkpoints<br>• `ContextManager`, `WorkingMemory`<br>• `Message`/`Turn` types<br>• `middleware/` — trajectory, cost, budget, safety gate, loop detection, retry, dangling-tool-call, tool-count cap |
-| `src/agentix/llm/` | • `Provider` protocol + adapters (Anthropic incl. OAuth, OpenAI-compatible, Groq, gateway)<br>• `ProviderRouter` auto-failover<br>• cost recorder, rate limiter, adversarial judge |
+| `src/agentix/drivers/` | • The external-system I/O abstraction: `Driver` + `DriverDescriptor` + `DriverRegistry`<br>• chat family (`ChatDriver`, vendor adapters incl. OAuth, `ChatFailoverChain`, cost recorder)<br>• embedding family + SQLite cache<br>• stt proof driver (HuggingFace Whisper)<br>• capacity limiter, session binding, `build_drivers` factory (seam #13) |
 | `src/agentix/tools/` | • `Tool` protocol, `ToolContext`, `ToolRegistry`<br>• `SafetyGate`<br>• kernel primitives (`builtin.py`, `spike/`), sandbox |
 | `src/agentix/skills/` | • `SkillCatalog`, `consult_skill`<br>• bundle loader |
 | `src/agentix/storage/` | • `SqliteStore`, `MinioStore`, `MemoryStore` |
 | `src/agentix/a2a/` | • `AgentCard`, `Capability` — the discovery model |
 | `src/agentix/config.py` | • `KernelConfig` + per-provider configs; apps subclass |
-| `src/agentix/runtime.py` | • `build_llm_provider` / `build_embedding_provider` factories |
+| `src/agentix/runtime.py` | • legacy factory shims delegating to `build_drivers` (removed in 0.5.0 final) |
 | `src/agentix/events.py` | • Session event bus + the kernel's own neutral Contract-B envelope (drift-guarded against `contracts/`) |
-| `src/agentix/embeddings.py` | • `EmbeddingProvider` protocol + deterministic fallback |
+| `src/agentix/embeddings.py`, `src/agentix/llm/` | • migration shims over `agentix.drivers` (removed in 0.5.0 final) |
 
 ## How an app plugs in
 
-The kernel is extended only through its **12 seams** — never by editing kernel code.
+The kernel is extended only through its **13 seams** — never by editing kernel code.
 Canonical catalog with mechanisms and examples: [`docs/seams.md`](docs/seams.md).
 
 - **`KernelConfig` subclass** — attach the app's resolved settings.
@@ -289,14 +291,14 @@ Canonical catalog with mechanisms and examples: [`docs/seams.md`](docs/seams.md)
 
 | Doc | Single source of truth for |
 |---|---|
-| [`docs/seams.md`](docs/seams.md) | • The 12 kernel↔app contact points<br>• what the kernel will never contain, and the gates enforcing it |
+| [`docs/seams.md`](docs/seams.md) | • The 13 kernel↔app contact points<br>• what the kernel will never contain, and the gates enforcing it |
 | [`docs/tools.md`](docs/tools.md) | • Tool contract, registry, kernel primitives<br>• safety gate<br>• the escalation ladder, the four verbs |
 | [`docs/skills.md`](docs/skills.md) | • Skill bundles, catalog<br>• progressive disclosure, loader |
 | [`docs/session.md`](docs/session.md) | • Session object, persistence<br>• checkpoints, resume, lease |
 | [`docs/engine.md`](docs/engine.md) | • Turn engine, middleware chain + order<br>• the nine layers, dispatcher seams |
 | [`docs/async.md`](docs/async.md) | • Async execution model: substrate, offload discipline<br>• loop/task-scoped state, app facilities, call-graph |
 | [`docs/sync.md`](docs/sync.md) | • OT / synchronous-integration plan: one-kernel decision<br>• SLM local-inference considerations, sync facade design |
-| [`docs/llm.md`](docs/llm.md) | • Provider protocol, adapters, OAuth token sources<br>• activation predicates |
+| [`docs/drivers.md`](docs/drivers.md) | • Driver framework: descriptor, registry, per-kind protocols<br>• chat/embedding/stt families, seam #13 |
 | [`docs/routing.md`](docs/routing.md) | • Model routing: chain order, failover semantics<br>• direction: modality-general registry, policy seam |
 | [`docs/context.md`](docs/context.md) | • Window assembly, budget<br>• compression, eviction tiers, window report |
 | [`docs/memory.md`](docs/memory.md) | • Working memory, memory tiers<br>• page store, semantic recall |

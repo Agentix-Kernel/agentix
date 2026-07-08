@@ -101,7 +101,12 @@ async def test_per_call_model_override() -> None:
     ("status", "body", "exc_cls", "retryable"),
     [
         (429, {"error": "rate limited"}, DriverRateLimited, True),
-        (503, {"error": "Model openai/whisper-large-v3 is currently loading", "estimated_time": 20.0}, DriverUnavailable, True),
+        (
+            503,
+            {"error": "Model openai/whisper-large-v3 is currently loading", "estimated_time": 20.0},
+            DriverUnavailable,
+            True,
+        ),
         (500, {"error": "internal"}, DriverUnavailable, True),
         (400, {"error": "bad audio"}, DriverInvalidRequest, False),
         (401, {"error": "unauthorized"}, DriverInvalidRequest, False),

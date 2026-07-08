@@ -5,32 +5,32 @@ from __future__ import annotations
 import pytest
 
 from agentix.core.types import Message, ToolCall
-from agentix.llm.anthropic import AnthropicProvider  # not used; just assert import works
-from agentix.llm.base import LlmInvalidRequest
-from agentix.llm.groq import GroqProvider
-from agentix.llm.openai import OpenAIProvider, _to_openai
+from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+from agentix.drivers.adapters.groq import GroqChatDriver
+from agentix.drivers.adapters.openai import OpenAIChatDriver, _to_openai
+from agentix.drivers.base import DriverInvalidRequest
 
 
 def test_openai_init_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with pytest.raises(LlmInvalidRequest, match="no OpenAI API key"):
-        OpenAIProvider()
+    with pytest.raises(DriverInvalidRequest, match="no OpenAI API key"):
+        OpenAIChatDriver()
 
 
 def test_openai_init_with_explicit_key() -> None:
-    provider = OpenAIProvider(api_key="sk-test")
+    provider = OpenAIChatDriver(api_key="sk-test")
     assert provider.name == "openai"
     assert provider.default_model == "gpt-5"
 
 
 def test_groq_init_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
-    with pytest.raises(LlmInvalidRequest, match="no Groq API key"):
-        GroqProvider()
+    with pytest.raises(DriverInvalidRequest, match="no Groq API key"):
+        GroqChatDriver()
 
 
 def test_groq_init_with_explicit_key() -> None:
-    provider = GroqProvider(api_key="gsk-test")
+    provider = GroqChatDriver(api_key="gsk-test")
     assert provider.name == "groq"
     assert provider.default_model == "moonshotai/kimi-k2"
 
@@ -74,7 +74,7 @@ def test_to_openai_serialises_tool_call_arguments_to_json_string() -> None:
 # Anthropic import is re-exported to keep the package cohesive; this tiny
 # assertion catches import regressions.
 def test_anthropic_class_exposed() -> None:
-    assert AnthropicProvider.name == "anthropic"
+    assert AnthropicChatDriver.name == "anthropic"
 
 
 # ──────────────────────── OpenAI tool round-trip (PR-P2) ────────────
@@ -150,10 +150,10 @@ class _FakeOpenAIClient:
 async def test_openai_sends_tools_with_function_wrapper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """PR-P2: LlmRequest.tools → ``[{"type":"function","function":...}]``."""
-    from agentix.llm.base import LlmRequest, ToolSpec
+    """PR-P2: ChatRequest.tools → ``[{"type":"function","function":...}]``."""
+    from agentix.drivers.chat import ChatRequest, ToolSpec
 
-    provider = OpenAIProvider(api_key="sk-test")
+    provider = OpenAIChatDriver(api_key="sk-test")
     fake = _FakeOpenAIClient(_FakeCompletion(_FakeChoice(_FakeMessage("hi"))))
     monkeypatch.setattr(provider, "_client", fake)
 
@@ -162,7 +162,9 @@ async def test_openai_sends_tools_with_function_wrapper(
         description="Extract records.",
         input_schema={"type": "object", "properties": {"model": {"type": "string"}}},
     )
-    await provider.complete(LlmRequest(messages=[Message(role="user", content="run")], tools=[spec], tool_choice="any"))
+    await provider.complete(
+        ChatRequest(messages=[Message(role="user", content="run")], tools=[spec], tool_choice="any")
+    )
 
     sent = fake.chat.completions.kwargs.get("tools")
     assert isinstance(sent, list) and len(sent) == 1
@@ -177,13 +179,13 @@ async def test_openai_sends_tools_with_function_wrapper(
 async def test_openai_parses_tool_calls_from_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """PR-P2: ``choice.message.tool_calls`` → LlmResponse.tool_calls with
+    """PR-P2: ``choice.message.tool_calls`` → ChatResponse.tool_calls with
     JSON-decoded arguments."""
     import json
 
-    from agentix.llm.base import LlmRequest
+    from agentix.drivers.chat import ChatRequest
 
-    provider = OpenAIProvider(api_key="sk-test")
+    provider = OpenAIChatDriver(api_key="sk-test")
     tc = _FakeToolCall(
         id="call_1",
         name="extract_from_odoo",
@@ -193,7 +195,7 @@ async def test_openai_parses_tool_calls_from_response(
     fake = _FakeOpenAIClient(_FakeCompletion(_FakeChoice(msg, finish_reason="tool_calls")))
     monkeypatch.setattr(provider, "_client", fake)
 
-    resp = await provider.complete(LlmRequest(messages=[Message(role="user", content="go")]))
+    resp = await provider.complete(ChatRequest(messages=[Message(role="user", content="go")]))
     assert resp.finish_reason == "tool_calls"
     assert len(resp.tool_calls) == 1
     call = resp.tool_calls[0]
@@ -209,15 +211,15 @@ async def test_openai_malformed_tool_arguments_surface_visibly(
     """Broken JSON from the model must not silently become empty args —
     preserve the raw string under a sentinel key so the dispatcher can
     re-prompt with the actual error."""
-    from agentix.llm.base import LlmRequest
+    from agentix.drivers.chat import ChatRequest
 
-    provider = OpenAIProvider(api_key="sk-test")
+    provider = OpenAIChatDriver(api_key="sk-test")
     tc = _FakeToolCall(id="call_x", name="extract_from_odoo", arguments="{malformed:")
     msg = _FakeMessage(content=None, tool_calls=[tc])
     fake = _FakeOpenAIClient(_FakeCompletion(_FakeChoice(msg, finish_reason="tool_calls")))
     monkeypatch.setattr(provider, "_client", fake)
 
-    resp = await provider.complete(LlmRequest(messages=[Message(role="user", content="go")]))
+    resp = await provider.complete(ChatRequest(messages=[Message(role="user", content="go")]))
     assert resp.tool_calls[0].arguments == {"_malformed": "{malformed:"}
 
 
@@ -241,14 +243,14 @@ class _FakeGroqClient:
 async def test_groq_sends_tools_via_openai_compatible_format(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from agentix.llm.base import LlmRequest, ToolSpec
+    from agentix.drivers.chat import ChatRequest, ToolSpec
 
-    provider = GroqProvider(api_key="gsk-test")
+    provider = GroqChatDriver(api_key="gsk-test")
     fake = _FakeGroqClient(_FakeCompletion(_FakeChoice(_FakeMessage("hi"))))
     monkeypatch.setattr(provider, "_client", fake)
 
     await provider.complete(
-        LlmRequest(
+        ChatRequest(
             messages=[Message(role="user", content="go")],
             tools=[ToolSpec(name="t", description="", input_schema={"type": "object"})],
             tool_choice="auto",
@@ -265,15 +267,15 @@ async def test_groq_parses_tool_calls_from_response(
 ) -> None:
     import json
 
-    from agentix.llm.base import LlmRequest
+    from agentix.drivers.chat import ChatRequest
 
-    provider = GroqProvider(api_key="gsk-test")
+    provider = GroqChatDriver(api_key="gsk-test")
     tc = _FakeToolCall(id="call_g", name="inspect_model", arguments=json.dumps({"model": "res.partner"}))
     msg = _FakeMessage(content=None, tool_calls=[tc])
     fake = _FakeGroqClient(_FakeCompletion(_FakeChoice(msg, finish_reason="tool_calls")))
     monkeypatch.setattr(provider, "_client", fake)
 
-    resp = await provider.complete(LlmRequest(messages=[Message(role="user", content="go")]))
+    resp = await provider.complete(ChatRequest(messages=[Message(role="user", content="go")]))
     assert len(resp.tool_calls) == 1
     assert resp.tool_calls[0].name == "inspect_model"
     assert resp.tool_calls[0].arguments == {"model": "res.partner"}

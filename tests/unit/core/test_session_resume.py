@@ -51,9 +51,7 @@ async def test_lookup_returns_latest_for_shared_id(sqlite: SqliteStore) -> None:
 @pytest.mark.asyncio
 async def test_creates_fresh_when_no_prior(sqlite: SqliteStore) -> None:
     minio = _FakeMinio()
-    session, resumed = await resume_or_create(
-        sqlite, minio, customer_id="c1", control_plane_id="mig_new"
-    )
+    session, resumed = await resume_or_create(sqlite, minio, customer_id="c1", control_plane_id="mig_new")
     assert resumed is False
     assert session.control_plane_id == "mig_new"
     # persisted + discoverable by the binding
@@ -71,9 +69,7 @@ async def test_resumes_existing_checkpointed_session(sqlite: SqliteStore) -> Non
     await save(first, sqlite=sqlite, minio=minio, checkpoint="latest")
 
     # Redelivery: same control-plane id resumes the very same Session.
-    resumed_session, resumed = await resume_or_create(
-        sqlite, minio, customer_id="c1", control_plane_id="mig_r"
-    )
+    resumed_session, resumed = await resume_or_create(sqlite, minio, customer_id="c1", control_plane_id="mig_r")
     assert resumed is True
     assert resumed_session.id == first.id
     assert resumed_session.turn_index == 3
@@ -89,9 +85,7 @@ async def test_terminal_session_starts_fresh(sqlite: SqliteStore) -> None:
     await save(first, sqlite=sqlite, minio=minio, checkpoint="latest")
     await sqlite.update_session(first.id, status="completed")
 
-    session, resumed = await resume_or_create(
-        sqlite, minio, customer_id="c1", control_plane_id="mig_done"
-    )
+    session, resumed = await resume_or_create(sqlite, minio, customer_id="c1", control_plane_id="mig_done")
     assert resumed is False
     assert session.id != first.id
 
@@ -105,9 +99,7 @@ async def test_falls_through_when_checkpoint_blob_missing(sqlite: SqliteStore) -
     await sqlite.create_session(session_id="S_ghost", customer_id="c1", control_plane_id="mig_ghost")
     await sqlite.update_session("S_ghost", checkpoint="latest")
 
-    session, resumed = await resume_or_create(
-        sqlite, minio, customer_id="c1", control_plane_id="mig_ghost"
-    )
+    session, resumed = await resume_or_create(sqlite, minio, customer_id="c1", control_plane_id="mig_ghost")
     assert resumed is False
     assert session.id != "S_ghost"
 

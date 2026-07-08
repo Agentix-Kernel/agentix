@@ -93,11 +93,11 @@ of these four — that's the review checklist.
 Two pieces of kernel state are deliberately scoped to async machinery — which is
 also why naive sync calling is a hard error, not a style question:
 
-- **Per-loop capacity semaphore** (`llm/limiter.py`) — the global LLM gate is an
+- **Per-loop capacity semaphore** (`drivers/limiter.py`) — the global model-call gate is an
   `asyncio.Semaphore` keyed by `id(get_running_loop())`, so tests crossing
   `asyncio.run` boundaries get fresh gates and a stale-loop semaphore is never
   reused ([`isolation.md`](isolation.md) I5). No running loop → no semaphore.
-- **Per-task cost binding** (`llm/cost_recorder.py`) — the current session id is
+- **Per-task cost binding** (`drivers/session.py`) — the current session id is
   a `ContextVar`, copied into every child task, so concurrent sessions in one
   loop record costs to the right session ([`isolation.md`](isolation.md) I1).
   Sync code has no task context to bind.
@@ -132,7 +132,7 @@ each, with its SSoT:
 - [`budgets.md`](budgets.md) — cost recording sits at the awaited call boundary
   (`CostRecordingProvider.complete`), reading the per-task `ContextVar` binding
   (§4), so every await records against the session that made it.
-- [`llm.md`](llm.md) — `Provider.complete` is the one async method everything
+- [`drivers.md`](drivers.md) — `ChatDriver.complete` is the one async method everything
   speaks; adapters await the provider SDKs directly, and the capacity semaphore
   (§4) bounds how many are in flight per process.
 - [`routing.md`](routing.md) — failover is a sequential `await` chain: try one

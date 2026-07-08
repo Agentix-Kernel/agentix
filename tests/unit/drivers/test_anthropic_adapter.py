@@ -1,4 +1,4 @@
-"""Unit tests for AnthropicProvider — message mapping + response parsing.
+"""Unit tests for AnthropicChatDriver — message mapping + response parsing.
 
 Token-resolution coverage lives in ``test_anthropic_auth.py`` (the four
 TokenSource implementations + the chain resolver).
@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from agentix.core.types import Message, ToolCall
-from agentix.llm.anthropic import (
+from agentix.drivers.adapters.anthropic import (
     _from_anthropic_response,
     _message_to_anthropic,
     _split_system,
@@ -132,14 +132,14 @@ async def test_cache_control_promotes_system_to_block_with_ephemeral_marker(
     """When cache_control=True (API-key mode), the system prompt is sent as
     a block list carrying `cache_control: {"type": "ephemeral"}` and the
     prompt-caching beta header is set."""
-    from agentix.llm.anthropic import AnthropicProvider
-    from agentix.llm.base import LlmRequest
+    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.chat import ChatRequest
 
-    provider = AnthropicProvider(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
+    provider = AnthropicChatDriver(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
     fake_client = _CapturingClient(_FakeResponse())
     monkeypatch.setattr(provider, "_client", fake_client)
 
-    request = LlmRequest(
+    request = ChatRequest(
         messages=[
             Message(role="system", content="you are ludo"),
             Message(role="user", content="hi"),
@@ -167,14 +167,14 @@ async def test_cache_control_off_keeps_system_string(
 ) -> None:
     """Regression: without cache_control, the system prompt is still a plain
     string so we don't send unused extra_headers to the API."""
-    from agentix.llm.anthropic import AnthropicProvider
-    from agentix.llm.base import LlmRequest
+    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.chat import ChatRequest
 
-    provider = AnthropicProvider(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
+    provider = AnthropicChatDriver(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
     fake_client = _CapturingClient(_FakeResponse())
     monkeypatch.setattr(provider, "_client", fake_client)
 
-    request = LlmRequest(
+    request = ChatRequest(
         messages=[
             Message(role="system", content="you are ludo"),
             Message(role="user", content="hi"),
@@ -217,12 +217,12 @@ class _FakeToolResponse:
 
 @pytest.mark.asyncio
 async def test_anthropic_sends_tools_in_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PR-P2: LlmRequest.tools → Anthropic ``tools`` kwarg with
+    """PR-P2: ChatRequest.tools → Anthropic ``tools`` kwarg with
     {name, description, input_schema}."""
-    from agentix.llm.anthropic import AnthropicProvider
-    from agentix.llm.base import LlmRequest, ToolSpec
+    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.chat import ChatRequest, ToolSpec
 
-    provider = AnthropicProvider(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
+    provider = AnthropicChatDriver(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
     fake_client = _CapturingClient(_FakeResponse())
     monkeypatch.setattr(provider, "_client", fake_client)
 
@@ -232,7 +232,7 @@ async def test_anthropic_sends_tools_in_request(monkeypatch: pytest.MonkeyPatch)
         input_schema={"type": "object", "properties": {"model": {"type": "string"}}},
     )
     await provider.complete(
-        LlmRequest(
+        ChatRequest(
             messages=[Message(role="user", content="run it")],
             tools=[tool],
             tool_choice="auto",
@@ -248,15 +248,15 @@ async def test_anthropic_sends_tools_in_request(monkeypatch: pytest.MonkeyPatch)
 
 @pytest.mark.asyncio
 async def test_anthropic_parses_tool_use_response_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
-    """tool_use blocks in the response become LlmResponse.tool_calls."""
-    from agentix.llm.anthropic import AnthropicProvider
-    from agentix.llm.base import LlmRequest
+    """tool_use blocks in the response become ChatResponse.tool_calls."""
+    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.chat import ChatRequest
 
-    provider = AnthropicProvider(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
+    provider = AnthropicChatDriver(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
     fake_client = _CapturingClient(_FakeToolResponse())
     monkeypatch.setattr(provider, "_client", fake_client)
 
-    resp = await provider.complete(LlmRequest(messages=[Message(role="user", content="go")]))
+    resp = await provider.complete(ChatRequest(messages=[Message(role="user", content="go")]))
     assert resp.finish_reason == "tool_use"
     assert len(resp.tool_calls) == 1
     call = resp.tool_calls[0]
@@ -271,15 +271,15 @@ async def test_anthropic_oauth_downgrades_tool_choice_any_to_auto(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """OAuth flow disallows forced tool selection — normalise silently."""
-    from agentix.llm.anthropic import AnthropicProvider
-    from agentix.llm.base import LlmRequest, ToolSpec
+    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.chat import ChatRequest, ToolSpec
 
-    provider = AnthropicProvider(api_key="sk-ant-oat-x", model="claude-sonnet-4-6")
+    provider = AnthropicChatDriver(api_key="sk-ant-oat-x", model="claude-sonnet-4-6")
     fake_client = _CapturingClient(_FakeResponse())
     monkeypatch.setattr(provider, "_client", fake_client)
 
     await provider.complete(
-        LlmRequest(
+        ChatRequest(
             messages=[Message(role="user", content="go")],
             tools=[ToolSpec(name="t", description="", input_schema={"type": "object"})],
             tool_choice="any",
@@ -291,14 +291,14 @@ async def test_anthropic_oauth_downgrades_tool_choice_any_to_auto(
 @pytest.mark.asyncio
 async def test_anthropic_no_tools_means_no_tools_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression: request without tools → ``tools`` kwarg is not sent."""
-    from agentix.llm.anthropic import AnthropicProvider
-    from agentix.llm.base import LlmRequest
+    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.chat import ChatRequest
 
-    provider = AnthropicProvider(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
+    provider = AnthropicChatDriver(api_key="sk-ant-api-x", model="claude-sonnet-4-6")
     fake_client = _CapturingClient(_FakeResponse())
     monkeypatch.setattr(provider, "_client", fake_client)
 
-    await provider.complete(LlmRequest(messages=[Message(role="user", content="hi")]))
+    await provider.complete(ChatRequest(messages=[Message(role="user", content="hi")]))
     assert "tools" not in fake_client.kwargs
     assert "tool_choice" not in fake_client.kwargs
 
@@ -307,14 +307,14 @@ async def test_anthropic_no_tools_means_no_tools_kwarg(monkeypatch: pytest.Monke
 async def test_cache_control_noop_under_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
     """OAuth auth rejects prompt caching — the request must NOT carry
     cache_control markers even when the caller asked for them."""
-    from agentix.llm.anthropic import AnthropicProvider
-    from agentix.llm.base import LlmRequest
+    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.chat import ChatRequest
 
-    provider = AnthropicProvider(api_key="sk-ant-oat-x", model="claude-sonnet-4-6")
+    provider = AnthropicChatDriver(api_key="sk-ant-oat-x", model="claude-sonnet-4-6")
     fake_client = _CapturingClient(_FakeResponse())
     monkeypatch.setattr(provider, "_client", fake_client)
 
-    request = LlmRequest(
+    request = ChatRequest(
         messages=[
             Message(role="system", content="you are ludo"),
             Message(role="user", content="hi"),

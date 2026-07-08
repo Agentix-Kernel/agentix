@@ -1,4 +1,4 @@
-"""Unit tests for HubleProvider — request mapping + response parsing."""
+"""Unit tests for HubleChatDriver — request mapping + response parsing."""
 
 from __future__ import annotations
 
@@ -9,27 +9,26 @@ import httpx
 import pytest
 
 from agentix.core.types import Message, ToolCall
-from agentix.llm.base import (
-    LlmInvalidRequest,
-    LlmRateLimit,
-    LlmRequest,
-    LlmUnavailable,
-    ToolSpec,
-)
-from agentix.llm.huble import (
-    HubleProvider,
+from agentix.drivers.adapters.huble import (
+    HubleChatDriver,
     _message_to_huble,
     _parse_huble_response,
     _split_system,
 )
+from agentix.drivers.base import (
+    DriverInvalidRequest,
+    DriverRateLimited,
+    DriverUnavailable,
+)
+from agentix.drivers.chat import ChatRequest, ToolSpec
 
 # ──────────────────────── helper construction ──────────────────────────────
 
 
-def _provider(transport: httpx.MockTransport, **kw: Any) -> HubleProvider:
-    """Build a HubleProvider whose httpx client uses the supplied mock transport."""
+def _provider(transport: httpx.MockTransport, **kw: Any) -> HubleChatDriver:
+    """Build a HubleChatDriver whose httpx client uses the supplied mock transport."""
     kw.setdefault("model", "deepseek-v4-flash")
-    p = HubleProvider(
+    p = HubleChatDriver(
         base_url="http://huble.test",
         api_key="ludo_test_key",
         **kw,
@@ -54,21 +53,21 @@ def test_provider_requires_model(monkeypatch: pytest.MonkeyPatch) -> None:
     the 500s looked like HUBLE infrastructure problems. Construction
     without a model must now fail loudly."""
     monkeypatch.setenv("LLMHUB_API_KEY", "k")
-    with pytest.raises(LlmInvalidRequest, match="model is required"):
-        HubleProvider(base_url="http://huble.test", model="")
+    with pytest.raises(DriverInvalidRequest, match="model is required"):
+        HubleChatDriver(base_url="http://huble.test", model="")
 
 
 def test_provider_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without LLMHUB_API_KEY env or explicit api_key, init must fail loudly."""
     monkeypatch.delenv("LLMHUB_API_KEY", raising=False)
-    with pytest.raises(LlmInvalidRequest, match="LLMHUB_API_KEY"):
-        HubleProvider(base_url="http://huble.test", model="deepseek-v4-flash")
+    with pytest.raises(DriverInvalidRequest, match="LLMHUB_API_KEY"):
+        HubleChatDriver(base_url="http://huble.test", model="deepseek-v4-flash")
 
 
 def test_provider_picks_up_env_url_and_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLMHUB_URL", "http://envhost:4000")
     monkeypatch.setenv("LLMHUB_API_KEY", "envkey")
-    p = HubleProvider(model="deepseek-v4-flash")
+    p = HubleChatDriver(model="deepseek-v4-flash")
     assert p._base_url == "http://envhost:4000"
     assert p._api_key == "envkey"
     assert p.default_model == "deepseek-v4-flash"
@@ -217,7 +216,7 @@ def test_parse_response_string_content() -> None:
 
 @pytest.mark.asyncio
 async def test_complete_sends_messages_and_parses_response() -> None:
-    """End-to-end: LlmRequest → HUBLE payload → mock response → LlmResponse.
+    """End-to-end: ChatRequest → HUBLE payload → mock response → ChatResponse.
 
     Verifies the wire shape we send matches the one the live HUBLE
     smoke test uses (Anthropic-shape: ``messages`` list, separate
@@ -244,7 +243,7 @@ async def test_complete_sends_messages_and_parses_response() -> None:
         )
 
     p = _provider(httpx.MockTransport(handler), upstream_provider="melious", model="deepseek-v3.2")
-    req = LlmRequest(
+    req = ChatRequest(
         messages=[
             Message(role="system", content="be ludo"),
             Message(role="user", content="hi"),
@@ -298,7 +297,7 @@ async def test_complete_forwards_tools_and_tool_choice() -> None:
         )
 
     p = _provider(httpx.MockTransport(handler))
-    req = LlmRequest(
+    req = ChatRequest(
         messages=[Message(role="user", content="run noop")],
         tools=[
             ToolSpec(
@@ -331,8 +330,8 @@ async def test_complete_429_becomes_rate_limit() -> None:
         return httpx.Response(429, json={"detail": "Rate limit exceeded"})
 
     p = _provider(httpx.MockTransport(handler))
-    with pytest.raises(LlmRateLimit, match="429"):
-        await p.complete(LlmRequest(messages=[Message(role="user", content="x")]))
+    with pytest.raises(DriverRateLimited, match="429"):
+        await p.complete(ChatRequest(messages=[Message(role="user", content="x")]))
     await p.aclose()
 
 
@@ -342,8 +341,8 @@ async def test_complete_5xx_becomes_unavailable() -> None:
         return httpx.Response(503, json={"detail": "service unavailable"})
 
     p = _provider(httpx.MockTransport(handler))
-    with pytest.raises(LlmUnavailable, match="503"):
-        await p.complete(LlmRequest(messages=[Message(role="user", content="x")]))
+    with pytest.raises(DriverUnavailable, match="503"):
+        await p.complete(ChatRequest(messages=[Message(role="user", content="x")]))
     await p.aclose()
 
 
@@ -353,8 +352,8 @@ async def test_complete_4xx_becomes_invalid_request() -> None:
         return httpx.Response(400, json={"detail": {"code": "PROVIDER_UNAVAILABLE", "message": "no claude"}})
 
     p = _provider(httpx.MockTransport(handler))
-    with pytest.raises(LlmInvalidRequest, match="PROVIDER_UNAVAILABLE"):
-        await p.complete(LlmRequest(messages=[Message(role="user", content="x")]))
+    with pytest.raises(DriverInvalidRequest, match="PROVIDER_UNAVAILABLE"):
+        await p.complete(ChatRequest(messages=[Message(role="user", content="x")]))
     await p.aclose()
 
 
@@ -362,7 +361,7 @@ async def test_complete_4xx_becomes_invalid_request() -> None:
 async def test_complete_5xx_with_upstream_400_signature_becomes_invalid_request() -> None:
     """#143 regression: HUBLE wraps upstream 400 (context overflow) as
     a 500. LUDO must detect the canonical signature in the body and
-    re-classify as LlmInvalidRequest (no-retry) so we don't burn 3
+    re-classify as DriverInvalidRequest (no-retry) so we don't burn 3
     retries on a fundamentally non-retriable error.
     """
 
@@ -377,8 +376,8 @@ async def test_complete_5xx_with_upstream_400_signature_becomes_invalid_request(
         )
 
     p = _provider(httpx.MockTransport(handler))
-    with pytest.raises(LlmInvalidRequest, match="HUBLE wrapped upstream 4xx as 5xx"):
-        await p.complete(LlmRequest(messages=[Message(role="user", content="x")]))
+    with pytest.raises(DriverInvalidRequest, match="HUBLE wrapped upstream 4xx as 5xx"):
+        await p.complete(ChatRequest(messages=[Message(role="user", content="x")]))
     await p.aclose()
 
 
@@ -392,8 +391,8 @@ async def test_complete_5xx_without_4xx_signature_stays_unavailable() -> None:
         return httpx.Response(503, json={"detail": "HUBLE database connection lost"})
 
     p = _provider(httpx.MockTransport(handler))
-    with pytest.raises(LlmUnavailable, match="503"):
-        await p.complete(LlmRequest(messages=[Message(role="user", content="x")]))
+    with pytest.raises(DriverUnavailable, match="503"):
+        await p.complete(ChatRequest(messages=[Message(role="user", content="x")]))
     await p.aclose()
 
 
@@ -403,6 +402,6 @@ async def test_complete_connection_error_becomes_unavailable() -> None:
         raise httpx.ConnectError("connection refused")
 
     p = _provider(httpx.MockTransport(handler))
-    with pytest.raises(LlmUnavailable, match="unreachable"):
-        await p.complete(LlmRequest(messages=[Message(role="user", content="x")]))
+    with pytest.raises(DriverUnavailable, match="unreachable"):
+        await p.complete(ChatRequest(messages=[Message(role="user", content="x")]))
     await p.aclose()

@@ -3,7 +3,7 @@
 **Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
 **Single source of truth for budgets in `docs/`.** Sections 1–4 document the landed
-kernel surface (code: `src/agentix/llm/cost_recorder.py`,
+kernel surface (code: `src/agentix/drivers/cost.py` + `drivers/session.py`,
 `src/agentix/core/middleware/cost_tracking.py`, `core/middleware/token_budget.py`);
 section 5 is **DIRECTION** — converged design, not the code today. Neighbouring SSoTs are
 referenced, never restated (CRIE rule): the session cost ledger is
@@ -47,10 +47,15 @@ it shrinks the next window *and* the next call's input cost.
 Cost is recorded **where money is spent**: inside the provider's `complete()` call,
 immediately after the upstream returns.
 
-- `CostRecordingProvider` (`llm/cost_recorder.py`) decorates any `Provider`;
-  `build_llm_provider(cfg, sqlite=…)` (`runtime.py`) wraps every provider in the chain
-  with it. Each successful call persists `(input_tokens, output_tokens, cost_usd)` to
-  SQLite via `update_session(cost_usd_delta=…)`.
+- `CostRecordingChatDriver` (`drivers/cost.py`) decorates any chat driver;
+  `build_drivers(cfg, sqlite=…)` (`drivers/factory.py`) wraps every chat driver in the
+  chain with it. Each successful call persists `(input_tokens, output_tokens,
+  cost_usd)` to SQLite via `update_session(cost_usd_delta=…)`.
+- **Recorded spend = chat spend (v0.5).** Non-token-priced driver kinds (stt
+  per-second, embedding per-text) are NOT written to the ledger — faking per-token
+  numbers would corrupt enforcement; they emit a `driver.usage` log line instead
+  ([`drivers.md`](drivers.md) §6). The kind-agnostic recorder keyed on
+  `DriverDescriptor.pricing_ref` with unit normalization is DIRECTION (§5).
 - **Why not at the turn boundary:** when an inner tool call raises, the unwound chain
   skips any turn-level recording — yet the LLM call was already billed upstream. A
   runaway model could emit 100k tokens, the turn abort on a tool error, and the cap never

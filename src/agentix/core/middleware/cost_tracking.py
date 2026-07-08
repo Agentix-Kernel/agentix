@@ -6,7 +6,7 @@ this middleware multiplies by a per-provider pricing table and stamps
 ``cost.recorded`` log line for observability.
 
 **SQLite persistence lives in** :class:`CostRecordingProvider`
-(``agentix.llm.cost_recorder``) so cost records every successful LLM
+(``agentix.drivers.cost``) so cost records every successful LLM
 call regardless of whether the surrounding turn completes. Recording
 "after next_(turn) returns" here would silently lose cost data when an
 inner tool call raised — a silent budget breach.
@@ -148,7 +148,7 @@ class CostTrackingMiddleware:
         )
         result.cost_usd = cost
         # SQLite persistence moved to CostRecordingProvider — see
-        # agentix.llm.cost_recorder. Recording at the LLM-call boundary
+        # agentix.drivers.cost. Recording at the LLM-call boundary
         # closes the silent-budget-breach hole that this middleware had:
         # if the inner agent loop raised before this line, cost was lost.
         # We keep the per-turn cost-stamping above so trajectory logs

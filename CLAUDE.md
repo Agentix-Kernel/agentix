@@ -26,19 +26,21 @@ kernel wheel ships no branded package. Three CI gates enforce it:
   (`agentix.event_types`/`agentix.events`) stays equal to `contracts/session-event.schema.json`
   without importing a generated package.
 
-Apps plug in via the 12 seams — canonical catalog in `docs/seams.md`: `KernelConfig` subclass,
+Apps plug in via the 13 seams — canonical catalog in `docs/seams.md`: `KernelConfig` subclass,
 `SafetyGate` hooks (`rollback`/`_resolve_contract`/`_derive_verifier_fields`), the dispatcher's
 `TerminationPolicy`/`DispatchGuard`, `Tool`/exception `to_error_details()`, `ToolContext`
 handles, the `register_allowed_hosts`/`register_allowed_binaries` allowlist extenders, skills,
-the `MemoryMaintain` middleware slot, storage subclassing, the event-bus sink, and the
+the `MemoryMaintain` middleware slot, storage subclassing, the event-bus sink, driver
+registration (`DriverRegistry.register`/`register_driver_factory`/`DriverSpec`), and the
 idempotency/resume-key provider (design seam).
 
 ## Layout
 
-- `src/agentix/` — the kernel package (`core/`, `llm/`, `tools/`, `skills/`, `a2a/`, `storage`,
-  `config.py`, `runtime.py`).
-- `docs/` — kernel docs: `seams`, `async`, `sync`, `engine`, `llm`, `routing`, `context`, `session`,
-  `isolation`, `tools`, `skills`, `memory`, `budgets`, `a2a`, `eval`, `contracts`,
+- `src/agentix/` — the kernel package (`core/`, `drivers/` — the external-system I/O
+  abstraction (chat/embedding/stt families; `llm/` + `embeddings.py` are migration shims
+  removed in 0.5.0 final), `tools/`, `skills/`, `a2a/`, `storage`, `config.py`, `runtime.py`).
+- `docs/` — kernel docs: `seams`, `async`, `sync`, `engine`, `drivers`, `routing`, `context`,
+  `session`, `isolation`, `tools`, `skills`, `memory`, `budgets`, `a2a`, `eval`, `contracts`,
   `kernel-config-reference`, `sqlite_schema.sql`, + `contracts-consumer-guide.md`. The kernel
   overview lives in `README.md`.
 - `contracts/` · `constants/` · `templates/` · `libs/` · `scripts/` — shared vendoring machinery

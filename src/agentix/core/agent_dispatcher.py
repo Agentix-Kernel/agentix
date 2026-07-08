@@ -24,8 +24,8 @@ import structlog
 from agentix.core.context_manager import ContextManager
 from agentix.core.session import save as save_session
 from agentix.core.types import Message, ToolCall, ToolCallResult, Turn
-from agentix.llm.base import LlmRequest, Provider, tool_to_spec
-from agentix.llm.limiter import llm_capacity
+from agentix.drivers.chat import ChatDriver, ChatRequest, tool_to_spec
+from agentix.drivers.limiter import driver_capacity
 from agentix.tools.base import Tool, ToolContext
 from agentix.tools.registry import ToolRegistry
 from agentix.tools.safety import (
@@ -89,18 +89,25 @@ class AgentDispatcher:
     def __init__(
         self,
         *,
-        provider: Provider,
         registry: ToolRegistry,
         safety_gate: SafetyGate,
         ctx_factory: CtxFactory,
+        driver: ChatDriver | None = None,
+        provider: ChatDriver | None = None,
         max_tool_iterations: int = 50,
         tool_choice: Literal["auto", "any", "none"] | None = "auto",
-        request_defaults: LlmRequest | None = None,
+        request_defaults: ChatRequest | None = None,
         termination_policy: TerminationPolicy | None = None,
         dispatch_guards: list[DispatchGuard] | None = None,
         default_tool_timeout_seconds: float = 300.0,
     ) -> None:
-        self._provider = provider
+        # ``driver=`` is the canonical kwarg; ``provider=`` is the migration
+        # alias (removed in 0.5.0 final).
+        if driver is None and provider is None:
+            raise TypeError("AgentDispatcher requires driver= (a ChatDriver)")
+        if driver is not None and provider is not None:
+            raise TypeError("AgentDispatcher: pass driver= OR provider=, not both")
+        self._driver = driver if driver is not None else provider
         self._registry = registry
         self._safety_gate = safety_gate
         self._ctx_factory = ctx_factory
@@ -149,8 +156,8 @@ class AgentDispatcher:
             # One slot of process-global LLM capacity per call (isolation.md I5):
             # bounds concurrent provider calls across all sessions/fan-out.
             request = self._build_request(turn, specs, session=ctx.session)
-            async with llm_capacity():
-                response = await self._provider.complete(request)
+            async with driver_capacity():
+                response = await self._driver.complete(request)  # type: ignore[union-attr]
 
             # Accumulate usage across every LLM call in this engine turn.
             turn.usage.input_tokens += response.usage.input_tokens
@@ -380,11 +387,11 @@ class AgentDispatcher:
                     message=str(exc)[:300],
                 )
 
-    def _build_request(self, turn: Turn, specs: list[Any], *, session: Any = None) -> LlmRequest:
+    def _build_request(self, turn: Turn, specs: list[Any], *, session: Any = None) -> ChatRequest:
         base = (
             self._request_defaults.model_copy(deep=True)
             if self._request_defaults is not None
-            else LlmRequest(messages=[])
+            else ChatRequest(messages=[])
         )
         # Assemble the window through the ContextManager: it folds working
         # memory in as a system message after the leading system prompt (which

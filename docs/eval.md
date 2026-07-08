@@ -3,7 +3,7 @@
 **Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
 **Single source of truth for evaluation in `docs/`.** Sections 1–2 document the
-landed kernel pieces (code: `src/agentix/llm/adversarial.py`, the honesty columns in
+landed kernel pieces (code: `src/agentix/drivers/adapters/adversarial.py`, the honesty columns in
 `storage/sqlite_store.py`, the safety gate); sections 3–6 are **DIRECTION** —
 consolidated from the retired proposal `ludo-agent/docs/proposals/eval-validation.md`.
 Tracking: epic [euroblaze/ludo #505](https://github.com/euroblaze/ludo/issues/505),
@@ -30,7 +30,7 @@ from verification, never from the model's own claim.**
 
 ## 2. The adversarial refute pass
 
-`llm/adversarial.py` — one reusable refute primitive, the landed seed of Grader A:
+`drivers/adapters/adversarial.py` — one reusable refute primitive, the landed seed of Grader A:
 
 - `refute(provider, claim_description=…, refute_prompt_template=…)` runs a second
   LLM call prompted to find why the claim could be **wrong**, returning

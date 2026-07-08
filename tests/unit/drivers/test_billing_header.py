@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentix.llm.anthropic import _DEFAULT_BILLING_HEADER, _billing_header
+from agentix.drivers.adapters.anthropic import _DEFAULT_BILLING_HEADER, _billing_header
 
 
 def test_default_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:

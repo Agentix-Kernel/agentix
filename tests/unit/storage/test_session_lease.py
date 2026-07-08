@@ -77,7 +77,9 @@ async def test_v14_migration_adds_lease_columns(tmp_path: Path) -> None:
 
     path = tmp_path / "legacy13.db"
     db = await aiosqlite.connect(path)
-    await db.execute("CREATE TABLE schema_version (version INTEGER NOT NULL, applied_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    await db.execute(
+        "CREATE TABLE schema_version (version INTEGER NOT NULL, applied_at TEXT NOT NULL DEFAULT (datetime('now')))"
+    )
     await db.execute(
         """
         CREATE TABLE sessions (
@@ -92,7 +94,9 @@ async def test_v14_migration_adds_lease_columns(tmp_path: Path) -> None:
         """
     )
     await db.execute("INSERT INTO schema_version (version) VALUES (13)")
-    await db.execute("INSERT INTO sessions (id, customer_id, status, started_at) VALUES ('old', 'c1', 'running', '2026-01-01T00:00:00+00:00')")
+    await db.execute(
+        "INSERT INTO sessions (id, customer_id, status, started_at) VALUES ('old', 'c1', 'running', '2026-01-01T00:00:00+00:00')"
+    )
     await db.commit()
     await db.close()
 

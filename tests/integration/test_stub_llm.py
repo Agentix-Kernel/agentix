@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from agentix.llm.base import LlmRequest, Message
+from agentix.core.types import Message
+from agentix.drivers.chat import ChatRequest
 from tests.integration.stub_llm import (
     CallbackLLMProvider,
     ScriptedLLMProvider,
@@ -22,8 +23,8 @@ from tests.integration.stub_llm import (
 )
 
 
-def _request() -> LlmRequest:
-    return LlmRequest(
+def _request() -> ChatRequest:
+    return ChatRequest(
         messages=[Message(role="user", content="go")],
         model="stub-llm",
     )
@@ -103,9 +104,9 @@ async def test_scripted_exhaustion_raises_clearly() -> None:
 
 @pytest.mark.asyncio
 async def test_callback_invokes_function_with_request() -> None:
-    seen: list[LlmRequest] = []
+    seen: list[ChatRequest] = []
 
-    def script(request: LlmRequest) -> object:
+    def script(request: ChatRequest) -> object:
         seen.append(request)
         return final_response()
 
@@ -121,7 +122,7 @@ async def test_callback_can_branch_on_message_history() -> None:
     history and emits a different response based on what the previous
     tool returned. Pin this contract — adaptive scenarios depend on it."""
 
-    def script(request: LlmRequest):
+    def script(request: ChatRequest):
         # Look for the most recent tool message.
         last_tool = next(
             (m for m in reversed(request.messages) if m.role == "tool"),
@@ -135,11 +136,11 @@ async def test_callback_can_branch_on_message_history() -> None:
 
     provider = CallbackLLMProvider(callback=script)
     # First call (no tool history) → tool call.
-    r1 = await provider.complete(LlmRequest(messages=[Message(role="user", content="go")], model="x"))
+    r1 = await provider.complete(ChatRequest(messages=[Message(role="user", content="go")], model="x"))
     assert r1.tool_calls[0].name == "extract_from_odoo"
     # Second call (tool result in history) → terminate.
     r2 = await provider.complete(
-        LlmRequest(
+        ChatRequest(
             messages=[
                 Message(role="user", content="go"),
                 Message(role="assistant", tool_calls=[r1.tool_calls[0]]),

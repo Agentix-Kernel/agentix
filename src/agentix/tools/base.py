@@ -22,7 +22,7 @@ from agentix.core.session import Session
 from agentix.storage import MemoryStore, MinioStore, SqliteStore
 
 if TYPE_CHECKING:
-    from agentix.embeddings import EmbeddingProvider
+    from agentix.drivers.embedding import EmbeddingDriver
     from agentix.tools.registry import ToolRegistry
 
 
@@ -68,9 +68,9 @@ class ToolContext:
     # Set lazily by SafetyGate / the dispatcher so tools can look each other
     # up (e.g. to call a declared verifier).
     registry: ToolRegistry | None = None
-    # Embedding provider for semantic recall paths. None → deterministic
+    # Embedding driver for semantic recall paths. None → deterministic
     # Jaccard / token-overlap baseline.
-    embeddings: EmbeddingProvider | None = None
+    embeddings: EmbeddingDriver | None = None
     # Set by the dispatcher before each dispatch to tag ``progress`` events.
     # Default "unknown" for paths that bypass the dispatcher.
     _current_tool_name: str = "unknown"

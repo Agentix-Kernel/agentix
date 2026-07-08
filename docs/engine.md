@@ -68,7 +68,7 @@ session* vs *identical in a row* — two different failure shapes.
 
 Innermost, inside the whole chain: the LLM loop — build the request (window
 assembly through the ContextManager, [`context.md`](context.md) §5), call the
-provider ([`llm.md`](llm.md)), dispatch tool calls (per-call flow:
+driver ([`drivers.md`](drivers.md)), dispatch tool calls (per-call flow:
 [`tools.md`](tools.md) §6), append results, repeat until no tool calls or
 `max_tool_iterations`. Side effects along the way: working-memory auto-record
 ([`memory.md`](memory.md) §2) and the throttled checkpoint cadence

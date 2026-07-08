@@ -1,4 +1,4 @@
-"""Unit tests for agentix.llm.anthropic_auth token sources."""
+"""Unit tests for agentix.drivers.adapters.anthropic_auth token sources."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from agentix.llm.anthropic_auth import (
+from agentix.drivers.adapters.anthropic_auth import (
     ChainTokenSource,
     EnvTokenSource,
     FileTokenSource,
@@ -17,7 +17,7 @@ from agentix.llm.anthropic_auth import (
     StaticTokenSource,
     resolve_token_source,
 )
-from agentix.llm.base import LlmInvalidRequest
+from agentix.drivers.base import DriverInvalidRequest
 
 # ────────────────────────── StaticTokenSource ──────────────────────────
 
@@ -53,7 +53,7 @@ def test_env_token_source_reads_fresh(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_env_token_source_missing_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PILOT_ANTH_TOKEN_MISSING", raising=False)
     src = EnvTokenSource(var_name="PILOT_ANTH_TOKEN_MISSING")
-    with pytest.raises(LlmInvalidRequest, match="unset"):
+    with pytest.raises(DriverInvalidRequest, match="unset"):
         src.get_token()
 
 
@@ -75,7 +75,7 @@ def test_file_token_source_reads_fresh_on_rotate(tmp_path: Path) -> None:
 
 def test_file_token_source_missing_file(tmp_path: Path) -> None:
     src = FileTokenSource(path=tmp_path / "does-not-exist.json")
-    with pytest.raises(LlmInvalidRequest, match="not found"):
+    with pytest.raises(DriverInvalidRequest, match="not found"):
         src.get_token()
 
 
@@ -83,7 +83,7 @@ def test_file_token_source_missing_access_token(tmp_path: Path) -> None:
     path = tmp_path / "creds.json"
     path.write_text(json.dumps({"claudeAiOauth": {}}))
     src = FileTokenSource(path=path)
-    with pytest.raises(LlmInvalidRequest, match="accessToken"):
+    with pytest.raises(DriverInvalidRequest, match="accessToken"):
         src.get_token()
 
 
@@ -91,7 +91,7 @@ def test_file_token_source_malformed_json(tmp_path: Path) -> None:
     path = tmp_path / "creds.json"
     path.write_text("not valid json")
     src = FileTokenSource(path=path)
-    with pytest.raises(LlmInvalidRequest, match="parse"):
+    with pytest.raises(DriverInvalidRequest, match="parse"):
         src.get_token()
 
 
@@ -128,7 +128,7 @@ def test_keychain_token_source_security_missing() -> None:
     """Non-macOS or stripped-down image — ``security`` isn't on PATH."""
     with patch("agentix.drivers.adapters.anthropic_auth.subprocess.run", side_effect=FileNotFoundError):
         src = KeychainTokenSource()
-        with pytest.raises(LlmInvalidRequest, match="only works on macOS"):
+        with pytest.raises(DriverInvalidRequest, match="only works on macOS"):
             src.get_token()
 
 
@@ -139,7 +139,7 @@ def test_keychain_token_source_user_denied() -> None:
         return_value=_fake_completed(returncode=51, stderr="user canceled"),
     ):
         src = KeychainTokenSource()
-        with pytest.raises(LlmInvalidRequest, match=r"Keychain lookup.*failed"):
+        with pytest.raises(DriverInvalidRequest, match=r"Keychain lookup.*failed"):
             src.get_token()
 
 
@@ -149,7 +149,7 @@ def test_keychain_token_source_timeout() -> None:
         side_effect=subprocess.TimeoutExpired(cmd="security", timeout=10.0),
     ):
         src = KeychainTokenSource()
-        with pytest.raises(LlmInvalidRequest, match="timed out"):
+        with pytest.raises(DriverInvalidRequest, match="timed out"):
             src.get_token()
 
 
@@ -158,7 +158,7 @@ def test_keychain_token_source_malformed_payload() -> None:
         "agentix.drivers.adapters.anthropic_auth.subprocess.run", return_value=_fake_completed(stdout="not json")
     ):
         src = KeychainTokenSource()
-        with pytest.raises(LlmInvalidRequest, match="not JSON"):
+        with pytest.raises(DriverInvalidRequest, match="not JSON"):
             src.get_token()
 
 
@@ -168,7 +168,7 @@ def test_keychain_token_source_missing_access_token() -> None:
         return_value=_fake_completed(stdout=json.dumps({"claudeAiOauth": {}})),
     ):
         src = KeychainTokenSource()
-        with pytest.raises(LlmInvalidRequest, match="no accessToken"):
+        with pytest.raises(DriverInvalidRequest, match="no accessToken"):
             src.get_token()
 
 
@@ -203,7 +203,7 @@ def test_chain_reraises_last_error_when_all_fail(monkeypatch: pytest.MonkeyPatch
             EnvTokenSource(var_name="PILOT_Y"),
         )
     )
-    with pytest.raises(LlmInvalidRequest, match="PILOT_Y"):
+    with pytest.raises(DriverInvalidRequest, match="PILOT_Y"):
         chain.get_token()
 
 

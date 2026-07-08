@@ -7,7 +7,7 @@ Two flavours:
   flow is deterministic and you want maximum control.
 
 * :class:`CallbackLLMProvider` — every ``complete()`` invokes a
-  test-supplied callback ``(request) -> LlmResponse``. The callback
+  test-supplied callback ``(request) -> ChatResponse``. The callback
   inspects the request (last tool result, full message history) and
   returns the appropriate next response. Use for adaptive scenarios
   (agent's behaviour depends on what the previous tool returned).
@@ -30,8 +30,8 @@ from typing import Any
 
 import structlog
 
-from agentix.core.types import TokenUsage
-from agentix.llm.base import LlmRequest, LlmResponse, ToolCall
+from agentix.core.types import TokenUsage, ToolCall
+from agentix.drivers.chat import ChatRequest, ChatResponse
 
 log = structlog.get_logger(__name__)
 
@@ -49,8 +49,8 @@ def tool_call_response(
     output_tokens: int = 50,
     call_id: str | None = None,
     extra_tool_calls: list[ToolCall] | None = None,
-) -> LlmResponse:
-    """Build an LlmResponse that tells the agent to invoke ``tool_name``
+) -> ChatResponse:
+    """Build an ChatResponse that tells the agent to invoke ``tool_name``
     with ``arguments``. Optionally include extra tool calls for
     parallel-tool scenarios."""
     calls = [
@@ -62,7 +62,7 @@ def tool_call_response(
     ]
     if extra_tool_calls:
         calls.extend(extra_tool_calls)
-    return LlmResponse(
+    return ChatResponse(
         content=content,
         model=model,
         usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
@@ -76,10 +76,10 @@ def final_response(
     model: str = "stub-llm",
     input_tokens: int = 50,
     output_tokens: int = 20,
-) -> LlmResponse:
+) -> ChatResponse:
     """Build a terminal response — no tool_calls — that ends the agent
     loop. Use for the last response in a scripted sequence."""
-    return LlmResponse(
+    return ChatResponse(
         content=content,
         model=model,
         usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
@@ -114,14 +114,14 @@ class ScriptedLLMProvider:
 
     name = "stub-scripted"
 
-    def __init__(self, *, responses: list[LlmResponse]) -> None:
+    def __init__(self, *, responses: list[ChatResponse]) -> None:
         if not responses:
             raise ValueError("ScriptedLLMProvider needs at least one response")
         self._responses = list(responses)
         self.default_model = responses[0].model
-        self.requests: list[LlmRequest] = []
+        self.requests: list[ChatRequest] = []
 
-    async def complete(self, request: LlmRequest) -> LlmResponse:
+    async def complete(self, request: ChatRequest) -> ChatResponse:
         self.requests.append(request)
         if not self._responses:
             raise StubLLMExhausted(
@@ -144,14 +144,14 @@ class ScriptedLLMProvider:
 class CallbackLLMProvider:
     """Defers each ``complete()`` decision to a test-supplied callback.
 
-    The callback receives the full ``LlmRequest`` (including the
+    The callback receives the full ``ChatRequest`` (including the
     conversation history with tool results) and returns the next
-    ``LlmResponse``. This lets adaptive tests inspect what tools
+    ``ChatResponse``. This lets adaptive tests inspect what tools
     returned and emit the right next call.
 
     Example:
 
-        async def script(request: LlmRequest) -> LlmResponse:
+        async def script(request: ChatRequest) -> ChatResponse:
             last_tool_result = next(
                 (m for m in reversed(request.messages) if m.role == "tool"),
                 None,
@@ -168,14 +168,14 @@ class CallbackLLMProvider:
     def __init__(
         self,
         *,
-        callback: Callable[[LlmRequest], LlmResponse],
+        callback: Callable[[ChatRequest], ChatResponse],
         default_model: str = "stub-llm",
     ) -> None:
         self._callback = callback
         self.default_model = default_model
-        self.requests: list[LlmRequest] = []
+        self.requests: list[ChatRequest] = []
 
-    async def complete(self, request: LlmRequest) -> LlmResponse:
+    async def complete(self, request: ChatRequest) -> ChatResponse:
         self.requests.append(request)
         result = self._callback(request)
         return result

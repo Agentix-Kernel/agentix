@@ -4,14 +4,14 @@
 
 **Single source of truth for the kernel↔app seams in `docs/`** — the definitive
 catalog of how a purpose-specific app plugs into the generic kernel. Everything an
-app supplies enters through one of these 12 seams; everything else is
+app supplies enters through one of these 13 seams; everything else is
 kernel-internal. Not to be confused with [`contracts.md`](contracts.md): a
 **seam** is an *in-process* contact point (a Python protocol, subclass or
 registration call — one process, one language); a **contract** is a *cross-process
 wire seam* between repos (versioned, serialized schemas, vendored + drift-guarded).
 LUDO examples below are illustrations of *an* app, not part of the kernel.
 
-## The 12 seams
+## The 13 seams
 
 ### 1. Config — `KernelConfig` subclass
 `src/agentix/config.py`. A frozen dataclass with the kernel's resolved settings (storage
@@ -97,7 +97,18 @@ seam that touches a wire contract: the envelope is pinned to Contract B
 without import.
 *LUDO:* a NATS forwarder republishes every event to JetStream.
 
-### 12. Idempotency / resume-key provider — *(design seam — no code hook yet)*
+### 12. Drivers — register external-system I/O
+`src/agentix/drivers/` (`DriverRegistry.register`, `register_driver_factory`,
+`DriverSpec` — [`drivers.md`](drivers.md) §5). A driver is the kernel's unit of
+external-system I/O (AI models of any modality; generic enough for databases/queues).
+Three explicit paths: register a factory key at startup + declare a `DriverSpec`;
+declare a dotted-path class (`"pkg.mod:Class"`, constructor
+`__init__(*, spec, api_key)`); or register a built instance directly. Entry-points
+discovery is deliberately rejected (ambient imports defeat the purity gates).
+*LUDO:* none yet — the kernel's chat/embedding/stt families cover current needs; a
+future app database driver registers here with zero kernel change.
+
+### 13. Idempotency / resume-key provider — *(design seam — no code hook yet)*
 On redelivery the kernel restores only the agent's own state
 (`resume_or_create`, [`session.md`](session.md) §4); **what work is already done on
 the outside is the app's concern**. The app defines the idempotency mechanism that

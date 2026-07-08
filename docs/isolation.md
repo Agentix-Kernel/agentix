@@ -4,8 +4,9 @@
 
 **Single source of truth for runtime isolation in `docs/`.** Sections 1–6 are the
 canonical model with per-invariant landed status (code:
-`src/agentix/llm/cost_recorder.py`, `llm/limiter.py`, `storage/sqlite_store.py`,
-`storage/memory.py`, plus session.md §6); sections 7–8 are **DIRECTION**. The third
+`src/agentix/drivers/cost.py` + `drivers/session.py`, `drivers/limiter.py`,
+`storage/sqlite_store.py`, `storage/memory.py`, plus session.md §6); sections 7–8
+are **DIRECTION**. The third
 side of the Session triangle: [`session.md`](session.md) = the durable object,
 [`context.md`](context.md) = the per-step window, **this doc = how concurrent runs
 stay isolated at runtime**. The async execution model these invariants protect is
@@ -57,7 +58,7 @@ process; I7 = safe across processes.** Baseline: the production worker still run
   misattribution.* One task per Session (asyncio copies the contextvar snapshot into
   the task); binding is symmetric. **Landed:** `bind_session` returns a
   `contextvars.Token`, `unbind_session(token)` restores, and the `session_scope`
-  async context manager wraps a run (`llm/cost_recorder.py`) — the never-unbound
+  async context manager wraps a run (`drivers/session.py`) — the never-unbound
   set is gone.
 - **I2 — No shared mutable DB connection across Sessions; writes atomic + isolated.**
   **Half landed:** the cross-process half is in — WAL + `PRAGMA busy_timeout=30000`,
@@ -75,10 +76,11 @@ process; I7 = safe across processes.** Baseline: the production worker still run
   (session.md §7). The **persisted per-account ceiling** that caps aggregate spend
   across parallel Sessions is control-plane-owned — direction (§7).
 - **I5 — External-resource concurrency bounded globally, not per-instance.**
-  **Landed:** `llm/limiter.py` — one process-global semaphore (per event loop,
-  default 8, `configure_llm_capacity` at startup) acquired around every
-  `provider.complete`; closes agentix#40. *The deliberate carve-out: session state
-  is per-task, but shared external capacity is intentionally global.*
+  **Landed:** `drivers/limiter.py` — one process-global semaphore (per event loop,
+  default 8, `configure_driver_capacity` at startup) acquired around every model
+  call (chat `complete`, stt `transcribe`); closes agentix#40. *The deliberate
+  carve-out: session state is per-task, but shared external capacity is
+  intentionally global.* Per-kind limits: [`drivers.md`](drivers.md) §8.
 - **I6 — Structured concurrency: no session-child task outlives its Session.**
   Intra-session fan-out is awaited under the session root; no orphan `create_task`
   touching a finalized session — this is what "one task-tree" encodes, and it

@@ -37,7 +37,7 @@ The questions to settle before committing an OT profile, worked here first:
 
 - **Low-latency local inference with SLMs.** The biggest OT lever: a local
   small-language-model adapter fits the existing `Provider` protocol
-  ([`llm.md`](llm.md) §1) *unchanged* — one `async complete()`, on-premise, no
+  ([`drivers.md`](drivers.md) §2) *unchanged* — one `async complete()`, on-premise, no
   WAN round-trip, no cloud dependency in the loop. To settle:
   - which runtime class (llama.cpp / Ollama / vLLM-grade server) and the
     latency envelope per turn it can guarantee;

@@ -27,9 +27,9 @@ import pytest
 
 from agentix.core.middleware import ModelPricing
 from agentix.core.types import Message, TokenUsage
-from agentix.llm.base import LlmRequest, LlmResponse
-from agentix.llm.cost_recorder import (
-    CostRecordingProvider,
+from agentix.drivers.chat import ChatRequest, ChatResponse
+from agentix.drivers.cost import CostRecordingChatDriver
+from agentix.drivers.session import (
     bind_session,
     current_session_id,
     session_scope,
@@ -43,8 +43,8 @@ def _make_response(
     output_tokens: int = 50,
     model: str = "claude-sonnet-4-6",
     raw: dict[str, Any] | None = None,
-) -> LlmResponse:
-    return LlmResponse(
+) -> ChatResponse:
+    return ChatResponse(
         content="ok",
         model=model,
         usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
@@ -52,8 +52,8 @@ def _make_response(
     )
 
 
-def _make_request() -> LlmRequest:
-    return LlmRequest(
+def _make_request() -> ChatRequest:
+    return ChatRequest(
         messages=[Message(role="user", content="hello")],
         model="claude-sonnet-4-6",
     )
@@ -65,13 +65,13 @@ class _FakeInner:
     name = "fake"
     default_model = "claude-sonnet-4-6"
 
-    def __init__(self, *, response: LlmResponse | None = None, raises: Exception | None = None) -> None:
+    def __init__(self, *, response: ChatResponse | None = None, raises: Exception | None = None) -> None:
         self._response = response
         self._raises = raises
-        self.calls: list[LlmRequest] = []
+        self.calls: list[ChatRequest] = []
         self.aclosed = False
 
-    async def complete(self, request: LlmRequest) -> LlmResponse:
+    async def complete(self, request: ChatRequest) -> ChatResponse:
         self.calls.append(request)
         if self._raises is not None:
             raise self._raises
@@ -90,7 +90,7 @@ async def test_successful_call_persists_cost_immediately() -> None:
     inner = _FakeInner(response=_make_response(input_tokens=1000, output_tokens=500))
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     token = bind_session("s_test")
     try:
@@ -122,7 +122,7 @@ async def test_inner_raises_records_nothing() -> None:
     inner = _FakeInner(raises=RuntimeError("upstream timeout"))
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     token = bind_session("s_test")
     try:
@@ -143,7 +143,7 @@ async def test_zero_usage_response_skips_persist() -> None:
     inner = _FakeInner(response=_make_response(input_tokens=0, output_tokens=0))
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     token = bind_session("s_test")
     try:
@@ -164,7 +164,7 @@ async def test_no_session_bound_skips_persist_but_returns_response() -> None:
     inner = _FakeInner(response=_make_response())
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     # No bind_session() call — contextvar is None.
     response = await wrapper.complete(_make_request())
@@ -184,7 +184,7 @@ async def test_no_session_bound_emits_warning_with_token_counts() -> None:
     inner = _FakeInner(response=_make_response(input_tokens=200, output_tokens=50))
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     # capture structlog output via the stdlib logging bridge
     with patch("agentix.drivers.cost.log") as mock_log:
@@ -211,7 +211,7 @@ async def test_sqlite_write_failure_logs_and_returns_response() -> None:
     inner = _FakeInner(response=_make_response())
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock(side_effect=RuntimeError("disk full"))
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     token = bind_session("s_test")
     try:
@@ -238,7 +238,7 @@ async def test_contextvar_isolation_across_tasks() -> None:
         captured["sessions"].append(args[0])
 
     sqlite.update_session = AsyncMock(side_effect=_capture)
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     async def call_with_session(session_id: str) -> None:
         async with session_scope(session_id):
@@ -294,7 +294,7 @@ async def test_cost_uses_response_model_not_wrapper_default() -> None:
     inner = _FakeInner(response=_make_response(model="claude-opus-4-7"))
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite, pricing_table=test_pricing)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite, pricing_table=test_pricing)
 
     token = bind_session("s_test")
     try:
@@ -308,7 +308,7 @@ async def test_cost_uses_response_model_not_wrapper_default() -> None:
     inner2 = _FakeInner(response=_make_response(model="claude-haiku-4-5"))
     sqlite2 = MagicMock()
     sqlite2.update_session = AsyncMock()
-    wrapper2 = CostRecordingProvider(inner2, sqlite=sqlite2, pricing_table=test_pricing)
+    wrapper2 = CostRecordingChatDriver(inner2, sqlite=sqlite2, pricing_table=test_pricing)
 
     token = bind_session("s_test")
     try:
@@ -344,7 +344,7 @@ async def test_upstream_reported_cost_wins_over_local_estimate() -> None:
     )
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
     token = bind_session("s_test")
     try:
@@ -379,7 +379,7 @@ async def test_falls_back_to_local_compute_when_no_real_cost() -> None:
     )
     sqlite = MagicMock()
     sqlite.update_session = AsyncMock()
-    wrapper = CostRecordingProvider(inner, sqlite=sqlite, pricing_table=sonnet_pricing)
+    wrapper = CostRecordingChatDriver(inner, sqlite=sqlite, pricing_table=sonnet_pricing)
 
     token = bind_session("s_test")
     try:
@@ -409,7 +409,7 @@ async def test_falls_back_when_real_cost_is_zero_negative_or_nan() -> None:
         )
         sqlite = MagicMock()
         sqlite.update_session = AsyncMock()
-        wrapper = CostRecordingProvider(inner, sqlite=sqlite)
+        wrapper = CostRecordingChatDriver(inner, sqlite=sqlite)
 
         token = bind_session("s_test")
         try:
@@ -428,13 +428,13 @@ async def test_falls_back_when_real_cost_is_zero_negative_or_nan() -> None:
 @pytest.mark.asyncio
 async def test_aclose_forwards_to_inner_provider() -> None:
     inner = _FakeInner(response=_make_response())
-    wrapper = CostRecordingProvider(inner, sqlite=MagicMock())
+    wrapper = CostRecordingChatDriver(inner, sqlite=MagicMock())
     await wrapper.aclose()
     assert inner.aclosed is True
 
 
 def test_name_and_default_model_proxy_inner() -> None:
     inner = _FakeInner(response=_make_response())
-    wrapper = CostRecordingProvider(inner, sqlite=MagicMock())
+    wrapper = CostRecordingChatDriver(inner, sqlite=MagicMock())
     assert wrapper.name == "fake"
     assert wrapper.default_model == "claude-sonnet-4-6"

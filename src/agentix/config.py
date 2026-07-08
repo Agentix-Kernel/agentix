@@ -38,7 +38,7 @@ class AnthropicConfig:
 class HubleConfig:
     """HUBLE gateway config.
 
-    When ``enabled=True``, the runtime builds a :class:`agentix.llm.huble.HubleProvider`
+    When ``enabled=True``, the runtime builds a :class:`agentix.drivers.adapters.huble.HubleChatDriver`
     so every LLM call routes through HUBLE.
     """
 
