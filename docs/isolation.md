@@ -33,7 +33,7 @@ Two sub-principles everything references:
 | **Inter-process** | agent ↔ agent across workers | NATS trust-zone Accounts (deny-by-default export/import) | `ludo-agent/docs/proposals/agentic-cluster-a2a.md` Principle 4 |
 
 The two planes share **exactly one law — P-ISO-2** (only distilled context crosses). Stated
-canonically here; referenced by context.md dim 6 and a2a Principle 4. **CRIE rule:**
+canonically here; referenced by context.md §8 and a2a Principle 4. **CRIE rule:**
 intra-process isolation lives here; inter-process/inter-agent isolation lives in the a2a
 proposal — reference it, don't restate it.
 

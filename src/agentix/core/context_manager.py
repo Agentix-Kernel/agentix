@@ -12,11 +12,9 @@ report** describing every message (tier, role, tokens, reason) and the totals. I
 ``context.py``'s ``ContextBudget`` + compression strategy rather than
 reimplementing them (CRIE — one compression, one budget type).
 
-This module is **additive**: it does not yet replace the dispatcher's inline
-assembly. It mirrors that assembly exactly (working memory as a system message
-inserted after the leading system prompt, then compress-to-budget) so the
-dispatcher can be rewired onto it in a follow-up and the behaviour diffed one
-step at a time. Tracks agentix#20; see docs/context.md.
+The dispatcher assembles every request through this manager (``compress=False``
+— the TokenBudget middleware owns the budget step via ``compress_if_needed``),
+so there is exactly one assembly path. Tracks agentix#20; see docs/context.md.
 """
 
 from __future__ import annotations

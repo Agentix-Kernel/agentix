@@ -1,121 +1,158 @@
 # Context Management
 
-**Status:** planning · **Scope:** Agentix kernel `[K]` (app-agnostic) · **Opened:** 2026-07-06
+**Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
-Living design + worklog for how the kernel decides *what occupies the model window at
-every step*. Update as decisions land. Not a numbered spec — when a slice is ready to
-build, cut a `specs/` entry and link it back here.
+**Single source of truth for context management in `docs/`.** Sections 1–5 document
+the landed kernel window subsystem (code: `src/agentix/core/context.py`,
+`core/context_manager.py`, the dispatcher + TokenBudget integration); sections 6–9
+are **DIRECTION**. This is the **policy layer** that decides *what occupies the model
+window at every step* — it is NOT storage: [`memory.md`](memory.md) owns what memory
+*is*; this doc owns what of it *enters the window*. Triangle companions:
+[`session.md`](session.md) (the durable store of a run's context) and
+[`isolation.md`](isolation.md) (runtime invariants I1–I7). Rewritten 2026-07-08 from
+the 2026-07-06 planning worklog; history in git.
 
 ---
 
-## What this is (and isn't)
+## 1. What context management is
 
-Context-management is the **policy layer**: assemble -> budget -> compress -> evict, once
-per model step. It is NOT storage. Storage = memory tiers / knowledge substrate. This layer
-*decides what enters the window* from those stores + tools + skills + history.
+Assemble → budget → compress → evict, once per model step, with **one owner**.
+Before consolidation that logic was scattered — the dispatcher copied history and
+injected working memory inline, `context.py` compressed, the TokenBudget middleware
+checked the budget, and no one place decided what entered the window, in what
+priority, and why. Closing that scatter is agentix#20; the `ContextManager` (§3) is
+the owner.
 
-Today that logic is scattered (memory retrieval, skill disclosure, history handling, tool
-schemas each assemble themselves). Consolidating it into one owner is the CRIE win.
+## 2. Budget + compression primitives
 
-## Assets to build on (already in the cluster)
+`core/context.py` — the two building blocks the manager reuses rather than
+reimplements (one budget type, one compression path):
 
-- **Progressive disclosure** — Skills `S3->S1->S0` cascade + `SkillCatalog`. This IS
-  context-management; generalise the same summary-in / body-on-demand pattern to tools,
-  memory, knowledge. (see `docs/tools.md`, `docs/skills.md`)
-- **Checkpoints** — `core/checkpoints.py`; context reconstruction on resume rides this spine.
-- **Eval** — Verdict + Grader A (responses) / B (outcomes). Every context policy must be
-  measurable here. (see `ludo-agent/docs/proposals/eval-validation.md`)
-- **Memory tiers** — `consult_memory`, applied_memory_rules (retrieval source, not the policy).
-- **Window reports / metrics** — introspection surface for "what was in-window and why".
+- `ContextBudget` — the per-call token budget: `max_input_tokens` (default 16k)
+  and `keep_recent` (turns kept verbatim under compression).
+- `summarise_oldest_tool_results(messages, max_input_tokens)` — the default
+  `CompressionStrategy`. Under budget → identity. Over budget: **system messages
+  are always kept verbatim** (this is why working memory survives, memory.md §2),
+  the most recent non-system messages are kept, and everything between collapses
+  into a single summary message enumerating the elided tool calls — bounding
+  tokens without losing the shape of the recent exchange. Deterministic: same
+  input, same output. Strategies are pluggable.
 
-## Design dimensions (the checklist)
+## 3. `ContextManager` — the window owner
 
-1. **Budget & accounting** — one explicit token budget per step, one owner. Shared pool:
-   guardrails, goal, working set, retrieved memory, tool outputs, history all compete.
-   *Instrument before optimising* — measure what's actually in-window first.
-2. **Deterministic assembly + priority tiers** — fixed pipeline, fixed evict-order. Also a
-   cost lever: a stable prefix maximises prompt-cache hits.
-3. **Retrieval gating** — decide *when* / *how much* to pull from memory, ranked by
-   relevance. Over-retrieval poisons the window. Don't dump.
-4. **Compression & eviction** — rolling summary, tool-output truncation/dedup,
-   checkpoint-anchored reconstruction. Define lossy-safe vs. must-be-verbatim.
-5. **Untrusted context = security** — retrieved memory + tool outputs are injection vectors.
-   Safety instructions un-evictable and structurally separated from untrusted content.
-6. **Multi-agent isolation (A2A)** — per-agent windows; sub-agents return distilled
-   conclusions, not raw context. Orchestrator context != worker context. Two planes, don't
-   conflate: the *crossing* law (only distilled context crosses a Session boundary) is
-   canonical as [`isolation.md`](isolation.md) P-ISO-2; the inter-agent NATS-Account isolation
-   is `ludo-agent/docs/proposals/agentic-cluster-a2a.md`.
-7. **Observability** — per-step window report: what entered, why, token cost. Ties to metrics + omg.
+`core/context_manager.py`. Stateless across turns; one object that assembles,
+compresses, and reports.
 
-## Architecture direction (draft)
+`assemble(base_messages, working_memory_render=…, compress=…)`:
 
-- A first-class kernel component — `ContextManager` / context-assembler, tagged `[K]`.
-- Single seam between the stores (memory/tools/skills/knowledge) and the executor: hands
-  back a **budgeted, ordered, safety-partitioned** window.
-- App (LUDO) supplies only the *sources*; the assembly/budget/evict policy is kernel.
-- CRIE: this component replaces the scattered per-source assembly.
+- Working memory becomes a `system` message inserted **after the leading system
+  prompt** — the primary prompt stays at index 0, and being `system` is what makes
+  the log survive compression.
+- With `compress=True` the window is compressed to budget; `compress=False` does
+  assembly + report only, leaving compression to whoever owns the budget step (§5).
+- Every surviving message is classified into a priority tier:
 
-**Priority tiers (eviction order), draft — highest survives:**
-`guardrails/safety (never evict) > task/goal > active working set > retrieved memory > history`
+| Tier | Value | Survives | What it holds |
+|---|---|---|---|
+| `SYSTEM` | 0 | never evicted | system prompt / guardrails |
+| `WORKING_MEMORY` | 1 | survives compression | tried / failed / learned |
+| `SUMMARY` | 2 | stands in for elided history | the compression summary |
+| `HISTORY` | 3 | first to be compressed away | conversation turns |
 
-## Alignment with session-management
+Lower number survives longer under pressure; richer tiers (retrieved memory) slot
+in between as they are wired (§6).
 
-Canonical contract + genericity check: [`session.md`](session.md) § Session ↔ Context
-alignment (single source of truth — not restated here). In short: **the Session is the durable
-store of a run's context; the ContextManager is the per-step policy over it — one object, two
-sides.** Remaining misalignment: the session snapshot still persists raw `messages`
-(session.md clause 3). Resume itself is wired and kernel-generic (`resume_or_create`).
-Policy-side consequences for this doc:
+`compress_if_needed(messages)` returns `(messages, did_compress)` where
+`did_compress` is a **token-delta** signal, not a message-count proxy — a
+body-shrinking strategy changes tokens without changing counts, and a budget guard
+must not abort prematurely. This is the one compression path (it superseded the
+old `ContextBuilder`).
 
-- The ContextManager writes the **managed** window that the Session snapshots (not raw
-  history) — so **S2 (compression) and the session's resume are the same co-designed work.**
-- The ContextManager owns the per-step **window/token** budget and reports consumption into the
-  Session's **cost** ledger — two budgets, one flow.
-- Both are `[K]`; the app feeds only *sources*. The app-side idempotency/resume-key seam stays
-  the app's (the reference app's record census is one implementation) — see session.md clause 4.
-- The per-step budget is owned here but *scoped per session-task* and *ceilinged per customer* by
-  [`isolation.md`](isolation.md) I4/I5, so parallel sessions don't spend N× or overload Odoo/LLM.
+Tests: `tests/unit/core/test_context_manager.py`.
 
-## Open decisions
+## 4. The window report
 
-- [ ] Component boundary: standalone `ContextManager` vs. folded into Cortex spine?
-- [ ] Who owns the token budget, and how it's threaded to sub-agents (sub-agent = child Session; threading rule → [`isolation.md`](isolation.md)).
+`AssembledContext.window_report()` — the per-turn observability surface: a
+JSON-serialisable snapshot of exactly what the model saw and why.
+
+```
+{ total_tokens, budget_tokens, compressed, over_budget,
+  messages: [ { tier, role, tokens, reason }, … ] }
+```
+
+Vocabulary: this is the **window report** (renamed from the context "X-ray" —
+*X-Ray* stays reserved for the read-only estimate scan).
+
+## 5. Integration — one assembly path, one budget step
+
+- The **dispatcher** builds every LLM request through
+  `ContextManager.assemble(..., compress=False)` (`agent_dispatcher.py`) — the
+  inline working-memory injection is gone; assembly happens in exactly one place.
+- The **TokenBudget middleware** owns the budget step: before dispatch, if the
+  window is over budget it calls `compress_if_needed` — compress-before-abort. If
+  compression cannot shrink further, the turn aborts cleanly instead of invoking
+  the provider. The lever is always wired (the middleware default-constructs a
+  manager).
+- The split (assemble in the dispatcher, budget in the middleware) is deliberate
+  for now; unifying them into a single budget step is the next slice (§9).
+
+---
+
+*Everything below is DIRECTION — converged design, not the code today.*
+
+## 6. The full tier ladder + retrieval gating
+
+- Target eviction order: **guardrails/safety (never evict) > task/goal > active
+  working set > retrieved memory > history**. Today's four tiers are the concrete
+  subset; retrieved memory slots between SUMMARY and HISTORY when wired.
+- **Retrieval gating** — decide *when* and *how much* to pull from memory, ranked
+  by relevance. Over-retrieval poisons the window; don't dump. Instrument before
+  optimising — the window report (§4) exists so policy changes are measured, not
+  guessed.
+- **Generalise progressive disclosure** — skills' summary-in / body-on-demand
+  pattern ([`skills.md`](skills.md)) applied to tools and memory: cheap
+  name+description in the window, full body on demand.
+
+## 7. Security + caching
+
+- **Untrusted context is a security boundary.** Retrieved memory and tool outputs
+  are injection vectors; safety instructions must be un-evictable (Tier SYSTEM)
+  and structurally separated from untrusted content.
+- **Cache-prefix contract** — deterministic assembly is also a cost lever: a
+  byte-stable window prefix maximises prompt-cache hits. What exactly must stay
+  byte-stable is an open decision (§9).
+
+## 8. Alignment with session-management
+
+Canonical contract + genericity check: [`session.md`](session.md) § Session ↔
+Context alignment (single source of truth — not restated here). In short: **the
+Session is the durable store of a run's context; the ContextManager is the
+per-step policy over it — one object, two sides.** Remaining misalignment: the
+session snapshot still persists raw `messages` (session.md clause 3); resume is
+wired and kernel-generic (`resume_or_create`). Policy-side consequences:
+
+- The ContextManager writes the **managed** window that the Session snapshots (not
+  raw history) — compression and the session's snapshot policy are the same
+  co-designed work.
+- The ContextManager owns the per-step **window/token** budget and reports
+  consumption into the Session's **cost** ledger — two budgets, one flow.
+- The per-step budget is *scoped per session-task* and *ceilinged per customer* by
+  [`isolation.md`](isolation.md) I4/I5, so parallel sessions don't spend N×.
+- Multi-agent: per-agent windows — a sub-agent returns a **distilled conclusion**,
+  never raw context. The crossing law is canonical as [`isolation.md`](isolation.md)
+  P-ISO-2; inter-agent NATS-Account isolation is
+  `ludo-agent/docs/proposals/agentic-cluster-a2a.md`.
+- Every context policy should ship behind eval (Verdict graders,
+  `ludo-agent/docs/proposals/eval-validation.md`) as a measurable experiment.
+
+## 9. Open decisions
+
+- [ ] Budget-step unification: fold the dispatcher's `compress=False` assembly and
+  the TokenBudget compression into one owned step.
+- [ ] Retrieval-gating design (relevance ranking, budget share per tier).
 - [ ] Cache-prefix contract — what must stay byte-stable for prompt-cache hits.
-- [ ] Summary cadence + what is lossy-safe to compress.
-- [ ] How a context policy plugs into eval (A/B) as a measurable experiment.
-- [ ] `[K]`/`[A]` split of context *sources*.
-- [ ] Shared managed-context-state object shape (what the Session snapshots) — co-owned with session.md.
-- [ ] New kernel component # in the inventory (agentix#1) — ContextManager = #20; the runtime/isolation model (**SessionRuntime**) = #21 (see [`isolation.md`](isolation.md)).
-
-## Roadmap / slices
-
-Sequence is instrument-first; each slice ships behind eval.
-
-- **S0 — Instrument + budget core.** ContextManager assembles deterministically, enforces one
-  budget, reports the window per step. Foundation. *Slice A landed: `core/context_manager.py`
-  (`ContextManager` + `AssembledContext` + `Tier` + `WindowEntry`) — assemble → compress →
-  window report, reusing `context.py`'s budget + compression. Slice B landed: the dispatcher's
-  `_build_request` now assembles through `ContextManager` (`compress=False`), replacing the
-  inline working-memory injection — one assembly path. Compression stays with TokenBudget
-  middleware; unifying the budget step is the next slice.*
-- **S1 — Generalise progressive disclosure.** Extend `S3->S1->S0` to tools/memory/knowledge.
-  Highest leverage, lowest risk, reuses a proven mechanism.
-- **S2 — Compression + checkpoint resume.** Long-running sessions. *Co-designed with
-  session.md S0 (wire resume) — same work from two sides.*
-- **S3 — Eval harness for context policies.** Make every change measurable.
-
-## Worklog
-
-- **2026-07-06** — doc opened. Framing, dimensions, assets, architecture direction captured.
-  First slice not yet chosen (S0 recommended). No code yet.
-- **2026-07-06** — aligned with session-management (storage-vs-policy framing, budget
-  reconciliation, S2=session-S0 co-design, kernel-generic resume). Canonical contract in session.md.
-- **2026-07-06** — reconciled with the runtime plane: [`isolation.md`](isolation.md) added (axiom
-  + I1–I7). Split dim-6 into its two planes (P-ISO-2 crossing vs a2a Account isolation); budget
-  scoping/ceiling links to I4/I5; reserved inventory #21 SessionRuntime.
-- **2026-07-06** — S0 slice A: `core/context_manager.py` built (additive). `ContextManager`
-  owns assemble → compress → window report with priority `Tier`s (SYSTEM > WORKING_MEMORY > SUMMARY >
-  HISTORY), mirroring the dispatcher's current `_build_request` assembly so the rewire (slice B)
-  is a clean swap. Reuses `ContextBudget` + `summarise_oldest_tool_results` (no duplication).
-  Unit tests added. Consolidates the working-memory-injection + budget scatter (agentix#20).
+- [ ] Summary cadence + what is lossy-safe to compress vs must-be-verbatim.
+- [ ] Shared managed-context-state object shape (what the Session snapshots) —
+  co-owned with session.md (clause 3).
+- [ ] `[K]`/`[A]` split of context *sources* (the app feeds sources; the policy is
+  kernel).
