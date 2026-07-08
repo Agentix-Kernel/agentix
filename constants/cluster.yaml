@@ -1,7 +1,7 @@
 # LUDO cluster constants — THE single source of truth for shared values.
 # Vendored (byte-identical) into each repo's constants/cluster.yaml; guarded by
 # agentix/scripts/check_config_drift.py. Change a value HERE, then re-vendor.
-# Docs (docs/network-and-ports.md etc.) explain these — they never re-hardcode them.
+# Docs (ludo-agent/docs/cluster/network-and-ports.md etc.) explain these — they never re-hardcode them.
 
 schema_version: "1.0"
 
@@ -38,7 +38,7 @@ env_stages: [dev, stag, prod]
 default_stage: dev
 
 # ── Deployment domains (per stage) ────────────────────────────────────────────
-# Canonical zones; see docs/deployment-domains.md. Explicit .env values always win.
+# Canonical zones; see ludo-agent/docs/cluster/deployment-domains.md. Explicit .env values always win.
 domains:
   prod:
     public: "https://runludo.com"
@@ -71,14 +71,14 @@ locale:
 
 # ── Dev-secret placeholders (NEVER real secrets; stag/prod fail-fast on these) ──
 # These are the insecure defaults the prod-secret guard refuses. Real values live
-# only in gitignored .env.<stage>. See docs/env-and-secrets.md.
+# only in gitignored .env.<stage>. See ludo-agent/docs/cluster/env-and-secrets.md.
 dev_secret_placeholders:
   JWT_SECRET: "dev-insecure-change-me"
   VAULT_ENC_KEY: "dev-vault-enc-not-secret"
   VAULT_ENC_SALT: "dev-vault-enc-salt-not-secret"
   SUPERADMIN_PASSWORD: "change-me"
 
-# ── Tooling baseline (see docs/dev-standards.md) ──────────────────────────
+# ── Tooling baseline (see ludo-agent/docs/cluster/dev-standards.md) ──────────────────────────
 tooling:
   python: "3.12"
   package_manager: "uv"
