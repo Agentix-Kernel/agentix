@@ -78,7 +78,7 @@ async def test_stress_concurrent_writers_wal(tmp_path: Path) -> None:
             if i % 7 == 0:
                 await store.append_safety_event(
                     session_id="S",
-                    kind="per_batch_verify_fail",
+                    type="per_batch_verify_fail",
                     turn_id=turn_id,
                     detail=f"mismatch on batch {i}",
                 )

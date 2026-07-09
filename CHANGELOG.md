@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.4 — terminology: safety_events.type, append_to_log(type=)
+
+- Schema v15: `safety_events.kind` column renamed to `type` (SQLite RENAME
+  COLUMN; index follows). `append_safety_event(type=)`, `count_safety_events
+  (type=)`, `SafetyType` / `KERNEL_SAFETY_TYPES` (ex `SafetyKind` /
+  `KERNEL_SAFETY_KINDS`). `MemoryStore.append_to_log(type=)` (ex `kind=`);
+  log.md heading format unchanged. Docs: sqlite_schema.sql, tools.md.
+
 ## 0.5.3 — storage drivers phase 3 (file)
 
 - `FileStoreDriver` protocol (`agentix.drivers.file_store`): read/write/append/

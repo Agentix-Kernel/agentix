@@ -110,7 +110,7 @@ async def test_update_frontmatter_preserves_body(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_append_to_log_writes_grep_friendly_header(tmp_path: Path) -> None:
     memory = MemoryStore(tmp_path)
-    await memory.append_to_log(kind="ingest", subject="example session 1")
+    await memory.append_to_log(type="ingest", subject="example session 1")
     text = memory.path_log().read_text(encoding="utf-8")
     assert text.startswith("## [")
     assert "ingest | example session 1" in text
@@ -119,7 +119,7 @@ async def test_append_to_log_writes_grep_friendly_header(tmp_path: Path) -> None
 @pytest.mark.asyncio
 async def test_concurrent_log_appends_preserve_line_integrity(tmp_path: Path) -> None:
     memory = MemoryStore(tmp_path)
-    await asyncio.gather(*(memory.append_to_log(kind="ingest", subject=f"subject-{i}") for i in range(30)))
+    await asyncio.gather(*(memory.append_to_log(type="ingest", subject=f"subject-{i}") for i in range(30)))
     text = memory.path_log().read_text(encoding="utf-8")
     for i in range(30):
         assert f"subject-{i}" in text

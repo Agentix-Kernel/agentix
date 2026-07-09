@@ -228,7 +228,7 @@ consult subject) — but no new infrastructure or services.*
   success_predicate}` executed over the existing `Tool` protocol replaces if/elif
   recipe ladders with table-driven dispatch and removes catalogue↔skill drift.
 - **Named tool consolidations** (reference app): 5 FK-mapping tools →
-  `pin_record(strategy=…)`; 3 memory-lookup tools → `consult_memory(query, kind=…)`.
+  `pin_record(strategy=…)`; 3 memory-lookup tools → `consult_memory(query, type=…)`.
 - **Retire the bespoke skills machinery** (manifest triggers) for the single
   open-standard `SkillCatalog` loader.
 - **Reuse, don't add, the registry.**

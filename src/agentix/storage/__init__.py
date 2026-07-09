@@ -4,7 +4,7 @@ from agentix.storage.memory import MemoryLockTimeout, MemoryPage, MemoryStore
 from agentix.storage.minio_store import MinioConfig, MinioStore
 from agentix.storage.sqlite_store import (
     InterventionType,
-    SafetyKind,
+    SafetyType,
     SessionStatus,
     SqliteStore,
     TurnRole,
@@ -17,7 +17,7 @@ __all__ = [
     "MemoryStore",
     "MinioConfig",
     "MinioStore",
-    "SafetyKind",
+    "SafetyType",
     "SessionStatus",
     "SqliteStore",
     "TurnRole",

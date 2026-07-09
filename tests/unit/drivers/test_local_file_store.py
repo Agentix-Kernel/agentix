@@ -161,7 +161,7 @@ async def test_memory_store_over_injected_driver() -> None:
     await store.write_section("pages/x.md", "Facts", "two")
     page = await store.read_page("pages/x.md")
     assert page.sections["Facts"].rstrip() == "two"
-    await store.append_to_log(kind="note", subject="s", body="b")
+    await store.append_to_log(type="note", subject="s", body="b")
     assert "note | s" in fake.files["log.md"]
     assert store.head_sha() is None
     assert store.driver is fake

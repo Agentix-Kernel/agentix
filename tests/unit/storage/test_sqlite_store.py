@@ -289,16 +289,16 @@ async def test_fts_index_survives_turn_deletion(store: SqliteStore) -> None:
 async def test_append_safety_event_counts(store: SqliteStore) -> None:
     await store.create_session(session_id="S1", customer_id="example")
     turn_id = await store.append_turn(session_id="S1", turn_index=0, role="tool", tool_name="load_to_odoo")
-    await store.append_safety_event(session_id="S1", kind="dry_run_block", turn_id=turn_id, tool_name="load_to_odoo")
+    await store.append_safety_event(session_id="S1", type="dry_run_block", turn_id=turn_id, tool_name="load_to_odoo")
     await store.append_safety_event(
         session_id="S1",
-        kind="per_batch_verify_fail",
+        type="per_batch_verify_fail",
         turn_id=turn_id,
         tool_name="load_to_odoo",
         detail="expected 50 rows, got 48",
     )
     assert await store.count_safety_events("S1") == 2
-    assert await store.count_safety_events("S1", kind="per_batch_verify_fail") == 1
+    assert await store.count_safety_events("S1", type="per_batch_verify_fail") == 1
 
 
 @pytest.mark.asyncio
@@ -448,5 +448,37 @@ async def test_v5_to_v6_migration_adds_intervention_type_column(tmp_path: Path) 
         got2 = await s.get_session("NEW")
         assert got2 is not None
         assert got2["intervention_type"] == "novel"
+    finally:
+        await s.close()
+
+
+@pytest.mark.asyncio
+async def test_migration_v15_renames_safety_kind_column(tmp_path: Path) -> None:
+    """A v14 DB (safety_events.kind + its index) migrates to the ``type``
+    column; existing rows stay queryable through the renamed API."""
+    import sqlite3
+
+    db_path = tmp_path / "old.db"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(
+        "CREATE TABLE schema_version (version INTEGER NOT NULL,"
+        " applied_at TEXT NOT NULL DEFAULT (datetime('now')));\n"
+        "INSERT INTO schema_version (version) VALUES (14);\n"
+        "CREATE TABLE safety_events (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " session_id TEXT NOT NULL, turn_id INTEGER, tool_name TEXT,"
+        " tool_input TEXT, kind TEXT NOT NULL, detail TEXT, created_at TEXT NOT NULL);\n"
+        "CREATE INDEX idx_safety_events_session ON safety_events (session_id, kind);\n"
+        "INSERT INTO safety_events (session_id, kind, created_at)"
+        " VALUES ('s-old', 'dry_run_block', '2026-01-01T00:00:00+00:00');\n"
+    )
+    conn.commit()
+    conn.close()
+
+    s = SqliteStore(db_path)
+    await s.initialize()
+    try:
+        assert await s.count_safety_events("s-old", type="dry_run_block") == 1
+        cols = await s._table_columns("safety_events")
+        assert "type" in cols and "kind" not in cols
     finally:
         await s.close()
