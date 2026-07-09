@@ -1,4 +1,9 @@
-"""Unit tests for MinioStore — mocked minio.Minio."""
+"""Unit tests for MinioStore — mocked minio.Minio.
+
+Since v0.5.1 the raw client lives in the MinioObjectStoreDriver
+(``drivers/adapters/minio.py``); ``MinioStore(config)`` builds it
+internally, so these tests double as delegation-parity proof: the
+assertions are unchanged from the pre-driver split."""
 
 from __future__ import annotations
 
@@ -16,7 +21,7 @@ def _config() -> MinioConfig:
 
 @pytest.fixture
 def mock_minio() -> tuple[MinioStore, MagicMock]:
-    with patch("agentix.storage.minio_store.Minio") as minio_cls:
+    with patch("agentix.drivers.adapters.minio.Minio") as minio_cls:
         client = MagicMock()
         minio_cls.return_value = client
         store = MinioStore(_config())

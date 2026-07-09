@@ -65,7 +65,7 @@ class ChatFailoverChain:
         # pre-driver Provider objects during the migration window.
         return DriverDescriptor(
             name=self.name,
-            kind="model",
+            type="model",
             modality="chat",
             source="api",
             default_model=self.default_model,

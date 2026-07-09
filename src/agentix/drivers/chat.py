@@ -115,7 +115,7 @@ class ChatResponse(BaseModel):
 
 @runtime_checkable
 class ChatDriver(Driver, Protocol):
-    """Protocol every chat adapter implements — the model-kind chat verb.
+    """Protocol every chat adapter implements — the model-type chat verb.
 
     ``name``/``default_model`` remain on the concrete classes as
     conveniences (failover telemetry and cost seeding read them); the

@@ -1,9 +1,11 @@
-"""Async wrapper around MinIO (S3-compatible) — the kernel blob layer.
+"""The kernel blob layer — semantics over an object-store driver.
 
-MinIO's first-party Python SDK is synchronous; we run every call in a
-worker thread via ``asyncio.to_thread`` so the event loop stays unblocked.
-This is acceptable for the blob workload — MinIO calls happen at
-checkpoint boundaries, not per-turn.
+Since v0.5.1 this module is the **semantic** half of the object store:
+JSON/JSONL encoding, stream composition and the ``key_*`` prefix
+discipline. The raw transport (put/get/list/delete bytes) lives behind
+the :class:`agentix.drivers.object_store.ObjectStoreDriver` protocol —
+default backend is MinIO (``drivers/adapters/minio.py``); swapping to
+S3/Azure/GCS means injecting a different driver, nothing here changes.
 
 The bucket layout is customer-scoped:
 
@@ -20,17 +22,17 @@ loads, reports, …) live in the app under ``BLOB_ROOT``.
 
 from __future__ import annotations
 
-import asyncio
 import io
 import json
 from collections.abc import AsyncIterator, Iterable
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from minio import Minio
-from minio.error import S3Error
+
+if TYPE_CHECKING:
+    from agentix.drivers.object_store import ObjectStoreDriver
 
 log = structlog.get_logger(__name__)
 
@@ -53,34 +55,42 @@ class MinioConfig:
 
 
 class MinioStore:
-    """Async MinIO client for the kernel blob layer.
+    """The kernel blob layer, composed over an :class:`ObjectStoreDriver`.
 
-    Thread-safe at the Python level: every public method offloads to a
-    worker via ``asyncio.to_thread``. A single ``MinioStore`` instance can
-    be shared across sessions.
+    ``MinioStore(config)`` keeps working exactly as before (builds the
+    MinIO driver internally); ``MinioStore(driver=...)`` injects an
+    alternate backend. A single instance can be shared across sessions —
+    thread-safety is the driver's contract.
     """
 
-    def __init__(self, config: MinioConfig) -> None:
+    def __init__(
+        self,
+        config: MinioConfig | None = None,
+        *,
+        driver: ObjectStoreDriver | None = None,
+    ) -> None:
+        if driver is None:
+            if config is None:
+                raise TypeError("MinioStore needs a MinioConfig or an ObjectStoreDriver")
+            # Lazy import: storage must stay importable without pulling the
+            # adapter (and the drivers package) unless actually constructed
+            # from config.
+            from agentix.drivers.adapters.minio import MinioObjectStoreDriver
+
+            driver = MinioObjectStoreDriver(config)
         self.config = config
-        self._client = Minio(
-            endpoint=config.endpoint,
-            access_key=config.access_key,
-            secret_key=config.secret_key,
-            secure=config.secure,
-            region=config.region,
-        )
+        self._driver = driver
+
+    @property
+    def driver(self) -> ObjectStoreDriver:
+        """The transport underneath — exposed for registry/lifecycle wiring."""
+        return self._driver
 
     # ──────────────────────────── bucket lifecycle ─────────────────────────
 
     async def ensure_bucket(self) -> None:
         """Create the configured bucket if it does not already exist."""
-
-        def _ensure() -> None:
-            if not self._client.bucket_exists(self.config.bucket):
-                self._client.make_bucket(self.config.bucket)
-
-        await asyncio.to_thread(_ensure)
-        log.debug("minio.bucket_ready", bucket=self.config.bucket)
+        await self._driver.ensure_bucket()
 
     # ──────────────────────────────── put ──────────────────────────────────
 
@@ -92,18 +102,7 @@ class MinioStore:
         content_type: str = "application/octet-stream",
     ) -> None:
         """Upload raw bytes under ``key``."""
-
-        def _put() -> None:
-            self._client.put_object(
-                bucket_name=self.config.bucket,
-                object_name=key,
-                data=io.BytesIO(data),
-                length=len(data),
-                content_type=content_type,
-            )
-
-        await asyncio.to_thread(_put)
-        log.debug("minio.put", key=key, bytes=len(data))
+        await self._driver.put_bytes(key, data, content_type=content_type)
 
     async def put_json(self, key: str, payload: Any) -> None:
         """Upload ``payload`` as canonical JSON under ``key``.
@@ -158,9 +157,9 @@ class MinioStore:
     ) -> None:
         """Upload an async byte stream under ``key``.
 
-        Accumulates the stream into memory before invoking minio-py, which
-        requires a sync seekable source. This is the simplest correct
-        approach; for very large payloads, prefer multi-part uploads.
+        Accumulates the stream into memory before the transport put, which
+        requires a sized source. This is the simplest correct approach;
+        for very large payloads, prefer ``put_file`` (multipart).
         """
         chunks: list[bytes] = []
         async for chunk in source:
@@ -178,20 +177,10 @@ class MinioStore:
         """Upload a local file under ``key`` via multipart — disk-bounded, not RAM-bounded.
 
         Use for extracts of arbitrary size: writer streams pages to a temp
-        file, then this routine hands the path to minio-py's fput_object,
-        which chunks it server-side. No in-memory accumulation.
+        file, then the transport chunks it server-side. No in-memory
+        accumulation.
         """
-
-        def _put() -> None:
-            self._client.fput_object(
-                bucket_name=self.config.bucket,
-                object_name=key,
-                file_path=file_path,
-                content_type=content_type,
-            )
-
-        await asyncio.to_thread(_put)
-        log.debug("minio.put_file", key=key, path=file_path)
+        await self._driver.put_file(key, file_path, content_type=content_type)
 
     async def copy_object(self, source_key: str, dest_key: str) -> None:
         """Server-side copy within the bucket — no client-side transfer.
@@ -201,17 +190,7 @@ class MinioStore:
         downstream session-scoped reader (load_to_odoo, verify_migration)
         finds it without knowing about the cache.
         """
-        from minio.commonconfig import CopySource
-
-        def _copy() -> None:
-            self._client.copy_object(
-                bucket_name=self.config.bucket,
-                object_name=dest_key,
-                source=CopySource(self.config.bucket, source_key),
-            )
-
-        await asyncio.to_thread(_copy)
-        log.debug("minio.copy", source=source_key, dest=dest_key)
+        await self._driver.copy_object(source_key, dest_key)
 
     async def presigned_get(
         self,
@@ -225,31 +204,13 @@ class MinioStore:
         (the SigV4 maximum). ``download_name`` adds a content-disposition so the
         link forces a download with that filename instead of inline rendering.
         """
-        response_headers: dict[str, str | list[str] | tuple[str]] | None = (
-            {"response-content-disposition": f'attachment; filename="{download_name}"'} if download_name else None
-        )
-        return await asyncio.to_thread(
-            self._client.presigned_get_object,
-            self.config.bucket,
-            key,
-            expires=expires,
-            response_headers=response_headers,
-        )
+        return await self._driver.presigned_get(key, expires=expires, download_name=download_name)
 
     # ──────────────────────────────── get ──────────────────────────────────
 
     async def get_bytes(self, key: str) -> bytes:
         """Download the object at ``key`` as raw bytes."""
-
-        def _get() -> bytes:
-            response = self._client.get_object(self.config.bucket, key)
-            try:
-                return response.read()
-            finally:
-                response.close()
-                response.release_conn()
-
-        return await asyncio.to_thread(_get)
+        return await self._driver.get_bytes(key)
 
     async def get_json(self, key: str) -> Any:
         """Download and JSON-decode the object at ``key``."""
@@ -262,24 +223,9 @@ class MinioStore:
         *,
         chunk_size: int = 64 * 1024,
     ) -> AsyncIterator[bytes]:
-        """Yield the object at ``key`` in ``chunk_size`` byte slices.
-
-        The underlying minio-py read is sync; chunks are pumped through
-        ``asyncio.to_thread`` one at a time so a slow consumer doesn't
-        block the event loop.
-        """
-        # Returned object is a HTTPResponse-like; we can't keep it open across
-        # threads cleanly, so we materialise lazily chunk-by-chunk.
-        response = await asyncio.to_thread(self._client.get_object, self.config.bucket, key)
-        try:
-            while True:
-                chunk = await asyncio.to_thread(response.read, chunk_size)
-                if not chunk:
-                    break
-                yield chunk
-        finally:
-            await asyncio.to_thread(response.close)
-            await asyncio.to_thread(response.release_conn)
+        """Yield the object at ``key`` in ``chunk_size`` byte slices."""
+        async for chunk in self._driver.get_stream(key, chunk_size=chunk_size):
+            yield chunk
 
     # ──────────────────────────────── list ─────────────────────────────────
 
@@ -290,38 +236,15 @@ class MinioStore:
         recursive: bool = True,
     ) -> list[str]:
         """Return object keys under ``prefix``, lexicographically sorted."""
-
-        def _list() -> list[str]:
-            return [
-                obj.object_name
-                for obj in self._client.list_objects(
-                    bucket_name=self.config.bucket,
-                    prefix=prefix,
-                    recursive=recursive,
-                )
-                if obj.object_name
-            ]
-
-        keys = await asyncio.to_thread(_list)
-        return sorted(keys)
+        return await self._driver.list_objects(prefix, recursive=recursive)
 
     # ─────────────────────────────── delete ────────────────────────────────
 
     async def delete_object(self, key: str) -> None:
-        await asyncio.to_thread(self._client.remove_object, self.config.bucket, key)
-        log.debug("minio.delete", key=key)
+        await self._driver.delete_object(key)
 
     async def exists(self, key: str) -> bool:
-        def _stat() -> bool:
-            try:
-                self._client.stat_object(self.config.bucket, key)
-            except S3Error as e:
-                if e.code in ("NoSuchKey", "NoSuchBucket"):
-                    return False
-                raise
-            return True
-
-        return await asyncio.to_thread(_stat)
+        return await self._driver.exists(key)
 
     # ─────────────────────────── well-known keys ───────────────────────────
     #

@@ -85,7 +85,9 @@ know what a finding means in a domain). Adding any *new* layer means changing
 ### 10. Storage — use or subclass the three stores
 `agentix.storage` (`SqliteStore`, `MinioStore`, `MemoryStore` —
 [`memory.md`](memory.md) §3, [`session.md`](session.md) §2). Use as-is, or subclass to
-add app tables/keys — the kernel schema stays untouched.
+add app tables/keys — the kernel schema stays untouched. Since v0.5.1 the physical
+transport under a store is also swappable via a storage-type driver
+([`drivers.md`](drivers.md) §5) — the store keeps the semantics.
 *LUDO:* `LudoSqliteStore` adds `diagnoses` + `applied_memory_rules` tables.
 
 ### 11. Events out — bus sink + neutral envelope
@@ -99,7 +101,7 @@ without import.
 
 ### 12. Drivers — register external-system I/O
 `src/agentix/drivers/` (`DriverRegistry.register`, `register_driver_factory`,
-`DriverSpec` — [`drivers.md`](drivers.md) §5). A driver is the kernel's unit of
+`DriverSpec` — [`drivers.md`](drivers.md) §6). A driver is the kernel's unit of
 external-system I/O (AI models of any modality; generic enough for databases/queues).
 Three explicit paths: register a factory key at startup + declare a `DriverSpec`;
 declare a dotted-path class (`"pkg.mod:Class"`, constructor

@@ -79,7 +79,7 @@ class HfSttDriver:
     def descriptor(self) -> DriverDescriptor:
         return DriverDescriptor(
             name=self.name,
-            kind="model",
+            type="model",
             modality="stt",
             source="huggingface",
             default_model=self.default_model,
@@ -135,7 +135,7 @@ class HfSttDriver:
         # slot in the per-token table). The usage line keeps it visible.
         log.info(
             "driver.usage",
-            kind="model",
+            type="model",
             modality="stt",
             driver=self.name,
             model=model,

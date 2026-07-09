@@ -23,7 +23,7 @@ Design:
   (a ContextVar so multiple concurrent sessions don't cross-contaminate).
 
 Recording is **chat-only** in v0.5 — ``ModelPricing`` is per-token;
-non-token-priced kinds (stt per-second, embedding per-text) emit a
+non-token-priced types (stt per-second, embedding per-text) emit a
 ``driver.usage`` log line instead (see ``docs/budgets.md`` DIRECTION).
 
 The CostTracking middleware retains a useful telemetry role
@@ -93,7 +93,7 @@ class CostRecordingChatDriver:
             return inner_desc
         return DriverDescriptor(
             name=self._inner.name,
-            kind="model",
+            type="model",
             modality="chat",
             default_model=self._inner.default_model,
         )

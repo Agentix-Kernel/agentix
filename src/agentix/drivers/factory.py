@@ -114,6 +114,24 @@ def _build_hf_stt(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     return HfSttDriver(api_key=_env_key(spec), **kwargs)  # type: ignore[arg-type]
 
 
+def _build_minio_object_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.minio import MinioObjectStoreDriver
+
+    return MinioObjectStoreDriver(spec=spec, api_key=_env_key(spec))
+
+
+def _build_local_file_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.local_fs import LocalFileStoreDriver
+
+    return LocalFileStoreDriver(spec=spec, api_key=_env_key(spec))
+
+
+def _build_sqlite_relational(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
+
+    return SqliteRelationalDriver(spec=spec, api_key=_env_key(spec))
+
+
 def _build_huble_embedding(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     from agentix.drivers.embedding import HubleEmbeddingDriver
 
@@ -133,6 +151,9 @@ for _key, _factory in (
     ("openai-embedding", _build_openai_embedding),
     ("huble-embedding", _build_huble_embedding),
     ("hf-stt", _build_hf_stt),
+    ("minio-object-store", _build_minio_object_store),
+    ("sqlite-relational", _build_sqlite_relational),
+    ("local-file-store", _build_local_file_store),
 ):
     register_driver_factory(_key, _factory)
 
@@ -182,7 +203,7 @@ def build_drivers(
     * embedding specs need ``sqlite`` (the cache store); a spec whose
       backend is unconfigured (``EmbeddingError``) is skipped — callers
       read ``registry.embedding_or_none()``.
-    * every other kind/modality builds strictly: unknown factory keys and
+    * every other type/modality builds strictly: unknown factory keys and
       constructor failures raise.
     """
     registry = DriverRegistry()
@@ -191,7 +212,7 @@ def build_drivers(
 
     chat_members: list[Driver] = []
     for spec in specs:
-        if spec.kind == "model" and spec.modality == "chat":
+        if spec.type == "model" and spec.modality == "chat":
             effective = spec
             if model_override and spec.driver in ("melious", "huble"):
                 effective = replace(spec, model=model_override)
@@ -202,7 +223,7 @@ def build_drivers(
 
                 driver = CostRecordingChatDriver(cast(ChatDriver, driver), sqlite=sqlite, pricing_table=pricing_table)
             chat_members.append(driver)
-        elif spec.kind == "model" and spec.modality == "embedding":
+        elif spec.type == "model" and spec.modality == "embedding":
             if sqlite is None:
                 continue  # embedding backends require the cache store
             try:

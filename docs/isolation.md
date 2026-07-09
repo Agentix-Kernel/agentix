@@ -63,9 +63,11 @@ process; I7 = safe across processes.** Baseline: the production worker still run
 - **I2 — No shared mutable DB connection across Sessions; writes atomic + isolated.**
   **Half landed:** the cross-process half is in — WAL + `PRAGMA busy_timeout=30000`,
   so a second worker on the same file *waits* instead of failing `SQLITE_BUSY`
-  (`storage/sqlite_store.py`, agentix#39). The in-process half is deferred: the
-  store keeps one long-lived aiosqlite connection, safe only under single-flight —
-  `gather` needs a per-task connection or a transaction lock (§8).
+  (now owned by the SQLite relational driver, `drivers/adapters/sqlite.py`,
+  agentix#39). The in-process half is deferred: the driver keeps one long-lived
+  aiosqlite connection, safe only under single-flight — `gather` needs a per-task
+  connection or a transaction lock (§8); the driver is the natural home for that
+  change (`drivers.md` §5).
 - **I3 — Session-shared filesystem state is scoped or locked.** **Kernel primitive
   landed:** `MemoryStore.lock(name)` namespaced advisory locks
   ([`memory.md`](memory.md) §3) cover same-process and cross-process contention;
@@ -80,7 +82,7 @@ process; I7 = safe across processes.** Baseline: the production worker still run
   default 8, `configure_driver_capacity` at startup) acquired around every model
   call (chat `complete`, stt `transcribe`); closes agentix#40. *The deliberate
   carve-out: session state is per-task, but shared external capacity is
-  intentionally global.* Per-kind limits: [`drivers.md`](drivers.md) §8.
+  intentionally global.* Per-type limits: [`drivers.md`](drivers.md) §9.
 - **I6 — Structured concurrency: no session-child task outlives its Session.**
   Intra-session fan-out is awaited under the session root; no orphan `create_task`
   touching a finalized session — this is what "one task-tree" encodes, and it

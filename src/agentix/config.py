@@ -103,7 +103,7 @@ class DriverSpec:
 
     name: str
     driver: str
-    kind: str = "model"
+    type: str = "model"
     modality: str = "chat"
     model: str | None = None
     base_url: str | None = None
@@ -205,7 +205,7 @@ def derive_driver_specs(cfg: KernelConfig) -> tuple[DriverSpec, ...]:
             DriverSpec(
                 name=name,
                 driver=name,
-                kind="model",
+                type="model",
                 modality="chat",
                 default=not specs,
             )

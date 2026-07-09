@@ -14,7 +14,7 @@ class _FakeChat:
 
     def __init__(self, name: str = "fake-chat") -> None:
         self.name = name
-        self._descriptor = DriverDescriptor(name=name, kind="model", modality="chat", default_model="fake-1")
+        self._descriptor = DriverDescriptor(name=name, type="model", modality="chat", default_model="fake-1")
         self.closed = False
 
     @property
@@ -30,7 +30,7 @@ class _FakeChat:
 
 class _FakeDb:
     def __init__(self) -> None:
-        self._descriptor = DriverDescriptor(name="db-main", kind="database", source="local")
+        self._descriptor = DriverDescriptor(name="db-main", type="database", source="local")
 
     @property
     def descriptor(self) -> DriverDescriptor:
@@ -86,7 +86,7 @@ def test_default_flag_overrides_insertion_order() -> None:
     assert reg.chat() is b
 
 
-def test_typed_accessor_kind_mismatch() -> None:
+def test_typed_accessor_type_mismatch() -> None:
     reg = DriverRegistry()
     db = _FakeDb()
     reg.register(db)
@@ -104,14 +104,14 @@ def test_missing_modality_lookups() -> None:
     assert reg.embedding_or_none() is None
 
 
-def test_by_kind_by_modality_and_descriptors() -> None:
+def test_by_type_by_modality_and_descriptors() -> None:
     reg = DriverRegistry()
     chat, db = _FakeChat(), _FakeDb()
     reg.register(chat)
     reg.register(db)
-    assert reg.by_kind("database") == [db]
+    assert reg.by_type("database") == [db]
     assert reg.by_modality("chat") == [chat]
-    assert reg.kinds() == ["database", "model"]
+    assert reg.types() == ["database", "model"]
     assert [d.name for d in reg.descriptors()] == ["db-main", "fake-chat"]
 
 

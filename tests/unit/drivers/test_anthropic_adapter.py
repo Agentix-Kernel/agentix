@@ -51,8 +51,8 @@ def test_message_to_anthropic_assistant_with_tool_calls() -> None:
     msg = Message(role="assistant", content="will extract", tool_calls=[tc])
     out = _message_to_anthropic(msg)
     assert out["role"] == "assistant"
-    kinds = [b["type"] for b in out["content"]]
-    assert kinds == ["text", "tool_use"]
+    block_types = [b["type"] for b in out["content"]]
+    assert block_types == ["text", "tool_use"]
 
 
 # ───────────────────────── response parsing ────────────────────────────────

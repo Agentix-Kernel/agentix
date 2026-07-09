@@ -10,7 +10,7 @@ The limiter is a single semaphore acquired around every driver I/O call
 (chat ``complete``, embedding ``embed``, stt ``transcribe``). It is keyed by
 running event loop so it is safe to reuse across test loops (each loop gets its
 own instance) while remaining a single shared gate within the one loop a
-production worker runs — the "global" scope that matters. Per-kind / per-driver
+production worker runs — the "global" scope that matters. Per-type / per-driver
 limits are DIRECTION (``docs/drivers.md``).
 """
 

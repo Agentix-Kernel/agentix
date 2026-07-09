@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.5.3 — storage drivers phase 3 (file)
+
+- `FileStoreDriver` protocol (`agentix.drivers.file_store`): read/write/append/
+  list/exists + `lock()` as a verb + `head_ref()` version pin (None off-git);
+  `LocalFileStoreDriver` adapter (`drivers/adapters/local_fs.py`, factory key
+  `local-file-store`) owns path containment, fcntl locks and the git pin;
+  registry accessor `file_store()`. `MemoryStore` keeps all page semantics;
+  `MemoryStore(root)` unchanged, `MemoryStore(driver=...)` injects
+  (NextCloud/WebDAV shape proven by test fake). `MemoryLockTimeout` unchanged.
+
+## 0.5.2 — storage drivers phase 2 (relational)
+
+- `RelationalDriver` protocol + `ExecuteResult` (`agentix.drivers.relational`);
+  `SqliteRelationalDriver` adapter (`drivers/adapters/sqlite.py`, factory key
+  `sqlite-relational`) now owns the aiosqlite connection + PRAGMAs; registry
+  accessor `relational()`. `SqliteStore` methods go through the driver verbs;
+  `SqliteStore(path)` unchanged, `SqliteStore(driver=...)` injects. sqlite errors
+  classify into the driver taxonomy (locked/busy retryable). `EmbeddingCache`
+  rides the same driver. `store._db`/`_conn()` remain as the sqlite-dialect
+  escape hatch for seam-#10 subclass migrations.
+
+## 0.5.1 — say "type"; storage drivers phase 1 (object store)
+
+- **Breaking rename:** driver `kind` → `type` everywhere — `DriverDescriptor.type`,
+  `DriverSpec.type`, `DriverRegistry.by_type()` / `types()` (ex `by_kind`/`kinds`).
+- **Storage driver family** (`type="storage"`): `ObjectStoreDriver` protocol +
+  `ObjectNotFound` (`agentix.drivers.object_store`), `MinioObjectStoreDriver`
+  adapter (`drivers/adapters/minio.py`, factory key `minio-object-store`), registry
+  accessors `object_store()` / `object_store_or_none()`. `MinioStore` is now the
+  semantic layer over an injected driver; `MinioStore(config)` unchanged for
+  consumers. S3 errors now classify into the driver taxonomy. Docs:
+  `docs/drivers.md` section 5. Phases 2–3 (relational, file) follow.
+
 ## 0.5.0 — Drivers: first-class external-system I/O
 
 The LLM/embeddings layer is re-founded as `agentix.drivers` — one abstraction for

@@ -72,7 +72,7 @@ class AnthropicChatDriver:
     def descriptor(self) -> DriverDescriptor:
         return DriverDescriptor(
             name=self.name,
-            kind="model",
+            type="model",
             modality="chat",
             source="api",
             capabilities=frozenset({"tools", "thinking", "cache_control"}),

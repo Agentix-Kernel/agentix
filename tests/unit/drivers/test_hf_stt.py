@@ -43,7 +43,7 @@ def test_missing_token_fails_loud_at_construction(monkeypatch: pytest.MonkeyPatc
 def test_descriptor_is_huggingface_stt() -> None:
     drv = _driver(lambda request: httpx.Response(200, json={"text": "x"}))
     desc = drv.descriptor
-    assert desc.kind == "model"
+    assert desc.type == "model"
     assert desc.modality == "stt"
     assert desc.source == "huggingface"
     assert desc.pricing_ref is None  # per-second pricing — not cost-recorded in v0.5
@@ -190,7 +190,7 @@ def test_declared_spec_lands_in_registry_as_stt() -> None:
 
         from agentix.drivers.base import DriverDescriptor as _DD
 
-        descriptor = _DD(name="anthropic", kind="model", modality="chat")
+        descriptor = _DD(name="anthropic", type="model", modality="chat")
 
         def __init__(self, **kwargs: Any) -> None:
             pass

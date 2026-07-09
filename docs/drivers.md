@@ -2,8 +2,8 @@
 
 **Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
-**Single source of truth for the driver framework in `docs/`.** Sections 1–7 document
-the landed v0.5 subsystem (code: `src/agentix/drivers/`); section 8 is **DIRECTION**.
+**Single source of truth for the driver framework in `docs/`.** Sections 1–8 document
+the landed subsystem (code: `src/agentix/drivers/`); section 9 is **DIRECTION**.
 Neighbouring SSoTs are referenced, never restated (CRIE rule): which model serves a
 request — chain order and the routing-policy direction — is [`routing.md`](routing.md);
 cost recording and the money budget are [`budgets.md`](budgets.md); the capacity
@@ -13,29 +13,29 @@ limiter's isolation invariant is [`isolation.md`](isolation.md) §3 I5.
 developer-programmable. The first family is AI models of any modality (chat,
 embedding, stt landed; vision/tts/timeseries designed) from any source (provider API,
 gateway, huggingface, local runtime). The base contract is deliberately
-system-agnostic: a future database or queue driver registers through the same
-descriptor + lifecycle + error taxonomy with zero kernel change — modularity is the
-expandability mechanism.
+system-agnostic: the storage family (§5) is the first landed non-model type, and a
+future queue or database driver registers through the same descriptor + lifecycle +
+error taxonomy with zero kernel change — modularity is the expandability mechanism.
 
 ---
 
 ## 1. The core contract (`drivers/base.py`)
 
-- **`DriverDescriptor`** (frozen): `name` (unique in the registry), `kind` — an
+- **`DriverDescriptor`** (frozen): `name` (unique in the registry), `type` — an
   **open string vocabulary** (`"model"` today; `"database"`, `"queue"`, … later — no
   kernel enum to amend), `modality` (chat|embedding|vision|tts|stt|timeseries for
-  model-kind; None otherwise; validated: model-kind requires one), `source`
+  model-type; None otherwise; validated: model-type requires one), `source`
   (api|gateway|huggingface|local), `capabilities: frozenset[str]`, `default_model`,
   `pricing_ref` (key into the operator pricing table; **None = this driver's spend is
-  not token-priced** — the machine-readable marker the cost story reads, §6).
+  not token-priced** — the machine-readable marker the cost story reads, §7).
 - **`Driver`** protocol (@runtime_checkable): `descriptor` property + `async aclose()`.
   **Deliberately verb-free** — identity and lifecycle only.
-- **Per-kind typed protocols** add the verbs — `ChatDriver.complete(ChatRequest) ->
+- **Per-type typed protocols** add the verbs — `ChatDriver.complete(ChatRequest) ->
   ChatResponse`, `EmbeddingDriver.embed(list[str]) -> list[EmbeddingResult]`,
   `SttDriver.transcribe(AudioSource) -> Transcript`. **Rejected alternative:** one
   generic `infer(Any) -> Any` — it erases the typing mypy enforces and forces
-  isinstance dances on every caller. Expandability lives in the open `kind`/protocol
-  pattern instead (§7 worked example).
+  isinstance dances on every caller. Expandability lives in the open `type`/protocol
+  pattern instead (§5 storage family, §8 worked example).
 - **Error taxonomy** — `DriverError(message, *, driver, retryable=False)`;
   `DriverRateLimited` / `DriverUnavailable` (retryable) vs `DriverInvalidRequest`
   (not). Classification happens once, in the adapter; everything upstream (failover
@@ -76,18 +76,69 @@ secretly chat-shaped. `HfSttDriver` speaks the HuggingFace Inference API
 (`source="huggingface"`, default `openai/whisper-large-v3`, `HF_TOKEN` env or
 `api_key_env`): one POST per call, 503-with-`estimated_time` (cold model loading)
 classified retryable, `transport=` kwarg as the no-network test seam. Its pricing is
-per-second — `pricing_ref=None`, see §6.
+per-second — `pricing_ref=None`, see §7.
 
-## 5. Registry, config, factory — seam #13
+## 5. Storage driver family (`drivers/object_store.py`, `adapters/minio.py`)
+
+The first non-model driver type — `type="storage"` — born of a two-layer split of
+the kernel stores: the **store** stays the semantic layer (`MinioStore`: JSON/JSONL
+encoding, stream composition, the `key_*` prefix discipline — `storage/README.md`),
+while the raw **transport** underneath becomes a driver. Swapping the physical
+backend means writing a new driver; the store and every consumer stay untouched.
+
+- **`ObjectStoreDriver`** (`modality="object"`) — transport verbs only:
+  `ensure_bucket` / `put_bytes` / `put_file` / `get_bytes` / `get_stream` /
+  `list_objects` / `delete_object` / `exists` / `copy_object` / `presigned_get`.
+  Anything expressible as composition over these (`put_json`, `put_stream`
+  accumulation) deliberately stays in the store.
+- **`MinioObjectStoreDriver`** (`adapters/minio.py`) — the landed backend
+  (S3-compatible; the `minio.Minio` client + thread offloading moved here from
+  `storage/minio_store.py`). Error classification happens once, here:
+  `NoSuchKey`/`NoSuchBucket` → `ObjectNotFound` (a `DriverError`, not retryable,
+  carries `.key`); `SlowDown` → `DriverRateLimited`; 5xx/connectivity →
+  `DriverUnavailable`; the rest → `DriverInvalidRequest` — so the Retry middleware
+  works for storage exactly as it does for chat.
+- **Wiring**: `MinioStore(config)` builds the MinIO driver internally (zero consumer
+  churn); `MinioStore(driver=...)` injects an alternate backend. Registry accessors
+  `object_store()` / `object_store_or_none()`; builtin factory key
+  `"minio-object-store"` (endpoint from `spec.base_url`, `bucket`/`access_key`/
+  `secure`/`region` from `spec.options`, secret via `api_key_env`).
+- **`RelationalDriver`** (`modality="relational"`, `drivers/relational.py`) —
+  `connect` / `execute -> ExecuteResult(lastrowid, rowcount)` / `query` /
+  `query_one` (rows as plain dicts, backend-neutral) / `commit`. Landed backend:
+  `SqliteRelationalDriver` (`adapters/sqlite.py`, factory key `"sqlite-relational"`)
+  — owns the connection + PRAGMAs (WAL, busy_timeout: isolation.md I2's home now);
+  lock/busy → `DriverUnavailable`, constraint/malformed SQL →
+  `DriverInvalidRequest`. `SqliteStore(path)` unchanged; `SqliteStore(driver=...)`
+  injects. Honesty: the kernel store's DDL is sqlite-dialect (FTS5, PRAGMA) — a
+  MySQL/Postgres adapter satisfies the protocol, but porting the *store schema* is
+  dialect work, stated not hidden. The adapter-only `raw` property is the
+  sqlite escape hatch for seam-#10 subclass migrations.
+- **`FileStoreDriver`** (`modality="file"`, `drivers/file_store.py`) —
+  `read_text` / `write_text` / `append_text` / `list_files` / `exists` /
+  `lock(name, timeout)` / `head_ref()`. Two boundaries designed in: **locking is a
+  verb** (fcntl locally, WebDAV LOCK remotely — timeout raises a `TimeoutError`
+  subclass, locally `MemoryLockTimeout` so existing handlers keep working), and
+  **the version pin degrades** (`head_ref()` = git HEAD sha locally, None on
+  backends without a repo — callers already treat None as "no pin, no drift
+  check"). Landed backend: `LocalFileStoreDriver` (`adapters/local_fs.py`, factory
+  key `"local-file-store"`, capabilities `{"git-pin", "fcntl-lock"}`) — owns path
+  containment, fcntl locks under `.locks/`, the git pin. `MemoryStore(root)`
+  unchanged; `MemoryStore(driver=...)` injects (NextCloud/WebDAV, SMB — app-side).
+  Local I/O errors propagate as-is; remote adapters classify connectivity into the
+  taxonomy.
+
+## 6. Registry, config, factory — seam #13
 
 - **`DriverRegistry`** (`drivers/registry.py`, ToolRegistry house style): `register`
   (strict, `DriverConflict`) / `try_register` (lenient, log+skip); lookup by `name`
-  or the typed accessors `chat()` / `embedding()` / `embedding_or_none()` / `stt()`.
+  or the typed accessors `chat()` / `embedding()` / `embedding_or_none()` / `stt()` /
+  `object_store()` / `object_store_or_none()`.
   Default-per-modality is **pure lookup, explicitly not routing policy**: first
   registered wins unless `default=True` says otherwise. `aclose_all()` closes
   everything, logging instead of raising — shutdown must complete.
 - **`DriverSpec`** (`config.py`) — one declared instance: `name`, `driver` (builtin
-  factory key or dotted path `pkg.mod:Class`), `kind`, `modality`, `model`,
+  factory key or dotted path `pkg.mod:Class`), `type`, `modality`, `model`,
   `base_url`, `api_key_env` (**the env-var NAME, never a secret** — 12-factor),
   `default`, `options`. `KernelConfig.drivers: tuple[DriverSpec, ...]`; empty →
   `derive_driver_specs(cfg)` maps the legacy anthropic/huble/melious blocks (via
@@ -109,41 +160,42 @@ per-second — `pricing_ref=None`, see §6.
      contract `__init__(*, spec: DriverSpec, api_key: str | None)`;
   3. build the instance yourself and `registry.register(my_driver)`.
 
-## 6. Cross-cutting — honest v0.5 boundaries
+## 7. Cross-cutting — honest v0.5 boundaries
 
 - **Cost**: recorded spend = **chat spend** (`CostRecordingChatDriver`, canonical in
   [`budgets.md`](budgets.md)). Embedding and STT calls are NOT written to the session
   cost ledger — `ModelPricing` is strictly per-token and fake per-second numbers
   would corrupt budget enforcement. They emit a structured `driver.usage` log line
-  (kind, modality, driver, model, units, bound session id) so the spend stays
-  visible. The kind-agnostic recorder keyed on `pricing_ref` + unit normalization is
+  (type, modality, driver, model, units, bound session id) so the spend stays
+  visible. The type-agnostic recorder keyed on `pricing_ref` + unit normalization is
   DIRECTION (budgets.md).
 - **Capacity**: one process-global semaphore (`drivers/limiter.py`,
   `driver_capacity()`, default 8, per event loop — isolation.md I5) now covers chat
-  AND stt calls (embedding wrapping is DIRECTION with per-kind limits).
+  AND stt calls (embedding wrapping is DIRECTION with per-type limits).
 - **Session attribution**: `current_session_id` / `bind_session` / `session_scope`
   live in `drivers/session.py` — modality-agnostic; non-chat drivers read the
   ContextVar for log attribution.
 
-## 7. Worked example — a database driver (paper only)
+## 8. Worked example — a database driver (paper only)
 
-Proof the abstraction holds beyond AI models, shipped as documentation (no DB
-dependency enters the app-free wheel):
+A second proof beyond the landed storage family, shipped as documentation (no DB
+dependency enters the app-free wheel). The next storage phase lands a kernel
+`RelationalDriver` protocol this example will implement:
 
 ```python
 class QueryResult:  ...                       # app-defined wire type
 
-class MySqlDriver:                            # kind="database" — no kernel change
+class MySqlDriver:                            # type="database" — no kernel change
     def __init__(self, *, spec: DriverSpec, api_key: str | None) -> None:
         self._pool = ...                      # dsn from spec.base_url, secret from api_key
         self.descriptor = DriverDescriptor(
-            name=spec.name, kind="database", source="local")
+            name=spec.name, type="database", source="local")
     async def query(self, sql: str, params: tuple = ()) -> QueryResult: ...
     async def aclose(self) -> None: ...       # close the pool
 ```
 
 Declared as `DriverSpec(name="mysql-main", driver="my_pkg.drivers:MySqlDriver",
-kind="database", modality="other", base_url="mysql://10.0.99.1:3306/app",
+type="database", modality="other", base_url="mysql://10.0.99.1:3306/app",
 api_key_env="MYSQL_PASSWORD")`. The registry, lifecycle, error taxonomy
 (`DriverError(retryable=...)` for deadlocks vs syntax errors) and config discipline
 all apply unchanged; only the verb protocol (`query`) is new — defined beside the
@@ -153,17 +205,21 @@ driver, not in the kernel.
 
 *Everything below is DIRECTION — converged design, not the code today.*
 
-## 8. DIRECTION
+## 9. DIRECTION
 
 - **Routing policy over drivers** — cost-aware/capability-aware candidate ordering,
   escalation tiers, health breakers: [`routing.md`](routing.md) §4/§6–7 (none of it
   landed in v0.5 — the registry default is a lookup, never a choice).
 - **Non-chat cost recording** — unit-pricing schema (per-second stt, per-text
-  embedding) + a kind-agnostic `CostRecordingDriver` keyed on `pricing_ref`
+  embedding) + a type-agnostic `CostRecordingDriver` keyed on `pricing_ref`
   ([`budgets.md`](budgets.md)).
-- **Per-kind / per-driver capacity limits** (today: one shared semaphore).
+- **Per-type / per-driver capacity limits** (today: one shared semaphore).
 - **Remaining modalities** — vision, tts, timeseries protocols + adapters (the stt
-  proof establishes the pattern); a kind-generic failover chain (don't generalize
+  proof establishes the pattern); a type-generic failover chain (don't generalize
   before a second consumer exists).
 - **Config collapse** — fold `anthropic:`/`huble:`/`melious:` into `drivers:` (v0.6).
 - **Lifecycle verbs** — `health()` / `warmup()` for local-runtime drivers.
+- **Second storage backends** — MySQL/Postgres behind `RelationalDriver`
+  (dialect layer for the kernel store's DDL is the real work), NextCloud/WebDAV
+  behind `FileStoreDriver` (WebDAV LOCK; no git pin), S3/Azure/GCS behind
+  `ObjectStoreDriver` — all app-side via the driver seam, zero kernel change.

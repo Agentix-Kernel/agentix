@@ -8,7 +8,7 @@ system-agnostic: a future database or queue driver registers through the
 same descriptor + lifecycle + error taxonomy without any kernel change.
 
 This module is the import root of ``agentix.drivers`` — it imports nothing
-from the rest of the package (per-kind families build on top of it, never
+from the rest of the package (per-type families build on top of it, never
 the other way round).
 
 Canonical doc: ``docs/drivers.md``.
@@ -21,7 +21,7 @@ from typing import Protocol, runtime_checkable
 
 # ─────────────────────────── descriptor ───────────────────────────
 
-#: Modality vocabulary for ``kind="model"`` drivers. Free-form ``str`` on the
+#: Modality vocabulary for ``type="model"`` drivers. Free-form ``str`` on the
 #: descriptor so apps can extend; these are the values the kernel documents.
 KNOWN_MODALITIES = ("chat", "embedding", "vision", "tts", "stt", "timeseries")
 
@@ -33,14 +33,14 @@ KNOWN_SOURCES = ("api", "gateway", "huggingface", "local")
 class DriverDescriptor:
     """Identity + metadata a registry entry resolves to.
 
-    ``kind`` selects the protocol family (the verb set a driver speaks):
+    ``type`` selects the protocol family (the verb set a driver speaks):
     ``"model"`` today; ``"database"``, ``"queue"``, … later — an open
-    vocabulary, no kernel enum to amend. ``modality`` refines model-kind
-    drivers (chat/embedding/stt/…) and is ``None`` for non-model kinds.
+    vocabulary, no kernel enum to amend. ``modality`` refines model-type
+    drivers (chat/embedding/stt/…) and is ``None`` for non-model types.
     """
 
     name: str
-    kind: str = "model"
+    type: str = "model"
     modality: str | None = None
     source: str = "api"
     capabilities: frozenset[str] = field(default_factory=frozenset)
@@ -52,10 +52,10 @@ class DriverDescriptor:
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("DriverDescriptor.name must be non-empty")
-        if not self.kind:
-            raise ValueError("DriverDescriptor.kind must be non-empty")
-        if self.kind == "model" and not self.modality:
-            raise ValueError("DriverDescriptor: kind='model' requires a modality")
+        if not self.type:
+            raise ValueError("DriverDescriptor.type must be non-empty")
+        if self.type == "model" and not self.modality:
+            raise ValueError("DriverDescriptor: type='model' requires a modality")
 
 
 # ─────────────────────────── error taxonomy ───────────────────────────
@@ -103,7 +103,7 @@ class DriverInvalidRequest(DriverError):
 class Driver(Protocol):
     """The universal driver surface: identity + lifecycle, no I/O verbs.
 
-    Per-kind protocols (``ChatDriver``, ``EmbeddingDriver``, ``SttDriver``,
+    Per-type protocols (``ChatDriver``, ``EmbeddingDriver``, ``SttDriver``,
     a future ``DatabaseDriver``) extend this with their typed verbs — the
     kernel deliberately ships no generic ``infer(Any) -> Any``: it would
     erase the typing mypy enforces and force isinstance dances on callers.

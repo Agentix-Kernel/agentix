@@ -11,7 +11,7 @@ class FakeDottedDriver:
     def __init__(self, *, spec: object, api_key: str | None) -> None:
         self.spec = spec
         self.api_key = api_key
-        self._descriptor = DriverDescriptor(name="dotted", kind="database", source="local")
+        self._descriptor = DriverDescriptor(name="dotted", type="database", source="local")
 
     @property
     def descriptor(self) -> DriverDescriptor:

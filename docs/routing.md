@@ -65,7 +65,7 @@ Tests: `tests/unit/drivers/test_failover_chain.py`,
   routes on them today.
 - The capacity limiter (`drivers/limiter.py`) bounds concurrency, not selection
   ([`isolation.md`](isolation.md) §3 I5).
-- The registry's per-modality default (`registry.chat()`, `drivers.md` §5) is a
+- The registry's per-modality default (`registry.chat()`, `drivers.md` §6) is a
   **lookup**, not a choice: declaration order / `default=True` decides.
 
 ---
@@ -89,8 +89,8 @@ Tests: `tests/unit/drivers/test_failover_chain.py`,
 
 v0.5 landed what this section used to describe as DIRECTION: the routed unit is an
 **AI model of any modality** from any source, carried by
-`DriverDescriptor` (kind, modality, source, capabilities, pricing_ref) and the
-`DriverRegistry`. Canonical: [`drivers.md`](drivers.md) §1/§5 — not restated here.
+`DriverDescriptor` (type, modality, source, capabilities, pricing_ref) and the
+`DriverRegistry`. Canonical: [`drivers.md`](drivers.md) §1/§6 — not restated here.
 What remains DIRECTION is the *policy* that exploits the descriptors (§6).
 
 ## 6. The routing-policy seam
@@ -128,7 +128,7 @@ A request descriptor in, a ranked candidate list out:
   `DriverDescriptor` + `DriverRegistry`, config-declared (`DriverSpec`) AND
   code-registered (seam #13); [`drivers.md`](drivers.md).
 - [x] ~~Non-chat modality protocols: one generic `infer()` vs per-modality
-  protocols~~ — **resolved in v0.5**: per-kind typed protocols over a verb-free base;
+  protocols~~ — **resolved in v0.5**: per-type typed protocols over a verb-free base;
   generic `infer()` rejected ([`drivers.md`](drivers.md) §1).
 - [ ] Policy seam signature and its interaction with `TerminationPolicy` /
   middleware order ([`engine.md`](engine.md)).

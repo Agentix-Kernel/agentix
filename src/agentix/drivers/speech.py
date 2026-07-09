@@ -53,7 +53,7 @@ class Transcript:
 
 @runtime_checkable
 class SttDriver(Driver, Protocol):
-    """Protocol every STT adapter implements — the model-kind stt verb."""
+    """Protocol every STT adapter implements — the model-type stt verb."""
 
     async def transcribe(self, source: AudioSource) -> Transcript:
         """Transcribe one audio source to text."""

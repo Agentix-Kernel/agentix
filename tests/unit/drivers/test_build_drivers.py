@@ -43,7 +43,7 @@ class _FakeHuble:
     def descriptor(self) -> Any:
         from agentix.drivers.base import DriverDescriptor
 
-        return DriverDescriptor(name=self.name, kind="model", modality="chat", default_model=self.default_model)
+        return DriverDescriptor(name=self.name, type="model", modality="chat", default_model=self.default_model)
 
     async def complete(self, request: Any) -> Any:  # pragma: no cover — never called
         raise NotImplementedError
@@ -148,7 +148,7 @@ def test_model_override_reaches_huble_not_anthropic() -> None:
 
 
 def test_unknown_factory_key_fails_loud() -> None:
-    cfg = _cfg(drivers=(DriverSpec(name="x", driver="no-such-key", kind="queue", modality="chat"),))
+    cfg = _cfg(drivers=(DriverSpec(name="x", driver="no-such-key", type="queue", modality="chat"),))
     with pytest.raises(ValueError, match="no-such-key"):
         build_drivers(cfg)
 
@@ -158,7 +158,7 @@ def test_registered_factory_builds_declared_spec() -> None:
 
     class _TickerDriver:
         def __init__(self) -> None:
-            self._descriptor = DriverDescriptor(name="ticker", kind="timeseries-feed", source="local")
+            self._descriptor = DriverDescriptor(name="ticker", type="timeseries-feed", source="local")
 
         @property
         def descriptor(self) -> DriverDescriptor:
@@ -172,12 +172,12 @@ def test_registered_factory_builds_declared_spec() -> None:
         anthropic=AnthropicConfig(api_key="sk-ant-x"),
         drivers=(
             DriverSpec(name="anthropic", driver="anthropic", modality="chat", default=True),
-            DriverSpec(name="ticker", driver="test-ticker", kind="timeseries-feed", modality="other"),
+            DriverSpec(name="ticker", driver="test-ticker", type="timeseries-feed", modality="other"),
         ),
     )
     with patch("agentix.drivers.adapters.anthropic.AnthropicChatDriver", _FakeAnthropic):
         registry = build_drivers(cfg)
-    assert registry.get("ticker").descriptor.kind == "timeseries-feed"
+    assert registry.get("ticker").descriptor.type == "timeseries-feed"
     assert registry.chat().name == "anthropic"
 
 
@@ -189,7 +189,7 @@ def test_dotted_path_driver_construction() -> None:
             DriverSpec(
                 name="dotted",
                 driver="tests.unit.drivers.fake_dotted_driver:FakeDottedDriver",
-                kind="database",
+                type="database",
                 modality="other",
                 api_key_env="AGENTIX_TEST_DOTTED_KEY",
             ),
@@ -201,5 +201,5 @@ def test_dotted_path_driver_construction() -> None:
     ):
         registry = build_drivers(cfg)
     dotted = registry.get("dotted")
-    assert dotted.descriptor.kind == "database"
+    assert dotted.descriptor.type == "database"
     assert dotted.api_key == "s3cr3t"  # type: ignore[attr-defined]

@@ -24,7 +24,7 @@ class _StubProvider:
 
     @property
     def descriptor(self) -> DriverDescriptor:
-        return DriverDescriptor(name=self.name, kind="model", modality="chat", default_model=self.default_model)
+        return DriverDescriptor(name=self.name, type="model", modality="chat", default_model=self.default_model)
 
     async def complete(self, request: ChatRequest) -> ChatResponse:
         self.calls += 1

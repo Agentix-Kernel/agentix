@@ -23,6 +23,9 @@ from agentix.drivers.base import Driver, DriverDescriptor
 if TYPE_CHECKING:
     from agentix.drivers.chat import ChatDriver
     from agentix.drivers.embedding import EmbeddingDriver
+    from agentix.drivers.file_store import FileStoreDriver
+    from agentix.drivers.object_store import ObjectStoreDriver
+    from agentix.drivers.relational import RelationalDriver
     from agentix.drivers.speech import SttDriver
 
 log = structlog.get_logger(__name__)
@@ -39,7 +42,7 @@ class DriverRegistry:
 
     def __init__(self) -> None:
         self._drivers: dict[str, Driver] = {}
-        # (kind, modality-or-None) -> default driver name.
+        # (type, modality-or-None) -> default driver name.
         self._defaults: dict[tuple[str, str | None], str] = {}
 
     # ── registration ──────────────────────────────────────────────
@@ -53,7 +56,7 @@ class DriverRegistry:
         if desc.name in self._drivers:
             raise DriverConflict(f"driver {desc.name!r} already registered")
         self._drivers[desc.name] = driver
-        slot = (desc.kind, desc.modality)
+        slot = (desc.type, desc.modality)
         if default or slot not in self._defaults:
             self._defaults[slot] = desc.name
 
@@ -75,12 +78,12 @@ class DriverRegistry:
             raise KeyError(f"no driver registered under {name!r}")
         return self._drivers[name]
 
-    def _default_for(self, kind: str, modality: str | None, name: str | None) -> Driver:
+    def _default_for(self, type: str, modality: str | None, name: str | None) -> Driver:
         if name is not None:
             return self.get(name)
-        default_name = self._defaults.get((kind, modality))
+        default_name = self._defaults.get((type, modality))
         if default_name is None:
-            raise KeyError(f"no {kind}/{modality} driver registered")
+            raise KeyError(f"no {type}/{modality} driver registered")
         return self._drivers[default_name]
 
     def chat(self, name: str | None = None) -> ChatDriver:
@@ -104,6 +107,34 @@ class DriverRegistry:
             raise TypeError(f"driver {driver.descriptor.name!r} is not an SttDriver")
         return cast("SttDriver", driver)
 
+    def file_store(self, name: str | None = None) -> FileStoreDriver:
+        """The default (or named) file-store driver; raises when absent."""
+        driver = self._default_for("storage", "file", name)
+        if not hasattr(driver, "read_text"):
+            raise TypeError(f"driver {driver.descriptor.name!r} is not a FileStoreDriver")
+        return cast("FileStoreDriver", driver)
+
+    def relational(self, name: str | None = None) -> RelationalDriver:
+        """The default (or named) relational driver; raises when absent."""
+        driver = self._default_for("storage", "relational", name)
+        if not hasattr(driver, "query_one"):
+            raise TypeError(f"driver {driver.descriptor.name!r} is not a RelationalDriver")
+        return cast("RelationalDriver", driver)
+
+    def object_store(self, name: str | None = None) -> ObjectStoreDriver:
+        """The default (or named) object-store driver; raises when absent."""
+        driver = self._default_for("storage", "object", name)
+        if not hasattr(driver, "put_bytes"):
+            raise TypeError(f"driver {driver.descriptor.name!r} is not an ObjectStoreDriver")
+        return cast("ObjectStoreDriver", driver)
+
+    def object_store_or_none(self, name: str | None = None) -> ObjectStoreDriver | None:
+        """Like :meth:`object_store` but None when no backend is declared."""
+        try:
+            return self.object_store(name)
+        except KeyError:
+            return None
+
     def embedding_or_none(self, name: str | None = None) -> EmbeddingDriver | None:
         """Like :meth:`embedding` but None when no backend is configured —
         callers thread None into ToolContext.embeddings and downstream code
@@ -113,20 +144,20 @@ class DriverRegistry:
         except KeyError:
             return None
 
-    def by_kind(self, kind: str) -> list[Driver]:
-        return [d for d in self._drivers.values() if d.descriptor.kind == kind]
+    def by_type(self, type: str) -> list[Driver]:
+        return [d for d in self._drivers.values() if d.descriptor.type == type]
 
     def by_modality(self, modality: str) -> list[Driver]:
         return [d for d in self._drivers.values() if d.descriptor.modality == modality]
 
-    def kinds(self) -> list[str]:
-        return sorted({d.descriptor.kind for d in self._drivers.values()})
+    def types(self) -> list[str]:
+        return sorted({d.descriptor.type for d in self._drivers.values()})
 
     def all_drivers(self) -> list[Driver]:
-        """Every registered driver, sorted by (kind, modality, name)."""
+        """Every registered driver, sorted by (type, modality, name)."""
         return sorted(
             self._drivers.values(),
-            key=lambda d: (d.descriptor.kind, d.descriptor.modality or "", d.descriptor.name),
+            key=lambda d: (d.descriptor.type, d.descriptor.modality or "", d.descriptor.name),
         )
 
     def descriptors(self) -> list[DriverDescriptor]:

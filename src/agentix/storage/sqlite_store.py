@@ -19,10 +19,13 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import aiosqlite
 import structlog
+
+if TYPE_CHECKING:
+    from agentix.drivers.relational import RelationalDriver
 
 log = structlog.get_logger(__name__)
 
@@ -256,36 +259,51 @@ class SqliteStore:
     writer waits rather than failing immediately with ``SQLITE_BUSY``.
     """
 
-    def __init__(self, path: str | Path) -> None:
-        self.path = Path(path)
-        self._db: aiosqlite.Connection | None = None
+    def __init__(self, path: str | Path | None = None, *, driver: RelationalDriver | None = None) -> None:
+        if driver is None:
+            if path is None:
+                raise TypeError("SqliteStore needs a path or a RelationalDriver")
+            # Lazy import: keeps storage importable without the drivers
+            # package unless actually constructed from a path.
+            from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
+
+            driver = SqliteRelationalDriver(path)
+        self._driver = driver
+        self.path = Path(path) if path is not None else Path(getattr(driver, "path", ""))
+
+    @property
+    def driver(self) -> RelationalDriver:
+        """The relational transport underneath — exposed for registry wiring."""
+        return self._driver
+
+    @property
+    def _db(self) -> aiosqlite.Connection | None:
+        """Back-compat escape hatch: the raw connection when (and only when)
+        the transport is the SQLite adapter — seam-#10 subclasses use it for
+        cursor-level migration steps (knowingly sqlite-dialect). None before
+        ``initialize()`` or on a non-SQLite transport."""
+        try:
+            return getattr(self._driver, "raw", None)
+        except RuntimeError:  # adapter present but not connected yet
+            return None
 
     # ─────────────────────────────── lifecycle ─────────────────────────────
 
     async def initialize(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._db = await aiosqlite.connect(self.path)
-        self._db.row_factory = aiosqlite.Row
-        await self._db.execute("PRAGMA journal_mode=WAL")
-        await self._db.execute("PRAGMA synchronous=NORMAL")
-        await self._db.execute("PRAGMA foreign_keys=ON")
-        # A concurrent writer (e.g. a 2nd worker process on the same WAL file)
-        # waits up to 30s for the lock instead of failing immediately with
-        # SQLITE_BUSY. Explicit + higher than the implicit sqlite3 5s
-        # connect-timeout default (agentix#39 / isolation.md I2).
-        await self._db.execute("PRAGMA busy_timeout=30000")
+        drv = self._driver
+        await drv.connect()
         # Base (kernel) DDL first, then any app-specific tables the subclass adds.
         for stmt in (*_SCHEMA_STATEMENTS, *self._extra_schema_statements()):
-            await self._db.execute(stmt)
+            await drv.execute(stmt)
         await self._apply_migrations()
         # Indexes on migration-added columns must be created AFTER migrations —
         # the column is absent when _SCHEMA_STATEMENTS runs against a pre-v13 DB.
         # control_plane_id arrives in v13; index it once it is guaranteed present.
-        await self._db.execute(
+        await drv.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_control_plane "
             "ON sessions (control_plane_id) WHERE control_plane_id IS NOT NULL"
         )
-        await self._db.commit()
+        await drv.commit()
         log.info("sqlite.initialized", path=str(self.path), schema_version=_SCHEMA_VERSION)
 
     def _extra_schema_statements(self) -> tuple[str, ...]:
@@ -315,10 +333,9 @@ class SqliteStore:
         Every step is guarded by column/table existence so it no-ops on a
         fresh DB (which starts at ``current`` 0 and still runs the blocks).
         """
-        assert self._db is not None
-        async with self._db.execute("SELECT COALESCE(MAX(version), 0) FROM schema_version") as cur:
-            row = await cur.fetchone()
-        current = int(row[0]) if row else 0
+        drv = self._driver
+        row = await drv.query_one("SELECT COALESCE(MAX(version), 0) AS v FROM schema_version")
+        current = int(row["v"]) if row else 0
         if current >= _SCHEMA_VERSION:
             return
 
@@ -326,13 +343,13 @@ class SqliteStore:
         if current < 6:
             existing = await self._session_columns()
             if "intervention_type" not in existing:
-                await self._db.execute("ALTER TABLE sessions ADD COLUMN intervention_type TEXT NOT NULL DEFAULT 'none'")
+                await drv.execute("ALTER TABLE sessions ADD COLUMN intervention_type TEXT NOT NULL DEFAULT 'none'")
 
         # v6 → v7: sessions.outcome — the honest session-end outcome label.
         if current < 7:
             existing = await self._session_columns()
             if "outcome" not in existing:
-                await self._db.execute("ALTER TABLE sessions ADD COLUMN outcome TEXT")
+                await drv.execute("ALTER TABLE sessions ADD COLUMN outcome TEXT")
 
         # v11 → v12: the kernel/app split. Add the generic ``app_meta`` column;
         # the app backfills it from the legacy source_version/target_version/
@@ -341,7 +358,7 @@ class SqliteStore:
         if current < 12:
             existing = await self._session_columns()
             if "app_meta" not in existing:
-                await self._db.execute("ALTER TABLE sessions ADD COLUMN app_meta TEXT NOT NULL DEFAULT '{}'")
+                await drv.execute("ALTER TABLE sessions ADD COLUMN app_meta TEXT NOT NULL DEFAULT '{}'")
 
         # v12 → v13: session-binding columns. Both nullable, no default needed —
         # existing rows read NULL (no control-plane link, top-level run).
@@ -351,37 +368,32 @@ class SqliteStore:
         if current < 13:
             existing = await self._session_columns()
             if "control_plane_id" not in existing:
-                await self._db.execute("ALTER TABLE sessions ADD COLUMN control_plane_id TEXT")
+                await drv.execute("ALTER TABLE sessions ADD COLUMN control_plane_id TEXT")
             if "parent_session_id" not in existing:
-                await self._db.execute("ALTER TABLE sessions ADD COLUMN parent_session_id TEXT")
+                await drv.execute("ALTER TABLE sessions ADD COLUMN parent_session_id TEXT")
 
         # v13 → v14: session lease columns (I7). Both nullable; existing rows read
         # NULL (unleased) so the reaper ignores them until a worker claims a lease.
         if current < 14:
             existing = await self._session_columns()
             if "lease_expires_at" not in existing:
-                await self._db.execute("ALTER TABLE sessions ADD COLUMN lease_expires_at TEXT")
+                await drv.execute("ALTER TABLE sessions ADD COLUMN lease_expires_at TEXT")
             if "leased_by" not in existing:
-                await self._db.execute("ALTER TABLE sessions ADD COLUMN leased_by TEXT")
+                await drv.execute("ALTER TABLE sessions ADD COLUMN leased_by TEXT")
 
         # App-owned table migrations (diagnoses / applied_memory_rules, and the
         # app_meta backfill from legacy Odoo columns) — no-op in the base.
         await self._migrate_app(current)
 
-        await self._db.execute("INSERT INTO schema_version (version) VALUES (?)", (_SCHEMA_VERSION,))
+        await drv.execute("INSERT INTO schema_version (version) VALUES (?)", (_SCHEMA_VERSION,))
 
     async def _session_columns(self) -> set[str]:
         """Current column names on the ``sessions`` table."""
-        assert self._db is not None
-        cols_cur = await self._db.execute("PRAGMA table_info(sessions)")
-        cols = await cols_cur.fetchall()
-        await cols_cur.close()
-        return {str(r[1]) for r in cols}
+        cols = await self._driver.query("PRAGMA table_info(sessions)")
+        return {str(r["name"]) for r in cols}
 
     async def close(self) -> None:
-        if self._db is not None:
-            await self._db.close()
-            self._db = None
+        await self._driver.aclose()
 
     async def __aenter__(self) -> SqliteStore:
         await self.initialize()
@@ -391,9 +403,12 @@ class SqliteStore:
         await self.close()
 
     def _conn(self) -> aiosqlite.Connection:
-        if self._db is None:
-            raise RuntimeError("SqliteStore.initialize() not called")
-        return self._db
+        """Sqlite-dialect escape hatch (see ``_db``); kernel methods use the
+        driver verbs instead."""
+        db = self._db
+        if db is None:
+            raise RuntimeError("SqliteStore.initialize() not called (or non-SQLite transport)")
+        return db
 
     # ─────────────────────────────── sessions ──────────────────────────────
 
@@ -420,9 +435,9 @@ class SqliteStore:
         runs. ``parent_session_id`` names the spawning Session for A2A
         delegation; NULL for top-level runs.
         """
-        db = self._conn()
+        drv = self._driver
         app_meta_json = json.dumps(app_meta or {}, ensure_ascii=False, default=str)
-        await db.execute(
+        await drv.execute(
             """
             INSERT INTO sessions (
                 id, customer_id, status, started_at,
@@ -433,7 +448,7 @@ class SqliteStore:
             """,
             (session_id, customer_id, status, _now(), app_meta_json, control_plane_id, parent_session_id),
         )
-        await db.commit()
+        await drv.commit()
 
     async def update_session(
         self,
@@ -446,7 +461,7 @@ class SqliteStore:
         cost_usd_delta: float = 0.0,
         mark_ended: bool = False,
     ) -> None:
-        db = self._conn()
+        drv = self._driver
         sets: list[str] = []
         params: list[Any] = []
         if status is not None:
@@ -470,14 +485,13 @@ class SqliteStore:
         if not sets:
             return
         params.append(session_id)
-        await db.execute(f"UPDATE sessions SET {', '.join(sets)} WHERE id = ?", params)
-        await db.commit()
+        await drv.execute(f"UPDATE sessions SET {', '.join(sets)} WHERE id = ?", params)
+        await drv.commit()
 
     async def get_session(self, session_id: str) -> dict[str, Any] | None:
-        db = self._conn()
-        async with db.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)) as cur:
-            row = await cur.fetchone()
-        return dict(row) if row else None
+        drv = self._driver
+        row = await drv.query_one("SELECT * FROM sessions WHERE id = ?", (session_id,))
+        return row
 
     async def get_session_by_control_plane_id(self, control_plane_id: str) -> dict[str, Any] | None:
         """The most recent Session bound to ``control_plane_id`` (the gateway
@@ -485,13 +499,12 @@ class SqliteStore:
         known control-plane id maps back to the agent Session it already started.
         Returns the newest by ``started_at`` — the live one when several share
         the id (e.g. the compose path's per-model sessions)."""
-        db = self._conn()
-        async with db.execute(
+        drv = self._driver
+        row = await drv.query_one(
             "SELECT * FROM sessions WHERE control_plane_id = ? ORDER BY started_at DESC LIMIT 1",
             (control_plane_id,),
-        ) as cur:
-            row = await cur.fetchone()
-        return dict(row) if row else None
+        )
+        return row
 
     # ─────────────────────────── session lease (I7) ────────────────────────
 
@@ -499,47 +512,46 @@ class SqliteStore:
         """Take/refresh the lease on a session: set ``leased_by`` + push
         ``lease_expires_at`` to now + ttl. Called when a worker begins or resumes
         a run so a reaper can tell a live run from an orphaned one (I7)."""
-        db = self._conn()
+        drv = self._driver
         expires = (datetime.now(tz=UTC) + timedelta(seconds=ttl_seconds)).isoformat()
-        await db.execute(
+        await drv.execute(
             "UPDATE sessions SET leased_by = ?, lease_expires_at = ? WHERE id = ?",
             (leased_by, expires, session_id),
         )
-        await db.commit()
+        await drv.commit()
 
     async def renew_session_lease(self, session_id: str, *, ttl_seconds: float) -> None:
         """Heartbeat: extend ``lease_expires_at`` to now + ttl, keeping the
         current owner. The worker calls this each turn so a long but live run is
         never reaped."""
-        db = self._conn()
+        drv = self._driver
         expires = (datetime.now(tz=UTC) + timedelta(seconds=ttl_seconds)).isoformat()
-        await db.execute(
+        await drv.execute(
             "UPDATE sessions SET lease_expires_at = ? WHERE id = ?",
             (expires, session_id),
         )
-        await db.commit()
+        await drv.commit()
 
     async def reap_expired_sessions(self) -> list[str]:
         """Transition ``running`` sessions whose lease has expired to ``failed``
         (their worker died) and return the reaped ids. Unleased rows
         (``lease_expires_at IS NULL``) are ignored — single-flight / local runs
         that opt out of leasing. Safe to run periodically from any worker."""
-        db = self._conn()
+        drv = self._driver
         now = _now()
-        async with db.execute(
+        rows = await drv.query(
             "SELECT id FROM sessions WHERE status = 'running' "
             "AND lease_expires_at IS NOT NULL AND lease_expires_at < ?",
             (now,),
-        ) as cur:
-            rows = await cur.fetchall()
-        ids = [str(r[0]) for r in rows]
+        )
+        ids = [str(r["id"]) for r in rows]
         if ids:
             placeholders = ",".join("?" for _ in ids)
-            await db.execute(
+            await drv.execute(
                 f"UPDATE sessions SET status = 'failed', ended_at = ? WHERE id IN ({placeholders})",
                 (now, *ids),
             )
-            await db.commit()
+            await drv.commit()
         return ids
 
     async def list_sessions(
@@ -549,7 +561,7 @@ class SqliteStore:
         status: SessionStatus | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        db = self._conn()
+        drv = self._driver
         clauses: list[str] = []
         params: list[Any] = []
         if customer_id is not None:
@@ -561,32 +573,30 @@ class SqliteStore:
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         params.append(limit)
         sql = f"SELECT * FROM sessions {where} ORDER BY started_at DESC LIMIT ?"
-        async with db.execute(sql, params) as cur:
-            rows = await cur.fetchall()
-        return [dict(row) for row in rows]
+        return await drv.query(sql, params)
 
     async def set_intervention_type(self, session_id: str, intervention_type: InterventionType) -> None:
         """Classify a session's human-touchpoint outcome. Called once at
         session close by agent_runner. ``none`` means the autonomous
         loop closed without an operator; any other value is one human
         touchpoint and counts against the autonomy zero-intervention bar."""
-        db = self._conn()
-        await db.execute(
+        drv = self._driver
+        await drv.execute(
             "UPDATE sessions SET intervention_type = ? WHERE id = ?",
             (intervention_type, session_id),
         )
-        await db.commit()
+        await drv.commit()
 
     async def set_outcome(self, session_id: str, outcome: str) -> None:
         """Record a session's honest outcome — aborted | incomplete |
         migrated — computed from session-end verification. Called once at
         session close by agent_runner, after the verify results are in."""
-        db = self._conn()
-        await db.execute(
+        drv = self._driver
+        await drv.execute(
             "UPDATE sessions SET outcome = ? WHERE id = ?",
             (outcome, session_id),
         )
-        await db.commit()
+        await drv.commit()
 
     async def intervention_summary(self, *, customer_id: str | None = None) -> dict[str, int]:
         """Count sessions per intervention_type — the autonomy product
@@ -598,7 +608,7 @@ class SqliteStore:
         The convergence signal: ``none`` rising as a fraction of the
         total across successive accounts means the loop is learning.
         """
-        db = self._conn()
+        drv = self._driver
         clauses: list[str] = []
         params: list[Any] = []
         if customer_id is not None:
@@ -606,8 +616,7 @@ class SqliteStore:
             params.append(customer_id)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         sql = f"SELECT intervention_type, COUNT(*) AS n FROM sessions {where} GROUP BY intervention_type"
-        async with db.execute(sql, params) as cur:
-            rows = await cur.fetchall()
+        rows = await drv.query(sql, params)
         summary: dict[str, int] = {
             "none": 0,
             "aborted": 0,
@@ -640,8 +649,8 @@ class SqliteStore:
         output_tokens: int = 0,
         cost_usd: float = 0.0,
     ) -> int:
-        db = self._conn()
-        cur = await db.execute(
+        drv = self._driver
+        cur = await drv.execute(
             """
             INSERT INTO turns (
                 session_id, turn_index, role,
@@ -666,7 +675,7 @@ class SqliteStore:
                 _now(),
             ),
         )
-        await db.commit()
+        await drv.commit()
         assert cur.lastrowid is not None  # SQLite always assigns a rowid
         return int(cur.lastrowid)
 
@@ -680,12 +689,12 @@ class SqliteStore:
     ) -> None:
         """Record a progress tick. Best-effort — never raises."""
         try:
-            db = self._conn()
-            await db.execute(
+            drv = self._driver
+            await drv.execute(
                 "INSERT INTO tool_progress (session_id, tool_name, percent, message, created_at) VALUES (?, ?, ?, ?, ?)",
                 (session_id, tool_name, percent, message, _now()),
             )
-            await db.commit()
+            await drv.commit()
         except Exception as exc:
             log.warning(
                 "sqlite.tool_progress_failed",
@@ -710,7 +719,7 @@ class SqliteStore:
 
         ``session_id`` is an optional filter applied post-FTS.
         """
-        db = self._conn()
+        drv = self._driver
         phrase = '"' + query.replace('"', '""') + '"'
         clauses = ["turns_fts MATCH ?"]
         params: list[Any] = [phrase]
@@ -726,9 +735,7 @@ class SqliteStore:
             ORDER BY rank
             LIMIT ?
         """
-        async with db.execute(sql, params) as cur:
-            rows = await cur.fetchall()
-        return [dict(row) for row in rows]
+        return await drv.query(sql, params)
 
     # ────────────────────────────── safety + errors ────────────────────────
 
@@ -742,8 +749,8 @@ class SqliteStore:
         tool_input: str | None = None,
         detail: str | None = None,
     ) -> int:
-        db = self._conn()
-        cur = await db.execute(
+        drv = self._driver
+        cur = await drv.execute(
             """
             INSERT INTO safety_events (
                 session_id, turn_id, tool_name, tool_input, kind, detail, created_at
@@ -752,7 +759,7 @@ class SqliteStore:
             """,
             (session_id, turn_id, tool_name, tool_input, kind, detail, _now()),
         )
-        await db.commit()
+        await drv.commit()
         assert cur.lastrowid is not None
         return int(cur.lastrowid)
 
@@ -766,8 +773,8 @@ class SqliteStore:
         model: str | None = None,
         external_id: str | None = None,
     ) -> int:
-        db = self._conn()
-        cur = await db.execute(
+        drv = self._driver
+        cur = await drv.execute(
             """
             INSERT INTO errors (
                 session_id, turn_id, model, external_id, error_class, error_message, created_at
@@ -776,7 +783,7 @@ class SqliteStore:
             """,
             (session_id, turn_id, model, external_id, error_class, error_message, _now()),
         )
-        await db.commit()
+        await drv.commit()
         assert cur.lastrowid is not None
         return int(cur.lastrowid)
 
@@ -786,16 +793,15 @@ class SqliteStore:
         *,
         kind: SafetyKind | None = None,
     ) -> int:
-        db = self._conn()
+        drv = self._driver
         if kind is None:
-            sql = "SELECT COUNT(*) FROM safety_events WHERE session_id = ?"
+            sql = "SELECT COUNT(*) AS n FROM safety_events WHERE session_id = ?"
             params: tuple[Any, ...] = (session_id,)
         else:
-            sql = "SELECT COUNT(*) FROM safety_events WHERE session_id = ? AND kind = ?"
+            sql = "SELECT COUNT(*) AS n FROM safety_events WHERE session_id = ? AND kind = ?"
             params = (session_id, kind)
-        async with db.execute(sql, params) as cur:
-            row = await cur.fetchone()
-        return int(row[0]) if row else 0
+        row = await drv.query_one(sql, params)
+        return int(row["n"]) if row else 0
 
     # ───────────────────────── target health (PR-J) ────────────────────────
 
@@ -809,15 +815,15 @@ class SqliteStore:
     ) -> int:
         """Append a row to the target_health log; used by the pre-flight
         probe in ``omg migrate`` (PR-J)."""
-        db = self._conn()
-        cur = await db.execute(
+        drv = self._driver
+        cur = await drv.execute(
             """
             INSERT INTO target_health (url, ok, error_class, error_message, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
             (url, 1 if ok else 0, error_class, error_message, _now()),
         )
-        await db.commit()
+        await drv.commit()
         assert cur.lastrowid is not None
         return int(cur.lastrowid)
 
@@ -833,16 +839,15 @@ class SqliteStore:
         Used by the circuit breaker: if this returns ≥ 3, refuse to start
         a new session without ``--force-unhealthy-target``.
         """
-        db = self._conn()
+        drv = self._driver
         cutoff = (datetime.now(tz=UTC) - timedelta(seconds=within_seconds)).isoformat()
-        async with db.execute(
+        rows = await drv.query(
             "SELECT ok FROM target_health WHERE url = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 10",
             (url, cutoff),
-        ) as cur:
-            rows = await cur.fetchall()
+        )
         streak = 0
         for row in rows:
-            if int(row[0]) == 0:
+            if int(row["ok"]) == 0:
                 streak += 1
             else:
                 break

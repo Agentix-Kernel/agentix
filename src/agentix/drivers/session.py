@@ -3,7 +3,7 @@
 The agent runner binds the session id at session start so every nested
 driver call inside that scope attributes usage/cost to the right session.
 Chat cost recording (``drivers/cost.py``) is the primary consumer; other
-driver kinds read it for log attribution.
+driver types read it for log attribution.
 """
 
 from __future__ import annotations

@@ -68,7 +68,7 @@ class HubleChatDriver:
     def descriptor(self) -> DriverDescriptor:
         return DriverDescriptor(
             name=self.name,
-            kind="model",
+            type="model",
             modality="chat",
             source="gateway",
             capabilities=frozenset({"tools", "thinking"}),

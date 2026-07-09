@@ -32,7 +32,7 @@ one control-plane job. `core/session.py`; created via `create_session(...)`.
 
 ## 2. Persistence — two stores, one ordering rule
 
-Split by kind: **SQLite** holds operational metadata (tenant, status, totals,
+Split by store: **SQLite** holds operational metadata (tenant, status, totals,
 checkpoint pointer, `app_meta`); the **object store** holds the full state blob
 (`checkpoints/{session_id}/{checkpoint}.json` via `MinioStore.key_checkpoint`).
 

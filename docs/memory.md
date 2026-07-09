@@ -73,9 +73,10 @@ frontmatter (`MemoryStore(root)`, `MemoryPage`).
   (`write_section`); other sections and the frontmatter stay byte-identical.
   Also: `read_page` / `write_page` / `create_page` / `update_frontmatter` /
   `list_pages`; `append_to_log` serialises `log.md` behind an asyncio lock.
-- **Advisory locks** — `lock(name)`: non-blocking `fcntl.flock` on
-  `.locks/<name>.lock` under the memory root, exponential backoff up to a
-  timeout, `MemoryLockTimeout` on failure. Covers both same-process
+- **Advisory locks** — `lock(name)`: exponential backoff up to a timeout,
+  `MemoryLockTimeout` on failure; the mechanism is the file-store driver's
+  (locally: non-blocking `fcntl.flock` on `.locks/<name>.lock` under the
+  memory root). Covers both same-process
   (`asyncio.gather`) and cross-process contention. Namespaced names by
   convention (`customer-<id>`, `reconcile-<key>`); `lock_for_customer(id)` is the
   readable wrapper. **Single-node only** — multi-node needs a DB advisory lock.
@@ -116,7 +117,9 @@ Tests: `tests/unit/drivers/test_embedding.py`.
   artifacts write account-scoped object-store keys.
 - The three-store boundary is doctrine (`storage/README.md`): bulk blobs → object
   store, operational state → SQLite, conclusions → memory markdown. **Never
-  cross them.**
+  cross them.** The physical medium under a store is becoming pluggable via
+  storage-type drivers ([`drivers.md`](drivers.md) §5) — the doctrine and the
+  tiers are untouched by that split.
 
 ## 6. The maintain seam — where the app plugs in
 

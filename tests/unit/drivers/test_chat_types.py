@@ -22,7 +22,7 @@ class _FakeChatDriver:
     default_model = "fake-1"
 
     def __init__(self) -> None:
-        self._descriptor = DriverDescriptor(name="fake", kind="model", modality="chat", default_model="fake-1")
+        self._descriptor = DriverDescriptor(name="fake", type="model", modality="chat", default_model="fake-1")
 
     @property
     def descriptor(self) -> DriverDescriptor:
