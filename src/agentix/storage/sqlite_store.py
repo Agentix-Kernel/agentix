@@ -9,8 +9,8 @@ app's source/target version + target models). Apps subclass this store to add
 their own tables (see ``ludo.storage.ludo_sqlite.LudoSqliteStore`` which adds the
 ``diagnoses`` + ``applied_memory_rules`` tables and their queries).
 
-``safety_events.kind`` is an open string. The kernel emits a few generic kinds
-(``dry_run_block``, ``per_batch_verify_fail``, …); apps pass their own kinds
+``safety_events.type`` is an open string. The kernel emits a few generic types
+(``dry_run_block``, ``per_batch_verify_fail``, …); apps pass their own types
 (e.g. the migration app's ``xmlid_rollback``) as plain strings.
 """
 
@@ -35,10 +35,10 @@ TurnRole = Literal["user", "assistant", "tool"]
 # metric. ``none`` is the goal: a clean run with zero operator involvement.
 # Every other value is one human touchpoint the autonomous loop did not close.
 InterventionType = Literal["none", "aborted", "novel", "stuck", "partial"]
-# ``safety_events.kind`` is an open string (app-extensible). These are the
-# generic kinds the kernel SafetyGate emits; apps add their own.
-SafetyKind = str
-KERNEL_SAFETY_KINDS: frozenset[str] = frozenset(
+# ``safety_events.type`` is an open string (app-extensible). These are the
+# generic types the kernel SafetyGate emits; apps add their own.
+SafetyType = str
+KERNEL_SAFETY_TYPES: frozenset[str] = frozenset(
     {
         "dry_run_block",
         "pre_flight_abort",
@@ -75,7 +75,10 @@ KERNEL_SAFETY_KINDS: frozenset[str] = frozenset(
 # run and renews it each turn; a reaper transitions ``running`` sessions whose
 # lease has expired to ``failed`` (their worker died). NULL lease = unleased
 # (single-flight / local runs) — the reaper ignores those.
-_SCHEMA_VERSION = 14
+#
+# v15 = terminology: ``safety_events.kind`` renamed to ``type`` (say "type",
+# not "kind"). SQLite RENAME COLUMN rewrites the index definition in place.
+_SCHEMA_VERSION = 15
 
 _SCHEMA_STATEMENTS: tuple[str, ...] = (
     """
@@ -155,12 +158,12 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
         turn_id INTEGER REFERENCES turns(id) ON DELETE SET NULL,
         tool_name TEXT,
         tool_input TEXT,
-        kind TEXT NOT NULL,
+        type TEXT NOT NULL,
         detail TEXT,
         created_at TEXT NOT NULL
     )
     """,
-    "CREATE INDEX IF NOT EXISTS idx_safety_events_session ON safety_events (session_id, kind)",
+    "CREATE INDEX IF NOT EXISTS idx_safety_events_session ON safety_events (session_id, type)",
     """
     CREATE TABLE IF NOT EXISTS errors (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -381,16 +384,27 @@ class SqliteStore:
             if "leased_by" not in existing:
                 await drv.execute("ALTER TABLE sessions ADD COLUMN leased_by TEXT")
 
+        # v14 → v15: safety_events.kind → type. Guarded by column presence so
+        # it no-ops on fresh DBs (created with ``type`` already).
+        if current < 15:
+            cols = await self._table_columns("safety_events")
+            if "kind" in cols and "type" not in cols:
+                await drv.execute("ALTER TABLE safety_events RENAME COLUMN kind TO type")
+
         # App-owned table migrations (diagnoses / applied_memory_rules, and the
         # app_meta backfill from legacy Odoo columns) — no-op in the base.
         await self._migrate_app(current)
 
         await drv.execute("INSERT INTO schema_version (version) VALUES (?)", (_SCHEMA_VERSION,))
 
+    async def _table_columns(self, table: str) -> set[str]:
+        """Current column names on ``table``."""
+        cols = await self._driver.query(f"PRAGMA table_info({table})")
+        return {str(r["name"]) for r in cols}
+
     async def _session_columns(self) -> set[str]:
         """Current column names on the ``sessions`` table."""
-        cols = await self._driver.query("PRAGMA table_info(sessions)")
-        return {str(r["name"]) for r in cols}
+        return await self._table_columns("sessions")
 
     async def close(self) -> None:
         await self._driver.aclose()
@@ -743,7 +757,7 @@ class SqliteStore:
         self,
         *,
         session_id: str,
-        kind: SafetyKind,
+        type: SafetyType,
         turn_id: int | None = None,
         tool_name: str | None = None,
         tool_input: str | None = None,
@@ -753,11 +767,11 @@ class SqliteStore:
         cur = await drv.execute(
             """
             INSERT INTO safety_events (
-                session_id, turn_id, tool_name, tool_input, kind, detail, created_at
+                session_id, turn_id, tool_name, tool_input, type, detail, created_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (session_id, turn_id, tool_name, tool_input, kind, detail, _now()),
+            (session_id, turn_id, tool_name, tool_input, type, detail, _now()),
         )
         await drv.commit()
         assert cur.lastrowid is not None
@@ -791,15 +805,15 @@ class SqliteStore:
         self,
         session_id: str,
         *,
-        kind: SafetyKind | None = None,
+        type: SafetyType | None = None,
     ) -> int:
         drv = self._driver
-        if kind is None:
+        if type is None:
             sql = "SELECT COUNT(*) AS n FROM safety_events WHERE session_id = ?"
             params: tuple[Any, ...] = (session_id,)
         else:
-            sql = "SELECT COUNT(*) AS n FROM safety_events WHERE session_id = ? AND kind = ?"
-            params = (session_id, kind)
+            sql = "SELECT COUNT(*) AS n FROM safety_events WHERE session_id = ? AND type = ?"
+            params = (session_id, type)
         row = await drv.query_one(sql, params)
         return int(row["n"]) if row else 0
 

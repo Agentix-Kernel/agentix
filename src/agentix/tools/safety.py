@@ -72,7 +72,7 @@ class SafetyGate:
             detail = _serialise(input)
             await self._sqlite.append_safety_event(
                 session_id=ctx.session.id,
-                kind="dry_run_block",
+                type="dry_run_block",
                 tool_name=tool.name,
                 tool_input=detail,
             )
@@ -127,7 +127,7 @@ class SafetyGate:
         model_hint = getattr(verify_result, "model", None)
         await self._sqlite.append_safety_event(
             session_id=ctx.session.id,
-            kind="per_batch_verify_fail",
+            type="per_batch_verify_fail",
             tool_name=tool.name,
             tool_input=_serialise(input),
             detail=json.dumps([_finding_repr(f) for f in findings], default=str)[:2000],

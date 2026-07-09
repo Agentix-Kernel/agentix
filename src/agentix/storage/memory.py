@@ -253,19 +253,20 @@ class MemoryStore:
     async def append_to_log(
         self,
         *,
-        kind: str,
+        type: str,
         subject: str,
         body: str = "",
     ) -> None:
         """Append a grep-friendly entry to ``log.md``.
 
-        Format per ``memory/AGENTS.md``:
+        Format per ``memory/AGENTS.md`` (the heading slot is the entry's
+        type, e.g. ``ingest``):
 
-            ## [YYYY-MM-DD] <kind> | <subject>
+            ## [YYYY-MM-DD] <type> | <subject>
             <body>
         """
         date = datetime.now(tz=UTC).date().isoformat()
-        heading = f"## [{date}] {kind} | {subject}\n"
+        heading = f"## [{date}] {type} | {subject}\n"
         entry = heading + (body.rstrip() + "\n" if body else "") + "\n"
         async with self._log_lock:
             await self._driver.append_text("log.md", entry)

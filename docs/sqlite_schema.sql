@@ -70,11 +70,11 @@ CREATE TABLE IF NOT EXISTS safety_events (
         turn_id INTEGER REFERENCES turns(id) ON DELETE SET NULL,
         tool_name TEXT,
         tool_input TEXT,
-        kind TEXT NOT NULL,
+        type TEXT NOT NULL,
         detail TEXT,
         created_at TEXT NOT NULL
     );
-CREATE INDEX IF NOT EXISTS idx_safety_events_session ON safety_events (session_id, kind);
+CREATE INDEX IF NOT EXISTS idx_safety_events_session ON safety_events (session_id, type);
 CREATE TABLE IF NOT EXISTS errors (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
