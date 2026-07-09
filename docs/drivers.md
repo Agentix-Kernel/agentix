@@ -114,7 +114,19 @@ backend means writing a new driver; the store and every consumer stay untouched.
   MySQL/Postgres adapter satisfies the protocol, but porting the *store schema* is
   dialect work, stated not hidden. The adapter-only `raw` property is the
   sqlite escape hatch for seam-#10 subclass migrations.
-- File (`MemoryStore` transport; NextCloud/WebDAV later) is the last phase — §9.
+- **`FileStoreDriver`** (`modality="file"`, `drivers/file_store.py`) —
+  `read_text` / `write_text` / `append_text` / `list_files` / `exists` /
+  `lock(name, timeout)` / `head_ref()`. Two boundaries designed in: **locking is a
+  verb** (fcntl locally, WebDAV LOCK remotely — timeout raises a `TimeoutError`
+  subclass, locally `MemoryLockTimeout` so existing handlers keep working), and
+  **the version pin degrades** (`head_ref()` = git HEAD sha locally, None on
+  backends without a repo — callers already treat None as "no pin, no drift
+  check"). Landed backend: `LocalFileStoreDriver` (`adapters/local_fs.py`, factory
+  key `"local-file-store"`, capabilities `{"git-pin", "fcntl-lock"}`) — owns path
+  containment, fcntl locks under `.locks/`, the git pin. `MemoryStore(root)`
+  unchanged; `MemoryStore(driver=...)` injects (NextCloud/WebDAV, SMB — app-side).
+  Local I/O errors propagate as-is; remote adapters classify connectivity into the
+  taxonomy.
 
 ## 6. Registry, config, factory — seam #13
 
@@ -207,7 +219,7 @@ driver, not in the kernel.
   before a second consumer exists).
 - **Config collapse** — fold `anthropic:`/`huble:`/`melious:` into `drivers:` (v0.6).
 - **Lifecycle verbs** — `health()` / `warmup()` for local-runtime drivers.
-- **Storage phases 2–3** — `RelationalDriver` under `SqliteStore` (MySQL/Postgres
-  backends later; the driver owns connection strategy — isolation.md I2) and
-  `FileStoreDriver` under `MemoryStore` (NextCloud/WebDAV later; locking is a verb,
-  the git pin degrades to None off-filesystem).
+- **Second storage backends** — MySQL/Postgres behind `RelationalDriver`
+  (dialect layer for the kernel store's DDL is the real work), NextCloud/WebDAV
+  behind `FileStoreDriver` (WebDAV LOCK; no git pin), S3/Azure/GCS behind
+  `ObjectStoreDriver` — all app-side via the driver seam, zero kernel change.

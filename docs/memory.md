@@ -73,9 +73,10 @@ frontmatter (`MemoryStore(root)`, `MemoryPage`).
   (`write_section`); other sections and the frontmatter stay byte-identical.
   Also: `read_page` / `write_page` / `create_page` / `update_frontmatter` /
   `list_pages`; `append_to_log` serialises `log.md` behind an asyncio lock.
-- **Advisory locks** — `lock(name)`: non-blocking `fcntl.flock` on
-  `.locks/<name>.lock` under the memory root, exponential backoff up to a
-  timeout, `MemoryLockTimeout` on failure. Covers both same-process
+- **Advisory locks** — `lock(name)`: exponential backoff up to a timeout,
+  `MemoryLockTimeout` on failure; the mechanism is the file-store driver's
+  (locally: non-blocking `fcntl.flock` on `.locks/<name>.lock` under the
+  memory root). Covers both same-process
   (`asyncio.gather`) and cross-process contention. Namespaced names by
   convention (`customer-<id>`, `reconcile-<key>`); `lock_for_customer(id)` is the
   readable wrapper. **Single-node only** — multi-node needs a DB advisory lock.

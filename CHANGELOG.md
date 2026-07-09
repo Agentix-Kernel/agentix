@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.3 — storage drivers phase 3 (file)
+
+- `FileStoreDriver` protocol (`agentix.drivers.file_store`): read/write/append/
+  list/exists + `lock()` as a verb + `head_ref()` version pin (None off-git);
+  `LocalFileStoreDriver` adapter (`drivers/adapters/local_fs.py`, factory key
+  `local-file-store`) owns path containment, fcntl locks and the git pin;
+  registry accessor `file_store()`. `MemoryStore` keeps all page semantics;
+  `MemoryStore(root)` unchanged, `MemoryStore(driver=...)` injects
+  (NextCloud/WebDAV shape proven by test fake). `MemoryLockTimeout` unchanged.
+
 ## 0.5.2 — storage drivers phase 2 (relational)
 
 - `RelationalDriver` protocol + `ExecuteResult` (`agentix.drivers.relational`);

@@ -32,6 +32,7 @@ from agentix.drivers.embedding import (
     OpenAIEmbeddingDriver,
 )
 from agentix.drivers.factory import build_drivers, register_driver_factory
+from agentix.drivers.file_store import FileStoreDriver
 from agentix.drivers.limiter import (
     configure_driver_capacity,
     current_limit,
@@ -77,6 +78,7 @@ __all__ = [
     "EmbeddingResult",
     "ExecuteResult",
     "FailoverCallback",
+    "FileStoreDriver",
     "HubleEmbeddingDriver",
     "NoDriversAvailable",
     "ObjectNotFound",

@@ -6,6 +6,14 @@ and the frontmatter are left byte-identical. ``append_to_log`` serialises
 writes to ``log.md`` behind an asyncio lock so concurrent calls can't
 corrupt the ordering.
 
+Since v0.5.3 the physical medium lives behind the
+``agentix.drivers.file_store.FileStoreDriver`` protocol — default backend
+is the local filesystem (``drivers/adapters/local_fs.py``: fcntl locks,
+git pin); ``MemoryStore(driver=...)`` injects an alternate backend
+(NextCloud/WebDAV, SMB). This module keeps every page semantic. The
+absolute-``Path`` returns (``list_pages``, ``find_orphan_pages``) are
+meaningful for local roots; remote backends surface root-relative paths.
+
 The agent-facing ingest/query/lint workflow lives in
 ``MemoryMaintainMiddleware``; this module is the disk primitive the
 sub-agent calls through a small tool.
@@ -20,10 +28,13 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import frontmatter
 import structlog
+
+if TYPE_CHECKING:
+    from agentix.drivers.file_store import FileStoreDriver
 
 log = structlog.get_logger(__name__)
 
@@ -69,9 +80,23 @@ class MemoryPage:
 class MemoryStore:
     """Async markdown memory store rooted at ``root``."""
 
-    def __init__(self, root: str | Path) -> None:
-        self.root = Path(root).resolve()
+    def __init__(self, root: str | Path | None = None, *, driver: FileStoreDriver | None = None) -> None:
+        if driver is None:
+            if root is None:
+                raise TypeError("MemoryStore needs a root or a FileStoreDriver")
+            # Lazy import: keeps storage importable without the drivers
+            # package unless actually constructed from a root path.
+            from agentix.drivers.adapters.local_fs import LocalFileStoreDriver
+
+            driver = LocalFileStoreDriver(root)
+        self._driver = driver
+        self.root = Path(root).resolve() if root is not None else Path(getattr(driver, "root", "."))
         self._log_lock = asyncio.Lock()
+
+    @property
+    def driver(self) -> FileStoreDriver:
+        """The file transport underneath — exposed for registry wiring."""
+        return self._driver
 
     # ───────────────────────────── path helpers ────────────────────────────
 
@@ -89,6 +114,11 @@ class MemoryStore:
         if self.root not in candidate.parents and candidate != self.root:
             raise ValueError(f"path {relative!r} escapes memory root {self.root}")
         return candidate
+
+    def _to_rel(self, relative: str | Path) -> str:
+        """Normalise caller input (relative or absolute under root) to the
+        root-relative POSIX form the file-store driver speaks."""
+        return self._resolve(relative).relative_to(self.root).as_posix()
 
     def path_log(self) -> Path:
         return self._resolve("log.md")
@@ -116,46 +146,16 @@ class MemoryStore:
           reconciler — without this two concurrent sessions reconciling
           the same key would lose-update each other's ``applied_by``).
 
-        Implementation: non-blocking ``fcntl.flock`` on
-        ``.locks/<name>.lock`` under the memory root. Retries with
-        exponential backoff up to ``timeout_seconds`` (default 10s).
-        On acquisition failure, raises ``MemoryLockTimeout``. The lock
-        protects both same-process (asyncio.gather) and cross-process
-        (two ``omg`` runs on one node) contention.
-
-        Single-node only. Multi-node deployments need a Postgres
-        advisory lock instead; see arch.md §10.2.
+        Mechanism is the file-store driver's (locking is a protocol verb —
+        backend-specific): the local adapter uses non-blocking
+        ``fcntl.flock`` on ``.locks/<name>.lock`` with exponential backoff
+        up to ``timeout_seconds`` (default 10s) and raises
+        ``MemoryLockTimeout`` on expiry; it protects same-process
+        (asyncio.gather) and cross-process contention, single-node only —
+        multi-node deployments need a DB advisory lock (arch.md §10.2).
         """
-        import fcntl
-
-        lock_dir = self.root / ".locks"
-        lock_dir.mkdir(parents=True, exist_ok=True)
-        lock_path = lock_dir / f"{name}.lock"
-        handle = lock_path.open("a+", encoding="utf-8")
-        deadline = asyncio.get_event_loop().time() + timeout_seconds
-        delay = 0.01
-        try:
-            acquired = False
-            while True:
-                try:
-                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    acquired = True
-                    break
-                except BlockingIOError:
-                    if asyncio.get_event_loop().time() >= deadline:
-                        break
-                    await asyncio.sleep(min(delay, 0.2))
-                    delay = min(delay * 2, 0.2)
-            if not acquired:
-                handle.close()
-                raise MemoryLockTimeout(name, timeout_seconds)
-            try:
-                yield
-            finally:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        finally:
-            if not handle.closed:
-                handle.close()
+        async with self._driver.lock(name, timeout_seconds=timeout_seconds):
+            yield
 
     @asynccontextmanager
     async def lock_for_customer(
@@ -185,44 +185,26 @@ class MemoryStore:
         refuse to proceed without ``--force``.
 
         Returns ``None`` when the memory root is not inside a git repo (or
-        ``git`` isn't on $PATH) — callers treat that as "no pin, no
-        drift check", which is the right default for local scratch memories.
+        ``git`` isn't on $PATH), and on backends that carry no version pin
+        at all — callers treat that as "no pin, no drift check", which is
+        the right default for local scratch memories.
         """
-        import subprocess
-
-        try:
-            proc = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=self.root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=False,
-            )
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            return None
-        if proc.returncode != 0:
-            return None
-        sha = proc.stdout.strip()
-        return sha or None
+        return self._driver.head_ref()
 
     # ───────────────────────────── read / write ────────────────────────────
 
     async def read_page(self, relative: str | Path) -> MemoryPage:
         """Parse a markdown page into frontmatter + H2 sections."""
-        path = self._resolve(relative)
-        text = await asyncio.to_thread(path.read_text, encoding="utf-8")
+        text = await self._driver.read_text(self._to_rel(relative))
         post = frontmatter.loads(text)
         preamble, sections = _split_sections(post.content)
         return MemoryPage(frontmatter=dict(post.metadata), preamble=preamble, sections=sections)
 
     async def write_page(self, relative: str | Path, page: MemoryPage) -> None:
         """Persist a fully formed ``MemoryPage`` — full overwrite."""
-        path = self._resolve(relative)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        text = page.render()
-        await asyncio.to_thread(path.write_text, text, encoding="utf-8")
-        log.debug("memory.write_page", path=str(path.relative_to(self.root)))
+        rel = self._to_rel(relative)
+        await self._driver.write_text(rel, page.render())
+        log.debug("memory.write_page", path=rel)
 
     async def write_section(
         self,
@@ -263,14 +245,8 @@ class MemoryStore:
 
     async def list_pages(self, relative_dir: str | Path) -> list[Path]:
         """Return every ``.md`` file under ``relative_dir``, sorted."""
-        directory = self._resolve(relative_dir)
-
-        def _scan() -> list[Path]:
-            if not directory.exists():
-                return []
-            return sorted(p for p in directory.rglob("*.md") if p.is_file())
-
-        return await asyncio.to_thread(_scan)
+        rels = await self._driver.list_files(self._to_rel(relative_dir), "*.md")
+        return [self.root / r for r in rels]
 
     # ───────────────────────────── log append ──────────────────────────────
 
@@ -291,15 +267,8 @@ class MemoryStore:
         date = datetime.now(tz=UTC).date().isoformat()
         heading = f"## [{date}] {kind} | {subject}\n"
         entry = heading + (body.rstrip() + "\n" if body else "") + "\n"
-        path = self.path_log()
         async with self._log_lock:
-
-            def _append() -> None:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                with path.open("a", encoding="utf-8") as f:
-                    f.write(entry)
-
-            await asyncio.to_thread(_append)
+            await self._driver.append_text("log.md", entry)
 
     # ────────────────────────────── lint helpers ───────────────────────────
 
@@ -315,7 +284,7 @@ class MemoryStore:
         in the MemoryMaintain sub-agent.
         """
         index_file = self._resolve(index_path)
-        index_text = await asyncio.to_thread(index_file.read_text, encoding="utf-8")
+        index_text = await self._driver.read_text(self._to_rel(index_path))
         pages = await self.list_pages(relative_dir)
         dir_rel = self._resolve(relative_dir).relative_to(self.root)
         referenced: set[str] = set()

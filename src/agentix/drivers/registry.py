@@ -23,6 +23,7 @@ from agentix.drivers.base import Driver, DriverDescriptor
 if TYPE_CHECKING:
     from agentix.drivers.chat import ChatDriver
     from agentix.drivers.embedding import EmbeddingDriver
+    from agentix.drivers.file_store import FileStoreDriver
     from agentix.drivers.object_store import ObjectStoreDriver
     from agentix.drivers.relational import RelationalDriver
     from agentix.drivers.speech import SttDriver
@@ -105,6 +106,13 @@ class DriverRegistry:
         if not hasattr(driver, "transcribe"):
             raise TypeError(f"driver {driver.descriptor.name!r} is not an SttDriver")
         return cast("SttDriver", driver)
+
+    def file_store(self, name: str | None = None) -> FileStoreDriver:
+        """The default (or named) file-store driver; raises when absent."""
+        driver = self._default_for("storage", "file", name)
+        if not hasattr(driver, "read_text"):
+            raise TypeError(f"driver {driver.descriptor.name!r} is not a FileStoreDriver")
+        return cast("FileStoreDriver", driver)
 
     def relational(self, name: str | None = None) -> RelationalDriver:
         """The default (or named) relational driver; raises when absent."""

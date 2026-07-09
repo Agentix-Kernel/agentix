@@ -16,8 +16,11 @@ layout: `ludo-agent/arch.md` §7.)
   (`drivers/adapters/sqlite.py`); `SqliteStore(driver=...)` swaps it.
 - **`memory.py`** — markdown primitives for the `memory/` directory.
   Section-preserving writes (one H2 at a time, frontmatter untouched);
-  `append_to_log` serialises `log.md` behind an asyncio lock. Full
-  memory framework: `docs/memory.md`.
+  `append_to_log` serialises `log.md` behind an asyncio lock. The
+  physical medium (file I/O, fcntl locks, git pin) is a
+  `FileStoreDriver` (`drivers/adapters/local_fs.py`);
+  `MemoryStore(driver=...)` swaps it. Full memory framework:
+  `docs/memory.md`.
 
 ## What goes where
 

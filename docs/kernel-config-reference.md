@@ -34,7 +34,7 @@ predicate can't drift.
 | Field | Meaning |
 |---|---|
 | `name` | Registry instance name (unique). |
-| `driver` | Builtin factory key (`anthropic`, `huble`, `melious`, `openai-embedding`, `huble-embedding`, `hf-stt`, `minio-object-store`, `sqlite-relational`) or a dotted path `pkg.mod:Class` (seam #13, [`drivers.md`](drivers.md) §6). |
+| `driver` | Builtin factory key (`anthropic`, `huble`, `melious`, `openai-embedding`, `huble-embedding`, `hf-stt`, `minio-object-store`, `sqlite-relational`, `local-file-store`) or a dotted path `pkg.mod:Class` (seam #13, [`drivers.md`](drivers.md) §6). |
 | `type` / `modality` | `model` + chat\|embedding\|stt today; open vocabulary for future types (`database`, …). |
 | `model`, `base_url` | Instance settings; adapter defaults apply when unset. |
 | `api_key_env` | **The env-var NAME holding the credential — never the secret itself** (12-factor). |
