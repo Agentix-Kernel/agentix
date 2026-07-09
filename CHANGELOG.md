@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2 — storage drivers phase 2 (relational)
+
+- `RelationalDriver` protocol + `ExecuteResult` (`agentix.drivers.relational`);
+  `SqliteRelationalDriver` adapter (`drivers/adapters/sqlite.py`, factory key
+  `sqlite-relational`) now owns the aiosqlite connection + PRAGMAs; registry
+  accessor `relational()`. `SqliteStore` methods go through the driver verbs;
+  `SqliteStore(path)` unchanged, `SqliteStore(driver=...)` injects. sqlite errors
+  classify into the driver taxonomy (locked/busy retryable). `EmbeddingCache`
+  rides the same driver. `store._db`/`_conn()` remain as the sqlite-dialect
+  escape hatch for seam-#10 subclass migrations.
+
 ## 0.5.1 — say "type"; storage drivers phase 1 (object store)
 
 - **Breaking rename:** driver `kind` → `type` everywhere — `DriverDescriptor.type`,

@@ -245,8 +245,8 @@ class EmbeddingCache:
     backends doesn't return stale vectors. Stores vectors as a packed
     little-endian float32 blob to keep size down (~6KB per 1536-dim vec).
 
-    Uses the existing SqliteStore connection pool so we don't add a new
-    db file. Async-safe: SQLite handles per-row locking.
+    Uses the existing SqliteStore's relational driver so we don't add a
+    new db file. Async-safe: SQLite handles per-row locking.
     """
 
     def __init__(self, sqlite: object) -> None:
@@ -262,8 +262,8 @@ class EmbeddingCache:
     async def ensure_table(self) -> None:
         if self._table_ready:
             return
-        db = self._sqlite._conn()
-        await db.execute(
+        drv = self._sqlite.driver
+        await drv.execute(
             """
             CREATE TABLE IF NOT EXISTS embedding_cache (
                 key TEXT PRIMARY KEY,
@@ -274,33 +274,30 @@ class EmbeddingCache:
             )
             """
         )
-        await db.commit()
+        await drv.commit()
         self._table_ready = True
 
     async def get(self, *, model: str, text: str) -> tuple[float, ...] | None:
         await self.ensure_table()
         key = _cache_key(model, text)
-        db = self._sqlite._conn()
-        cursor = await db.execute(
+        row = await self._sqlite.driver.query_one(
             "SELECT vector FROM embedding_cache WHERE key = ?",
             (key,),
         )
-        row = await cursor.fetchone()
-        await cursor.close()
         if row is None:
             return None
-        return _unpack_vector(row[0])
+        return _unpack_vector(row["vector"])
 
     async def put(self, *, model: str, text: str, vector: tuple[float, ...]) -> None:
         await self.ensure_table()
         key = _cache_key(model, text)
         blob = _pack_vector(vector)
-        db = self._sqlite._conn()
-        await db.execute(
+        drv = self._sqlite.driver
+        await drv.execute(
             "INSERT OR REPLACE INTO embedding_cache(key, model, dim, vector) VALUES (?, ?, ?, ?)",
             (key, model, len(vector), blob),
         )
-        await db.commit()
+        await drv.commit()
 
 
 def _cache_key(model: str, text: str) -> str:

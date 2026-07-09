@@ -120,6 +120,12 @@ def _build_minio_object_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     return MinioObjectStoreDriver(spec=spec, api_key=_env_key(spec))
 
 
+def _build_sqlite_relational(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
+
+    return SqliteRelationalDriver(spec=spec, api_key=_env_key(spec))
+
+
 def _build_huble_embedding(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     from agentix.drivers.embedding import HubleEmbeddingDriver
 
@@ -140,6 +146,7 @@ for _key, _factory in (
     ("huble-embedding", _build_huble_embedding),
     ("hf-stt", _build_hf_stt),
     ("minio-object-store", _build_minio_object_store),
+    ("sqlite-relational", _build_sqlite_relational),
 ):
     register_driver_factory(_key, _factory)
 

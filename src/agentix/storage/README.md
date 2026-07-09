@@ -11,7 +11,9 @@ layout: `ludo-agent/arch.md` §7.)
   drivers are transport (`docs/drivers.md` section 5).
 - **`sqlite_store.py`** — operational state only (WAL + FTS5):
   sessions, turns, costs, errors, audit, safety events. Schema in
-  `docs/sqlite_schema.sql`. Never put domain memory here.
+  `docs/sqlite_schema.sql`. Never put domain memory here. The
+  connection lives in a `RelationalDriver`
+  (`drivers/adapters/sqlite.py`); `SqliteStore(driver=...)` swaps it.
 - **`memory.py`** — markdown primitives for the `memory/` directory.
   Section-preserving writes (one H2 at a time, frontmatter untouched);
   `append_to_log` serialises `log.md` behind an asyncio lock. Full

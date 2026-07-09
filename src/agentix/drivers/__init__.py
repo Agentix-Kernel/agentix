@@ -39,6 +39,7 @@ from agentix.drivers.limiter import (
 )
 from agentix.drivers.object_store import ObjectNotFound, ObjectStoreDriver
 from agentix.drivers.registry import DriverConflict, DriverRegistry
+from agentix.drivers.relational import ExecuteResult, RelationalDriver
 from agentix.drivers.router import (
     ChatFailoverChain,
     FailoverCallback,
@@ -74,12 +75,14 @@ __all__ = [
     "EmbeddingDriver",
     "EmbeddingError",
     "EmbeddingResult",
+    "ExecuteResult",
     "FailoverCallback",
     "HubleEmbeddingDriver",
     "NoDriversAvailable",
     "ObjectNotFound",
     "ObjectStoreDriver",
     "OpenAIEmbeddingDriver",
+    "RelationalDriver",
     "SttDriver",
     "ToolSpec",
     "Transcript",

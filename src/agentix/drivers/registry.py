@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from agentix.drivers.chat import ChatDriver
     from agentix.drivers.embedding import EmbeddingDriver
     from agentix.drivers.object_store import ObjectStoreDriver
+    from agentix.drivers.relational import RelationalDriver
     from agentix.drivers.speech import SttDriver
 
 log = structlog.get_logger(__name__)
@@ -104,6 +105,13 @@ class DriverRegistry:
         if not hasattr(driver, "transcribe"):
             raise TypeError(f"driver {driver.descriptor.name!r} is not an SttDriver")
         return cast("SttDriver", driver)
+
+    def relational(self, name: str | None = None) -> RelationalDriver:
+        """The default (or named) relational driver; raises when absent."""
+        driver = self._default_for("storage", "relational", name)
+        if not hasattr(driver, "query_one"):
+            raise TypeError(f"driver {driver.descriptor.name!r} is not a RelationalDriver")
+        return cast("RelationalDriver", driver)
 
     def object_store(self, name: str | None = None) -> ObjectStoreDriver:
         """The default (or named) object-store driver; raises when absent."""

@@ -103,9 +103,18 @@ backend means writing a new driver; the store and every consumer stay untouched.
   `object_store()` / `object_store_or_none()`; builtin factory key
   `"minio-object-store"` (endpoint from `spec.base_url`, `bucket`/`access_key`/
   `secure`/`region` from `spec.options`, secret via `api_key_env`).
-- Relational (`SqliteStore` transport; MySQL/Postgres later) and file
-  (`MemoryStore` transport; NextCloud/WebDAV later) driver modalities are the next
-  two phases — §9.
+- **`RelationalDriver`** (`modality="relational"`, `drivers/relational.py`) —
+  `connect` / `execute -> ExecuteResult(lastrowid, rowcount)` / `query` /
+  `query_one` (rows as plain dicts, backend-neutral) / `commit`. Landed backend:
+  `SqliteRelationalDriver` (`adapters/sqlite.py`, factory key `"sqlite-relational"`)
+  — owns the connection + PRAGMAs (WAL, busy_timeout: isolation.md I2's home now);
+  lock/busy → `DriverUnavailable`, constraint/malformed SQL →
+  `DriverInvalidRequest`. `SqliteStore(path)` unchanged; `SqliteStore(driver=...)`
+  injects. Honesty: the kernel store's DDL is sqlite-dialect (FTS5, PRAGMA) — a
+  MySQL/Postgres adapter satisfies the protocol, but porting the *store schema* is
+  dialect work, stated not hidden. The adapter-only `raw` property is the
+  sqlite escape hatch for seam-#10 subclass migrations.
+- File (`MemoryStore` transport; NextCloud/WebDAV later) is the last phase — §9.
 
 ## 6. Registry, config, factory — seam #13
 
