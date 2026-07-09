@@ -1,36 +1,23 @@
 """Named checkpoints for operator-facing resume.
 
 Checkpoint granularity is hybrid. Every turn writes the ``"latest"``
-snapshot via ``session.save``. Named checkpoints land at phase
-boundaries and are the ones operators reach for with
-``omg resume --from <name>``.
+snapshot via ``session.save``. Named checkpoints land at whatever
+boundaries the app cares about and are the ones operators reach for on
+resume.
 
-The vocabulary lives as a frozen set below — migrations move through
-five explicit phases.
+The name is an arbitrary string — the kernel names no phase vocabulary.
+Apps that want an ordered set of phase checkpoints declare and validate
+that vocabulary themselves.
 """
 
 from __future__ import annotations
 
-from typing import Literal
-
 from agentix.core.session import Session, save
 from agentix.storage import MinioStore, SqliteStore
 
-CheckpointName = Literal[
-    "scan_complete",
-    "blueprint_generated",
-    "extract_complete",
-    "load_complete",
-    "verify_complete",
-]
-
-ORDERED_CHECKPOINTS: tuple[CheckpointName, ...] = (
-    "scan_complete",
-    "blueprint_generated",
-    "extract_complete",
-    "load_complete",
-    "verify_complete",
-)
+# An app-defined checkpoint label. Generic on purpose — the kernel imposes no
+# phase order; the app supplies its own vocabulary.
+CheckpointName = str
 
 
 async def save_checkpoint(

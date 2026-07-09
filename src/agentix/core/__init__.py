@@ -7,7 +7,6 @@ dispatcher) live in the app's own ``*.core`` package and depend on this surface.
 """
 
 from agentix.core.checkpoint import (
-    ORDERED_CHECKPOINTS,
     CheckpointName,
     load_checkpoint,
     save_checkpoint,
@@ -42,7 +41,6 @@ from agentix.core.types import (
 )
 
 __all__ = [
-    "ORDERED_CHECKPOINTS",
     "AssembledContext",
     "CheckpointName",
     "CompressionStrategy",
