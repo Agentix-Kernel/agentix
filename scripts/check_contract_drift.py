@@ -9,36 +9,19 @@ a release. Best-effort: a sibling repo not checked out is skipped (reported), no
 Covered: ludo-gateway, ludo-cli, ludo-webapps (file-vendored). Desktop hand-codes Swift
 DTOs from the spec — reconciled by review at cutover, not by this byte diff.
 """
+
 from __future__ import annotations
 
 import filecmp
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
-WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
-CANON = REPO_ROOT / "contracts"
+from vendor_manifest import CONTRACT_CONSUMERS, WORKSPACE
+from vendor_manifest import CONTRACTS_CANON as CANON
 
-GATEWAY = WORKSPACE / "ludo-gateway" / "contracts"
-CLI = WORKSPACE / "ludo-cli" / "contracts"
-WEBAPPS = WORKSPACE / "ludo-webapps" / "backend" / "contract"
-
-# consumer_copy -> canonical file name in agentix/contracts/
-CONSUMERS: list[tuple[Path, str]] = [
-    # gateway vendors the full set under the same names
-    (GATEWAY / "contract_a.openapi.yaml", "contract_a.openapi.yaml"),
-    (GATEWAY / "contract_c.openapi.yaml", "contract_c.openapi.yaml"),
-    (GATEWAY / "shared-types.yaml", "shared-types.yaml"),
-    (GATEWAY / "session-event.schema.json", "session-event.schema.json"),
-    (GATEWAY / "job-message.schema.json", "job-message.schema.json"),
-    # cli vendors Contract A as openapi.yaml + the rest
-    (CLI / "openapi.yaml", "contract_a.openapi.yaml"),
-    (CLI / "shared-types.yaml", "shared-types.yaml"),
-    (CLI / "session-event.schema.json", "session-event.schema.json"),
-    (CLI / "job-message.schema.json", "job-message.schema.json"),
-    # webapps vendors Contract B (events) only
-    (WEBAPPS / "session-event.schema.json", "session-event.schema.json"),
-]
+# Consumer table comes from the shared manifest (vendor_manifest.py) — one table
+# for the guards AND the re-vendor bot (revendor.py), so they can never disagree.
+CONSUMERS: list[tuple[Path, str]] = [(WORKSPACE / rel, canon_name) for rel, canon_name in CONTRACT_CONSUMERS]
 
 
 def main() -> int:
