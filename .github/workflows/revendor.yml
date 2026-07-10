@@ -38,3 +38,7 @@ jobs:
           git config --global user.name "agentix-revendor"
           git config --global user.email "bot@euroblaze.de"
           python scripts/revendor.py --pr --workspace "$RUNNER_TEMP/ws" --sha "$GITHUB_SHA"
+      - name: Trigger cluster drift gate (ludo-tests #2)
+        env:
+          GH_TOKEN: ${{ secrets.WORKSPACE_PAT }}
+        run: gh api repos/euroblaze/ludo-tests/dispatches -f event_type=cluster-drift
