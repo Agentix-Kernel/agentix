@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import importlib
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
@@ -36,12 +36,23 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger(__name__)
 
-__all__ = ["DriverFactory", "build_drivers", "register_driver_factory"]
+__all__ = [
+    "CredentialedDriverFactory",
+    "DriverFactory",
+    "build_drivers",
+    "register_credentialed_factory",
+    "register_driver_factory",
+]
 
 #: A factory builds one driver instance from its spec + the resolved config.
 DriverFactory = Callable[[DriverSpec, KernelConfig], Driver]
 
+#: A credentialed factory additionally receives per-lease credentials — the
+#: construction path for ``scope="session"`` specs (seam #13 lease path).
+CredentialedDriverFactory = Callable[[DriverSpec, KernelConfig, "Mapping[str, object]"], Driver]
+
 _FACTORIES: dict[str, DriverFactory] = {}
+_CREDENTIALED_FACTORIES: dict[str, CredentialedDriverFactory] = {}
 
 
 def register_driver_factory(key: str, factory: DriverFactory, *, override: bool = False) -> None:
@@ -49,6 +60,13 @@ def register_driver_factory(key: str, factory: DriverFactory, *, override: bool 
     if not override and key in _FACTORIES:
         raise ValueError(f"driver factory {key!r} already registered")
     _FACTORIES[key] = factory
+
+
+def register_credentialed_factory(key: str, factory: CredentialedDriverFactory, *, override: bool = False) -> None:
+    """Register a factory for ``scope="session"`` specs under ``key`` (strict)."""
+    if not override and key in _CREDENTIALED_FACTORIES:
+        raise ValueError(f"credentialed driver factory {key!r} already registered")
+    _CREDENTIALED_FACTORIES[key] = factory
 
 
 def _env_key(spec: DriverSpec) -> str | None:
@@ -181,6 +199,38 @@ def _resolve_factory(key: str) -> DriverFactory:
     return _FACTORIES[key]
 
 
+def _resolve_lease_builder(spec: DriverSpec, cfg: KernelConfig) -> Callable[[Mapping[str, object]], Driver]:
+    """Per-credential builder for a ``scope="session"`` spec.
+
+    Dotted-path classes take the leased extension of the seam-#13 contract:
+    ``__init__(*, spec, api_key, credentials)``. Factory keys resolve via
+    ``register_credentialed_factory`` — the process-scoped ``_FACTORIES``
+    table deliberately does not apply (its signature has nowhere to accept
+    credentials, and silently dropping them would be a security bug).
+    """
+    key = spec.driver
+    if ":" in key:
+        module_name, _, class_name = key.partition(":")
+
+        def _dotted_lease(credentials: Mapping[str, object]) -> Driver:
+            module = importlib.import_module(module_name)
+            cls = getattr(module, class_name)
+            return cls(spec=spec, api_key=_env_key(spec), credentials=credentials)  # type: ignore[no-any-return]
+
+        return _dotted_lease
+    if key not in _CREDENTIALED_FACTORIES:
+        raise ValueError(
+            f"unknown credentialed driver factory {key!r} for scope='session' spec {spec.name!r} — "
+            f"register it via register_credentialed_factory() or use a dotted path 'pkg.mod:Class'"
+        )
+    factory = _CREDENTIALED_FACTORIES[key]
+
+    def _keyed_lease(credentials: Mapping[str, object]) -> Driver:
+        return factory(spec, cfg, credentials)
+
+    return _keyed_lease
+
+
 # ── composition entry ─────────────────────────────────────────────
 
 
@@ -212,7 +262,11 @@ def build_drivers(
 
     chat_members: list[Driver] = []
     for spec in specs:
-        if spec.type == "model" and spec.modality == "chat":
+        if spec.scope == "session":
+            # Never instantiated here — sessions obtain per-credential
+            # instances via registry.lease(name, credentials).
+            registry.register_leasable(spec.name, _resolve_lease_builder(spec, cfg))
+        elif spec.type == "model" and spec.modality == "chat":
             effective = spec
             if model_override and spec.driver in ("melious", "huble"):
                 effective = replace(spec, model=model_override)

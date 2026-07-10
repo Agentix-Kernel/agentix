@@ -160,6 +160,42 @@ backend means writing a new driver; the store and every consumer stay untouched.
      contract `__init__(*, spec: DriverSpec, api_key: str | None)`;
   3. build the instance yourself and `registry.register(my_driver)`.
 
+### Session-scoped credential leases — seam #13, lease path
+
+The three paths above assume **process-static** config: specs at startup, the secret
+via `api_key_env`, one instance for the process, closed by `aclose_all()`. An app
+whose external-system credentials arrive **per session** (per-job vault decryption,
+multi-tenant remote systems) cannot use a static instance — and must not put secrets
+on a `DriverSpec`. The lease path covers this:
+
+- **`DriverSpec.scope`** — `"process"` (default, everything above unchanged) or
+  `"session"`. A session-scoped spec is declared like any other (name, dotted path or
+  factory key, `base_url`, `options`, optionally `api_key_env` for a static part of
+  the credential) but `build_drivers` never instantiates it: it registers a
+  **leasable entry** (spec + builder) instead. Still no secret on the spec, ever.
+- **`registry.lease(name, credentials)`** — async context manager handing out a
+  fresh instance bound to the caller-supplied credentials mapping:
+
+  ```python
+  async with registry.lease("erp-target", credentials=creds) as driver:
+      await driver.execute(...)
+  ```
+
+  Lease lifetime ≤ session lifetime. A leased instance **never enters the name
+  table**: `get()` / typed accessors / defaults cannot see it, so cross-session
+  leakage is impossible by construction. The instance is attributed to
+  `current_session_id` at lease time (`driver.lease` / `driver.lease_closed` log
+  lines carry it); the capacity limiter (I5) wraps leased calls exactly as static
+  ones (the adapter's call path acquires `driver_capacity()` either way).
+- **Teardown backstops** — the context manager is the primary lifetime; two
+  backstops catch leaks: `session_scope(sid, registry=...)` closes every lease
+  still open for that session when the scope exits, and `aclose_all()` drains all
+  outstanding leases at shutdown (logging, never raising).
+- **Construction contracts** — dotted-path classes take
+  `__init__(*, spec, api_key, credentials)` (the leased extension of the seam-#13
+  contract); or register `register_credentialed_factory("erp", fn)` where
+  `fn(spec, cfg, credentials) -> Driver`. Unknown keys fail loud, as always.
+
 ## 7. Cross-cutting — honest v0.5 boundaries
 
 - **Cost**: recorded spend = **chat spend** (`CostRecordingChatDriver`, canonical in

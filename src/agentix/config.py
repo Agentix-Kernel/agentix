@@ -99,6 +99,13 @@ class DriverSpec:
     ``api_key_env`` names the ENVIRONMENT VARIABLE holding the credential —
     never the secret itself (12-factor). ``options`` is an adapter-specific
     passthrough as hashable key/value pairs (frozen-dataclass discipline).
+
+    ``scope`` — ``"process"`` (default): built once at startup, closed by
+    ``aclose_all()``. ``"session"``: never built at startup; sessions obtain
+    per-credential instances via ``registry.lease(name, credentials)`` — for
+    systems whose credentials arrive per job/tenant and must never persist
+    (docs/drivers.md, seam #13 lease path). Secrets stay off the spec in
+    both scopes.
     """
 
     name: str
@@ -110,6 +117,7 @@ class DriverSpec:
     api_key_env: str | None = None
     default: bool = False
     options: tuple[tuple[str, str], ...] = ()
+    scope: str = "process"
 
 
 @dataclass(frozen=True)

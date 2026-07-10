@@ -9,6 +9,10 @@ driver types read it for log attribution.
 from __future__ import annotations
 
 import contextvars
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agentix.drivers.registry import DriverRegistry
 
 # ContextVar threading: default None = no session bound (e.g. CLI-level
 # probes that aren't part of a tracked run).
@@ -48,10 +52,15 @@ class session_scope:
 
         async with session_scope(session.id):
             await run_agent_session(...)
+
+    Passing ``registry=`` additionally drains any driver leases still open
+    for this session at scope exit (the leak backstop of the seam-#13 lease
+    path — the lease context manager remains the primary lifetime).
     """
 
-    def __init__(self, session_id: str) -> None:
+    def __init__(self, session_id: str, *, registry: DriverRegistry | None = None) -> None:
         self._session_id = session_id
+        self._registry = registry
         self._token: contextvars.Token[str | None] | None = None
 
     async def __aenter__(self) -> session_scope:
@@ -59,6 +68,8 @@ class session_scope:
         return self
 
     async def __aexit__(self, *_exc_info: object) -> None:
+        if self._registry is not None:
+            await self._registry.aclose_session_leases(self._session_id)
         if self._token is not None:
             unbind_session(self._token)
             self._token = None

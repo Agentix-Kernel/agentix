@@ -19,8 +19,11 @@ from typing import TYPE_CHECKING, cast
 import structlog
 
 from agentix.drivers.base import Driver, DriverDescriptor
+from agentix.drivers.session import current_session_id
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+
     from agentix.drivers.chat import ChatDriver
     from agentix.drivers.embedding import EmbeddingDriver
     from agentix.drivers.file_store import FileStoreDriver
@@ -30,7 +33,35 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger(__name__)
 
-__all__ = ["DriverConflict", "DriverRegistry"]
+__all__ = ["DriverConflict", "DriverLease", "DriverRegistry"]
+
+
+class DriverLease:
+    """A session-scoped driver instance, bound to caller-supplied credentials.
+
+    Async context manager returned by :meth:`DriverRegistry.lease`; the
+    instance lives for the ``async with`` block (primary lifetime) and is
+    tracked per session so ``aclose_session_leases`` / ``aclose_all`` can
+    drain leaks. The instance never enters the registry's name table —
+    no other session can reach it.
+    """
+
+    def __init__(self, registry: DriverRegistry, name: str, credentials: Mapping[str, object]) -> None:
+        self._registry = registry
+        self._name = name
+        self._credentials = credentials
+        self._driver: Driver | None = None
+        self._session_id: str | None = None
+
+    async def __aenter__(self) -> Driver:
+        self._session_id = current_session_id.get()
+        self._driver = self._registry._build_lease(self._name, self._credentials, self._session_id)
+        return self._driver
+
+    async def __aexit__(self, *_exc_info: object) -> None:
+        if self._driver is not None:
+            await self._registry._close_lease(self._driver, self._session_id)
+            self._driver = None
 
 
 class DriverConflict(Exception):
@@ -44,6 +75,10 @@ class DriverRegistry:
         self._drivers: dict[str, Driver] = {}
         # (type, modality-or-None) -> default driver name.
         self._defaults: dict[tuple[str, str | None], str] = {}
+        # scope="session" specs: name -> per-credential builder (seam #13 lease path).
+        self._leasables: dict[str, Callable[[Mapping[str, object]], Driver]] = {}
+        # Open leases keyed by the session id bound at lease time (None = unbound).
+        self._active_leases: dict[str | None, list[Driver]] = {}
 
     # ── registration ──────────────────────────────────────────────
 
@@ -53,7 +88,7 @@ class DriverRegistry:
         desc = getattr(driver, "descriptor", None)
         if not isinstance(desc, DriverDescriptor):
             raise TypeError(f"register: {driver!r} carries no DriverDescriptor (not a Driver)")
-        if desc.name in self._drivers:
+        if desc.name in self._drivers or desc.name in self._leasables:
             raise DriverConflict(f"driver {desc.name!r} already registered")
         self._drivers[desc.name] = driver
         slot = (desc.type, desc.modality)
@@ -69,6 +104,55 @@ class DriverRegistry:
             log.warning("driver_registry.skip", error=str(exc)[:200])
             return False
         return True
+
+    # ── session-scoped leases (seam #13 lease path) ───────────────
+
+    def register_leasable(self, name: str, builder: Callable[[Mapping[str, object]], Driver]) -> None:
+        """Register a ``scope="session"`` entry: a builder, not an instance.
+        Strict — the name shares the namespace with registered instances."""
+        if name in self._drivers or name in self._leasables:
+            raise DriverConflict(f"driver {name!r} already registered")
+        self._leasables[name] = builder
+
+    def leasable_names(self) -> list[str]:
+        return sorted(self._leasables)
+
+    def lease(self, name: str, credentials: Mapping[str, object]) -> DriverLease:
+        """Async context manager yielding a fresh instance of the leasable
+        ``name`` bound to ``credentials``. The instance is invisible to
+        ``get()``/defaults and is closed at block exit; leaks are drained by
+        :meth:`aclose_session_leases` / :meth:`aclose_all`."""
+        if name not in self._leasables:
+            raise KeyError(f"no leasable driver registered under {name!r}")
+        return DriverLease(self, name, credentials)
+
+    def _build_lease(self, name: str, credentials: Mapping[str, object], session_id: str | None) -> Driver:
+        driver = self._leasables[name](credentials)
+        self._active_leases.setdefault(session_id, []).append(driver)
+        log.info("driver.lease", driver=name, session_id=session_id)
+        return driver
+
+    async def _close_lease(self, driver: Driver, session_id: str | None) -> None:
+        open_leases = self._active_leases.get(session_id, [])
+        if driver in open_leases:
+            open_leases.remove(driver)
+            if not open_leases:
+                self._active_leases.pop(session_id, None)
+        try:
+            await driver.aclose()
+        except Exception as exc:  # pragma: no cover — best-effort close
+            log.warning("driver_registry.lease_close_failed", error=str(exc)[:200])
+        log.info("driver.lease_closed", driver=driver.descriptor.name, session_id=session_id)
+
+    async def aclose_session_leases(self, session_id: str) -> None:
+        """Teardown backstop: close every lease still open for ``session_id``.
+        The context manager is the primary lifetime; this catches leaks."""
+        for driver in self._active_leases.pop(session_id, []):
+            try:
+                await driver.aclose()
+            except Exception as exc:  # pragma: no cover — best-effort close
+                log.warning("driver_registry.lease_close_failed", error=str(exc)[:200])
+            log.warning("driver.lease_leaked", driver=driver.descriptor.name, session_id=session_id)
 
     # ── lookup ────────────────────────────────────────────────────
 
@@ -172,10 +256,16 @@ class DriverRegistry:
     # ── lifecycle ─────────────────────────────────────────────────
 
     async def aclose_all(self) -> None:
-        """Close every registered driver. Exceptions are logged, never
-        raised — shutdown must complete."""
+        """Close every registered driver and drain any outstanding leases.
+        Exceptions are logged, never raised — shutdown must complete."""
         for name, driver in self._drivers.items():
             try:
                 await driver.aclose()
             except Exception as exc:  # pragma: no cover — best-effort close
                 log.warning("driver_registry.close_failed", driver=name, error=str(exc)[:200])
+        for session_id in list(self._active_leases):
+            for driver in self._active_leases.pop(session_id, []):
+                try:
+                    await driver.aclose()
+                except Exception as exc:  # pragma: no cover — best-effort close
+                    log.warning("driver_registry.lease_close_failed", error=str(exc)[:200])

@@ -31,7 +31,11 @@ from agentix.drivers.embedding import (
     HubleEmbeddingDriver,
     OpenAIEmbeddingDriver,
 )
-from agentix.drivers.factory import build_drivers, register_driver_factory
+from agentix.drivers.factory import (
+    build_drivers,
+    register_credentialed_factory,
+    register_driver_factory,
+)
 from agentix.drivers.file_store import FileStoreDriver
 from agentix.drivers.limiter import (
     configure_driver_capacity,
@@ -39,7 +43,7 @@ from agentix.drivers.limiter import (
     driver_capacity,
 )
 from agentix.drivers.object_store import ObjectNotFound, ObjectStoreDriver
-from agentix.drivers.registry import DriverConflict, DriverRegistry
+from agentix.drivers.registry import DriverConflict, DriverLease, DriverRegistry
 from agentix.drivers.relational import ExecuteResult, RelationalDriver
 from agentix.drivers.router import (
     ChatFailoverChain,
@@ -69,6 +73,7 @@ __all__ = [
     "DriverDescriptor",
     "DriverError",
     "DriverInvalidRequest",
+    "DriverLease",
     "DriverRateLimited",
     "DriverRegistry",
     "DriverUnavailable",
@@ -94,6 +99,7 @@ __all__ = [
     "current_limit",
     "current_session_id",
     "driver_capacity",
+    "register_credentialed_factory",
     "register_driver_factory",
     "session_scope",
     "tool_to_spec",

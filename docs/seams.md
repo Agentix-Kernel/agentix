@@ -107,8 +107,12 @@ Three explicit paths: register a factory key at startup + declare a `DriverSpec`
 declare a dotted-path class (`"pkg.mod:Class"`, constructor
 `__init__(*, spec, api_key)`); or register a built instance directly. Entry-points
 discovery is deliberately rejected (ambient imports defeat the purity gates).
-*LUDO:* none yet — the kernel's chat/embedding/stt families cover current needs; a
-future app database driver registers here with zero kernel change.
+For systems whose credentials arrive per job/tenant, the **lease path** adds
+`DriverSpec(scope="session")` + `registry.lease(name, credentials)` — a fresh
+instance per session, invisible to name lookup, drained by
+`session_scope(sid, registry=...)` / `aclose_all()` (drivers.md §6).
+*LUDO:* the odoo-driver (`type="erp"`) registers here as a session-leased driver —
+source/target Odoo credentials are vault-decrypted per job.
 
 ### 13. Idempotency / resume-key provider — *(design seam — no code hook yet)*
 On redelivery the kernel restores only the agent's own state
