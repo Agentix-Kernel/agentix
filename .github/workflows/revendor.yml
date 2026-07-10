@@ -1,0 +1,40 @@
+# Re-vendor bot (Design B, euroblaze/ludo-agent#558): when the canonical seams
+# change on main, push the byte-canonical files out to every consumer repo as one
+# approve-only PR per repo. Reads the same manifest as the drift guards
+# (scripts/vendor_manifest.py), so bot and guards cannot disagree.
+#
+# Requires the WORKSPACE_PAT secret (fine-grained PAT: contents+pull-requests write
+# on the consumer repos). If it is missing the job fails loudly — that PAT is
+# load-bearing for the whole drift story (ludo-tests #3).
+name: revendor
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/**"
+      - "constants/**"
+      - "libs/**"
+      - "scripts/vendor_manifest.py"
+jobs:
+  revendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Regenerate shared artifacts (freshness safety-net)
+        run: |
+          python scripts/gen_shared.py
+          python scripts/gen_ts.py
+          python scripts/gen_swift.py
+          git diff --exit-code libs/ || {
+            echo "::error::generated artifacts were stale on main — commit regenerated libs/ first"; exit 1; }
+      - name: Open re-vendor PRs in consumer repos
+        env:
+          GH_TOKEN: ${{ secrets.WORKSPACE_PAT }}
+        run: |
+          git config --global user.name "agentix-revendor"
+          git config --global user.email "bot@euroblaze.de"
+          python scripts/revendor.py --pr --workspace "$RUNNER_TEMP/ws" --sha "$GITHUB_SHA"

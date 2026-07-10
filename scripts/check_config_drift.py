@@ -10,22 +10,18 @@ Run from `agentix/`. Sibling-style guard, mirroring check_contract_drift.py.
 (ruff config + .gitignore base are aligned in-place per repo — their tiers differ —
 so they're not byte-vendored here; ludo-agent/docs/cluster/dev-standards.md is their canonical reference.)
 """
+
 from __future__ import annotations
 
 import filecmp
 import sys
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
-WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
-CANON = REPO_ROOT / "constants" / "cluster.yaml"
+from vendor_manifest import CONFIG_CANON as CANON
+from vendor_manifest import CONFIG_VENDORS, WORKSPACE
 
-VENDORS = [
-    WORKSPACE / "ludo-agent" / "constants" / "cluster.yaml",
-    WORKSPACE / "ludo-gateway" / "constants" / "cluster.yaml",
-    WORKSPACE / "ludo-cli" / "constants" / "cluster.yaml",
-    WORKSPACE / "ludo-webapps" / "constants" / "cluster.yaml",
-]
+# Vendored copies come from the shared manifest (vendor_manifest.py) — one table
+# for the guards AND the re-vendor bot (revendor.py), so they can never disagree.
+VENDORS = [WORKSPACE / rel for rel in CONFIG_VENDORS]
 
 
 def main() -> int:

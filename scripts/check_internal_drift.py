@@ -7,28 +7,26 @@ drifted from the canonical in `agentix/libs/internal/ludo_internal/`.
 — `ludo-agent` + `ludo-gateway`. The public clients (`ludo-cli`/`ludo-desktop`) must NEVER
 vendor it; this guard's vendor list deliberately omits them. Run from `agentix/`.
 """
+
 from __future__ import annotations
 
 import filecmp
 import sys
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
-WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
-CANON = REPO_ROOT / "libs" / "internal" / "ludo_internal"
-FILES = ["__init__.py", "nats_streams.py"]
+from vendor_manifest import INTERNAL_CANON as CANON
+from vendor_manifest import INTERNAL_FILES as FILES
+from vendor_manifest import (
+    INTERNAL_FORBIDDEN_ROOTS,
+    INTERNAL_VENDOR_ROOTS,
+    REPO_ROOT,
+    WORKSPACE,
+)
 
-# Private repos ONLY — public clients must not vendor internal broker code.
-VENDOR_ROOTS = [
-    WORKSPACE / "ludo-agent" / "libs" / "ludo_internal",
-    WORKSPACE / "ludo-gateway" / "libs" / "ludo_internal",
-]
-
-# Public clients that must NOT carry it (asserted absent — a positive boundary check).
-FORBIDDEN_ROOTS = [
-    WORKSPACE / "ludo-cli" / "libs" / "ludo_internal",
-    WORKSPACE / "ludo-desktop" / "libs" / "ludo_internal",
-]
+# Vendor + forbidden lists come from the shared manifest (vendor_manifest.py) — one
+# table for the guards AND the re-vendor bot (revendor.py). Private repos ONLY vendor
+# this; the public clients are asserted absent (positive boundary check).
+VENDOR_ROOTS = [WORKSPACE / rel for rel in INTERNAL_VENDOR_ROOTS]
+FORBIDDEN_ROOTS = [WORKSPACE / rel for rel in INTERNAL_FORBIDDEN_ROOTS]
 
 
 def main() -> int:

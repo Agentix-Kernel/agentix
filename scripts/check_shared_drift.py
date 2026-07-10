@@ -13,50 +13,20 @@ by gen_shared.py (Python) / gen_ts.py (JS) / gen_swift.py (Swift) from `contract
 
 Run from `agentix/`. Mirrors check_config_drift.py.
 """
+
 from __future__ import annotations
 
 import filecmp
 import subprocess
 import sys
-from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent          # agentix/
-WORKSPACE = REPO_ROOT.parent                                 # /Users/.../s_/ludo
-LIBS = REPO_ROOT / "libs"
+from vendor_manifest import GENERATORS, REPO_ROOT, SHARED_GROUPS, WORKSPACE
 
-# canonical dir -> (filenames, [vendored copies of that dir]).
+# Groups + generators come from the shared manifest (vendor_manifest.py) — one table
+# for the guards AND the re-vendor bot (revendor.py), so they can never disagree.
 # Python is vendored by agent/gateway/cli (private + the public cli) + the webapps backend.
 # JS (client-safe: enums only) by the webapps frontend. Swift by the public desktop client.
-GROUPS = [
-    (
-        LIBS / "python" / "ludo_shared",
-        ["__init__.py", "_generated.py", "sse.py"],
-        [
-            WORKSPACE / "ludo-agent" / "libs" / "ludo_shared",
-            WORKSPACE / "ludo-gateway" / "libs" / "ludo_shared",
-            WORKSPACE / "ludo-cli" / "libs" / "ludo_shared",
-            WORKSPACE / "ludo-webapps" / "backend" / "libs" / "ludo_shared",
-        ],
-    ),
-    (
-        LIBS / "ts" / "ludo_shared",
-        ["generated.js", "generated.d.ts"],
-        [WORKSPACE / "ludo-webapps" / "libs" / "ludo_shared"],
-    ),
-    (
-        LIBS / "swift" / "LudoShared",
-        ["Generated.swift"],
-        [WORKSPACE / "ludo-desktop" / "MacOS" / "app" / "Sources" / "LudoDesktop" / "Generated"],
-    ),
-]
-
-# Generated artifacts + their generator, for the freshness check (hand-written sse.py excluded).
-GENERATORS = [
-    ("scripts/gen_shared.py", LIBS / "python" / "ludo_shared" / "_generated.py"),
-    ("scripts/gen_ts.py", LIBS / "ts" / "ludo_shared" / "generated.js"),
-    ("scripts/gen_ts.py", LIBS / "ts" / "ludo_shared" / "generated.d.ts"),
-    ("scripts/gen_swift.py", LIBS / "swift" / "LudoShared" / "Generated.swift"),
-]
+GROUPS = [(canon, files, [WORKSPACE / rel for rel in vendor_dirs]) for canon, files, vendor_dirs in SHARED_GROUPS]
 
 
 def check_drift() -> list[str]:
@@ -88,8 +58,7 @@ def check_freshness() -> list[str]:
     before = {out: out.read_bytes() for _, out in GENERATORS if out.exists()}
     scripts = sorted({s for s, _ in GENERATORS})
     for script in scripts:
-        subprocess.run([sys.executable, script], cwd=REPO_ROOT, check=True,
-                       capture_output=True)
+        subprocess.run([sys.executable, script], cwd=REPO_ROOT, check=True, capture_output=True)
     stale = []
     for _, out in GENERATORS:
         if out.read_bytes() != before.get(out):
