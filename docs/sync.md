@@ -68,20 +68,39 @@ The questions to settle before committing an OT profile, worked here first:
 | Spend certainty | money budget, warn→compress→abort ([`budgets.md`](budgets.md) §4) | landed |
 | Low-latency inference | local SLM provider adapter + routing policy (§2) | consider |
 
-## 4. The sync facade (`agentix.sync`) — #70, coming soon
+## 4. The sync facade (`agentix.sync`) — #70, landed
 
-**Status: planned, not scheduled for implementation yet** — documented here so
-integrators know it is coming. For integrators whose codebase is synchronous
-(typical in OT toolchains):
+**Status: LANDED (v0.6.0).** For integrators whose codebase is synchronous —
+preforking WSGI hosts (the second stack consumer embeds the kernel in Odoo
+worker processes), OT toolchains, plain scripts:
 
-- One module owning a **single dedicated background event-loop thread** — not
-  per-call `asyncio.run` — so per-loop limiter state and `ContextVar` binding
-  ([`async.md`](async.md) §4) stay consistent across calls.
-- Blocking wrappers (`run_turn`, `create_session`, `resume_or_create`) submit
-  via `asyncio.run_coroutine_threadsafe` and block on the future, optionally
-  with the same deadline semantics as #71.
-- **Single-flight** semantics documented: the facade serves one session at a
-  time; fan-out is the async API's job.
+- **`KernelLoop`** — one dedicated background event-loop thread per process,
+  not per-call `asyncio.run`, so per-loop limiter state and `ContextVar`
+  binding ([`async.md`](async.md) §4) stay consistent across calls.
+  `start()` idempotent / `stop()` / `submit(coro, timeout_seconds=…)`.
+- **Fork-aware** (the §4 sketch predated this; preforking hosts forced it):
+  the loop records its pid at `start()`, `submit()` refuses a pid mismatch,
+  and an `os.register_at_fork` hook resets forked children to a cold,
+  unstarted loop. Rule for integrators: **lazy-init post-fork on first use —
+  never at import time, never in a pre-fork master.**
+- **`SyncFacade`** — blocking wrappers (`create_session`, `resume_or_create`,
+  `run_turn` — which binds `session_scope` around the engine call — and a
+  generic `run()` escape hatch) submit via
+  `asyncio.run_coroutine_threadsafe` and block on the future.
+  `start()` boots the loop, initialises the stores and reaps expired-lease
+  orphans once; `close()` stops an owned loop.
+- **Admission gate**: `admission_limit` (default **1** — single-flight until
+  #39 lands per-task store connections) with `admission_timeout_seconds` →
+  `SyncFacadeBusy` (nothing started; the host decides). Fan-out stays the
+  async API's job.
+- **Deadline (pre-#71)**: `timeout_seconds` → `future.result(timeout)` +
+  cancel — abrupt task cancellation on the loop; structurally safe
+  (checkpoint-first), but the session row can be left `running` (hence the
+  reap at start). #71's `deadline_seconds` (clean abort → `paused`)
+  supersedes this path when it lands.
+- Storage for embedded hosts without a MinIO server: the local-fs object
+  driver — `MinioStore(driver=LocalObjectStoreDriver(root))`
+  ([`drivers.md`](drivers.md) §5, #92).
 - Side benefit outside OT: retires the reference app's ~10 hand-rolled
   `asyncio.run` CLI bridges over time.
 
@@ -96,7 +115,7 @@ integrators know it is coming. For integrators whose codebase is synchronous
 
 ## 6. Tracked issues
 
-- #70 — `agentix.sync` blocking facade (dedicated loop thread)
+- #70 — `agentix.sync` blocking facade (dedicated loop thread) — **landed, v0.6.0** (§4)
 - #71 — turn deadline (`asyncio.timeout`, abort → `paused`)
 - #72 — cooperative-cancellation seam in the dispatcher
 - #67 — SessionRuntime: lift the session-run loop into the kernel
