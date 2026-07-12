@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.1 — Gemini + Ollama chat adapters — #93, #94
+
+- `GeminiChatDriver` (`adapters/gemini.py`, #93) and `OllamaChatDriver`
+  (`adapters/ollama.py`, #94): thin `OpenAIChatDriver` subclasses pointed at
+  each provider's OpenAI-compatible endpoint — Gemini via Google's
+  `.../v1beta/openai/` (key from `GEMINI_API_KEY`/`GOOGLE_API_KEY`), Ollama
+  via the host's `<url>/v1` (`base_url` required, auth ignored,
+  `source="local"`). Tool-use + `usage` parsing inherited from the tested
+  OpenAI path; factory keys `"gemini"`/`"ollama"`; exported from
+  `agentix.drivers.adapters`. Decision (#94): OpenAI-compat `base_url`, not a
+  native-wire reimplementation. Pricing stays deployment config (the
+  `__unknown__` fallback covers both). Unblocks the second stack consumer's
+  Gemini/Ollama agents (euroblaze/NOCA).
+
 ## 0.6.0 — agentix.sync blocking facade + local object store — #70, #92
 
 - `agentix.sync` (NEW module): `KernelLoop` — one dedicated background

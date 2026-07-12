@@ -88,6 +88,18 @@ def _build_anthropic(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     )
 
 
+def _build_gemini(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.gemini import GeminiChatDriver
+
+    return GeminiChatDriver(api_key=_env_key(spec), model=spec.model, base_url=spec.base_url or None)
+
+
+def _build_ollama(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.ollama import OllamaChatDriver
+
+    return OllamaChatDriver(api_key=_env_key(spec), model=spec.model, base_url=spec.base_url or None)
+
+
 def _build_huble(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     from agentix.drivers.adapters.huble import HubleChatDriver
 
@@ -170,6 +182,8 @@ def _build_huble_embedding(spec: DriverSpec, cfg: KernelConfig) -> Driver:
 
 for _key, _factory in (
     ("anthropic", _build_anthropic),
+    ("gemini", _build_gemini),
+    ("ollama", _build_ollama),
     ("huble", _build_huble),
     ("melious", _build_melious),
     ("openai-embedding", _build_openai_embedding),

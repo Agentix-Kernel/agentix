@@ -52,6 +52,17 @@ error taxonomy with zero kernel change — modularity is the expandability mecha
   per-request because externally managed OAuth tokens rotate),
   `OpenAIChatDriver`, `GroqChatDriver`, `HubleChatDriver` (gateway,
   `source="gateway"`, reports its own billed cost in `raw["cost_usd"]`).
+- OpenAI-compatible endpoints ride the tested `OpenAIChatDriver` wire via a
+  `base_url`, as thin subclasses rather than reimplemented protocols:
+  `GeminiChatDriver` (#93 — Google's `.../v1beta/openai/` compat endpoint;
+  key from `GEMINI_API_KEY`/`GOOGLE_API_KEY`; `tool_choice="any"`→`"required"`
+  may be rejected, use `"auto"`) and `OllamaChatDriver` (#94 — the host's
+  `<url>/v1`, `base_url` required, auth ignored, `source="local"` — the first
+  local-SLM adapter for the OT direction, [`sync.md`](sync.md) §2). Both get
+  tool-use + `usage` parsing for free. Factory keys `"gemini"`/`"ollama"`.
+  Pricing is deployment config, not per-model source (the `__unknown__`
+  fallback in `cost_tracking.py` covers them; operators set real rates in
+  `llm_pricing:`).
 - `ChatFailoverChain` (`drivers/router.py`, ex-`ProviderRouter`) — ordered
   first-success failover, itself ChatDriver-compatible; semantics canonical in
   [`routing.md`](routing.md) §2.
