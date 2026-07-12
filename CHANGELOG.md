@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.0 — agentix.sync blocking facade + local object store — #70, #92
+
+- `agentix.sync` (NEW module): `KernelLoop` — one dedicated background
+  event-loop thread per process, fork-aware (pid guard on `submit`,
+  `os.register_at_fork` reset so preforking hosts' children start cold;
+  lazy-init post-fork is the integrator rule) — and `SyncFacade` — blocking
+  `create_session` / `resume_or_create` / `run_turn` (binds `session_scope`)
+  / generic `run()` over `asyncio.run_coroutine_threadsafe`. Admission gate
+  (`admission_limit`, default 1 until #39) → `SyncFacadeBusy`; host-side
+  deadline (`timeout_seconds` → cancel) → `SyncDeadlineExceeded`, superseded
+  by #71 when it lands; `start()` initialises stores + reaps expired-lease
+  orphans. First consumer: the second stack consumer's preforking WSGI host
+  (docs/sync.md §4 planned → landed).
+- `LocalObjectStoreDriver` (`adapters/local_fs_object.py`): the
+  ObjectStoreDriver protocol against a plain directory, so embedded
+  integrators run without a MinIO server — atomic writes, contained keys,
+  S3-idempotent delete, `file://` presign degradation by contract; builtin
+  factory key `"local-object-store"`. `MinioStore(driver=...)` composes
+  unchanged (pinned by test).
+- Purity gate: forbidden list extends to the second consumer's vocabulary
+  (`noca`, `llm.tool`/`llm.agent`/`llm.conversation`/`llm.provider`).
+
 ## 0.5.9 — tool advertisement gate (advertised=False)
 
 - `Tool.advertised` optional protocol member (default True), `@tool(advertised=...)`

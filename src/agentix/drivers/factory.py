@@ -144,6 +144,12 @@ def _build_local_file_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     return LocalFileStoreDriver(spec=spec, api_key=_env_key(spec))
 
 
+def _build_local_object_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.local_fs_object import LocalObjectStoreDriver
+
+    return LocalObjectStoreDriver(spec=spec, api_key=_env_key(spec))
+
+
 def _build_sqlite_relational(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
 
@@ -170,6 +176,7 @@ for _key, _factory in (
     ("huble-embedding", _build_huble_embedding),
     ("hf-stt", _build_hf_stt),
     ("minio-object-store", _build_minio_object_store),
+    ("local-object-store", _build_local_object_store),
     ("sqlite-relational", _build_sqlite_relational),
     ("local-file-store", _build_local_file_store),
 ):

@@ -98,11 +98,22 @@ backend means writing a new driver; the store and every consumer stay untouched.
   carries `.key`); `SlowDown` → `DriverRateLimited`; 5xx/connectivity →
   `DriverUnavailable`; the rest → `DriverInvalidRequest` — so the Retry middleware
   works for storage exactly as it does for chat.
+- **`LocalObjectStoreDriver`** (`adapters/local_fs_object.py`, #92) — the same
+  protocol against a plain directory, for embedded integrators (the
+  [`agentix.sync`](sync.md) hosts) that should not need a MinIO server:
+  `MinioStore(driver=LocalObjectStoreDriver(root))`. Keys map to contained
+  relative paths (escapes rejected, symlinks followed); writes are atomic
+  (temp + `os.replace`). Degradations by contract: `presigned_get` returns a
+  `file://` URI (no signing/expiry, same-host only), `content_type` is
+  ignored, delete-on-missing is a no-op (S3 semantics). `FileNotFoundError` →
+  `ObjectNotFound`; other `OSError` → `DriverUnavailable`. Single-node.
 - **Wiring**: `MinioStore(config)` builds the MinIO driver internally (zero consumer
   churn); `MinioStore(driver=...)` injects an alternate backend. Registry accessors
-  `object_store()` / `object_store_or_none()`; builtin factory key
+  `object_store()` / `object_store_or_none()`; builtin factory keys
   `"minio-object-store"` (endpoint from `spec.base_url`, `bucket`/`access_key`/
-  `secure`/`region` from `spec.options`, secret via `api_key_env`).
+  `secure`/`region` from `spec.options`, secret via `api_key_env`) and
+  `"local-object-store"` (root from `spec.base_url` or `spec.options["root"]`,
+  no secret).
 - **`RelationalDriver`** (`modality="relational"`, `drivers/relational.py`) —
   `connect` / `execute -> ExecuteResult(lastrowid, rowcount)` / `query` /
   `query_one` (rows as plain dicts, backend-neutral) / `commit`. Landed backend:

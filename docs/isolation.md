@@ -86,9 +86,11 @@ process; I7 = safe across processes.** Baseline: the production worker still run
 - **I6 — Structured concurrency: no session-child task outlives its Session.**
   Intra-session fan-out is awaited under the session root; no orphan `create_task`
   touching a finalized session — this is what "one task-tree" encodes, and it
-  protects I1's contextvar copy. **Reference-app side:** the worker consumer's
-  `batch>1` path fans the fetched batch out under a `TaskGroup` (per-task
-  contextvar copy keeps I1 safe); `batch=1` stays the serial default.
+  protects I1's contextvar copy. **Reference-app side:** the worker consumer is
+  strictly single-flight — one job at a time. `TaskGroup` fan-out over a fetched
+  batch returns (with per-task contextvar copies keeping I1 safe) only once the
+  I2 in-process half lands (per-task SQLite connection, agentix#39) alongside
+  SessionRuntime (#67); until then concurrent sessions would violate I2.
 - **I7 — (inter-process) Session single-flight lease + orphan reaper.** At most one
   worker runs a given `session_id`; a dead worker's session is reaped. **Landed:**
   schema v14 lease columns + `claim`/`renew`/`reap_expired_sessions`

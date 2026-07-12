@@ -43,6 +43,14 @@ _FORBIDDEN = (
     # test_event_contract_drift) and any future branded token. Docstrings stay
     # free to mention the app by name.
     "ludo",
+    # The second stack consumer (euroblaze/NOCA#7) — its brand and record-model
+    # vocabulary must never leak into the kernel either. "llm." alone is too
+    # generic; these are NOCA's concrete model names.
+    "noca",
+    "llm.tool",
+    "llm.agent",
+    "llm.conversation",
+    "llm.provider",
 )
 
 
