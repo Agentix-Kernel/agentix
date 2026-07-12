@@ -15,6 +15,7 @@ from agentix.tools.base import (
     elapsed_ms,
     ensure_input,
 )
+from agentix.tools.factory import FunctionTool, tool
 from agentix.tools.primitives import (
     aggregate_by_key,
     batched,
@@ -31,6 +32,7 @@ from agentix.tools.resilience import (
 )
 
 __all__ = [
+    "FunctionTool",
     "HalvingExhausted",
     "Tool",
     "ToolConflict",
@@ -47,4 +49,5 @@ __all__ = [
     "extract_json_object",
     "fingerprint_dict",
     "halve_on_timeout",
+    "tool",
 ]

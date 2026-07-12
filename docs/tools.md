@@ -38,6 +38,24 @@ slots for app-supplied remote clients — kept `Any` so the kernel takes no depe
 on any app's client type. Tools ignore what they don't need. `ctx.progress()` emits
 best-effort in-flight progress events.
 
+### Two construction paths
+
+The protocol is satisfiable two ways; the registry, dispatcher, safety gate and
+`specs()` treat both identically:
+
+- **Class** — attributes + `call` on a class, instantiate, register. The kernel
+  builtins use this path; it stays first-class.
+- **Declarative** — `@tool` (`tools/factory.py`, #77) over one async function
+  returns a ready `FunctionTool` instance. Name defaults to the function name,
+  description to the docstring (one is required — it's what the LLM sees),
+  input/output models are inferred from the type hints (`input_model=`/
+  `output_model=` override), and the shell applies `ensure_input` coercion so the
+  body always receives its own model. Declaration errors (sync function, missing
+  models/description, mutating-without-verifier) raise at import time.
+  Dep-carrying tools close over their deps: define the decorated function inside a
+  `build_<name>(deps) -> FunctionTool` builder. The raw function stays reachable
+  as `.fn` for direct composition.
+
 ## 2. The registry
 
 `ToolRegistry` (`tools/registry.py`) maps name → tool. Three ways in:

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.7 — declarative tool factory (@tool) — #77
+
+- `agentix.tools.factory`: `@tool` decorator builds a `FunctionTool` INSTANCE
+  from one async function — name from the function name, description from the
+  docstring (or explicit; required), input/output models inferred from type
+  hints (`input_model=`/`output_model=` override), `ensure_input` coercion in
+  the shell. Declaration errors raise at import time, including the
+  mutating-without-verifier invariant (previously registration-time only).
+  Dep-carrying tools close over deps via `build_<name>(deps) -> FunctionTool`
+  builders; the raw function stays reachable as `.fn`.
+- ADDITIVE: the class path is unchanged and kernel builtins keep it; registry/
+  dispatcher/safety-gate/`specs()` treat both paths identically (parity test
+  pins the spec equality). Exported from `agentix.tools`.
+- Docs: tools.md §1 "Two construction paths".
+- Enables the app-side migration CRIE 004 T2 (ludo-agent#550, ~35 tools).
+
 ## 0.5.6 — turn attribution + payload/handling purity — #86, #87
 
 - `drivers/session.py`: `current_turn_id` ContextVar + `bind_turn`/`unbind_turn`
