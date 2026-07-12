@@ -30,6 +30,13 @@ _FORBIDDEN = (
     "bulk_pin",
     "rename_map",
     "customer_page",
+    # Vendor model names — they don't contain "odoo", so they'd slip past the
+    # brand tokens above. Caught once in LLM-facing Field(description=...)
+    # examples (kernel-originated payload; the kernel only HANDLES payloads).
+    "res.company",
+    "res.partner",
+    "account.move",
+    "sale.order",
     # The brand itself. Substring match, so this subsumes the app package
     # (ludo.*), the generated wire packages (ludo_shared/ludo_internal — never a
     # kernel dependency; event vocabulary is kernel-native, drift-guarded by

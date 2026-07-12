@@ -28,9 +28,9 @@ class AttemptRecord(BaseModel):
     target: str = Field(
         ...,
         description=(
-            "What the attempt was directed at — usually a model + field "
-            "or a model + action. E.g. 'res.company.name', "
-            "'account.move:action_post', 'sale.order.line bulk write'."
+            "What the attempt was directed at — usually an entity + field "
+            "or an entity + action. E.g. 'customer.name', "
+            "'invoice:post', 'order lines bulk write'."
         ),
     )
     approach: str = Field(

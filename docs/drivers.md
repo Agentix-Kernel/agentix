@@ -207,10 +207,16 @@ on a `DriverSpec`. The lease path covers this:
   DIRECTION (budgets.md).
 - **Capacity**: one process-global semaphore (`drivers/limiter.py`,
   `driver_capacity()`, default 8, per event loop — isolation.md I5) now covers chat
-  AND stt calls (embedding wrapping is DIRECTION with per-type limits).
-- **Session attribution**: `current_session_id` / `bind_session` / `session_scope`
-  live in `drivers/session.py` — modality-agnostic; non-chat drivers read the
-  ContextVar for log attribution.
+  AND stt calls (embedding wrapping is DIRECTION with per-type limits). This is
+  **gate A — model calls only**. Vendor transport drivers own their per-target
+  concurrency with their own semaphore (**gate B**) and must NOT wrap gate A:
+  routing bulk external-system I/O through the model-call ceiling would couple two
+  unrelated throughputs and starve both (seams.md, division-of-responsibilities).
+- **Attribution**: `current_session_id` / `bind_session` / `session_scope` and
+  `current_turn_id` / `bind_turn` live in `drivers/session.py` — modality-agnostic.
+  The runner binds the session id; the engine binds the turn id around each
+  middleware-chain run. Vendor drivers READ these ContextVars for log/usage
+  attribution — they never define their own.
 
 ## 8. Worked example — a database driver (paper only)
 

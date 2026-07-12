@@ -52,9 +52,12 @@ from agentix.drivers.router import (
 )
 from agentix.drivers.session import (
     bind_session,
+    bind_turn,
     current_session_id,
+    current_turn_id,
     session_scope,
     unbind_session,
+    unbind_turn,
 )
 from agentix.drivers.speech import AudioSource, SttDriver, Transcript
 
@@ -94,14 +97,17 @@ __all__ = [
     "ToolSpec",
     "Transcript",
     "bind_session",
+    "bind_turn",
     "build_drivers",
     "configure_driver_capacity",
     "current_limit",
     "current_session_id",
+    "current_turn_id",
     "driver_capacity",
     "register_credentialed_factory",
     "register_driver_factory",
     "session_scope",
     "tool_to_spec",
     "unbind_session",
+    "unbind_turn",
 ]

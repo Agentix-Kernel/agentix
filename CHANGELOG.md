@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.6 — turn attribution + payload/handling purity — #86, #87
+
+- `drivers/session.py`: `current_turn_id` ContextVar + `bind_turn`/`unbind_turn`
+  beside the session vars; the engine binds the turn identity (stringified
+  `turn_index`) around each middleware-chain run. Vendor drivers READ the
+  attribution vars — they never define their own (agentix-odoo-driver#4
+  consumes this).
+- De-brand of kernel-originated payload: `working_memory.py` Field examples
+  rewritten vendor-neutral (they render into the LLM-visible record_attempt
+  schema — the kernel only HANDLES payloads, it never authors them); stale
+  `OdooClient` comments in `retry.py`/`huble.py`/`tools/base.py` generalised.
+- Purity gate hardened: vendor model-name tokens (`res.company`, `res.partner`,
+  `account.move`, `sale.order`) added — they carried no brand substring and
+  slipped the gate once.
+- Docs: seams.md "Division of responsibilities — payloads vs. handling"
+  (canonical rule + capability table + decision records); drivers.md §7 codifies
+  the two capacity gates (gate A model calls / gate B vendor per-target
+  semaphore, never nested) and the turn-attribution contract.
+
 ## 0.5.5 — the driver midlayer (tools primitives + resilience) — #79
 
 - `agentix.tools.primitives` (pure, stdlib-only): `chunk`/`batched` (lazy

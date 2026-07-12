@@ -21,12 +21,12 @@ from agentix.drivers.base import DriverError, DriverInvalidRequest
 
 log = structlog.get_logger(__name__)
 
-# L6: intentionally smaller than ``OdooClient.DEFAULT_MAX_ATTEMPTS=5``.
-# An LLM call is idempotent and cheap to retry, but a retryable provider
-# error (rate limit, upstream 5xx) is a signal the provider is struggling
-# — a third retry is unlikely to succeed where the second didn't. Odoo
-# retries tolerate more because they're a JSON-RPC transport concern,
-# not a busy-provider signal.
+# L6: intentionally smaller than what vendor transport drivers typically
+# use (~5 attempts). An LLM call is idempotent and cheap to retry, but a
+# retryable provider error (rate limit, upstream 5xx) is a signal the
+# provider is struggling — a third retry is unlikely to succeed where the
+# second didn't. Transport drivers tolerate more because a dropped RPC
+# connection is not a busy-provider signal.
 _DEFAULT_MAX_ATTEMPTS = 3
 _DEFAULT_BASE_DELAY = 0.5
 _DEFAULT_MAX_DELAY = 15.0

@@ -110,13 +110,13 @@ class HubleChatDriver:
                 "X-API-Key": self._api_key,
                 "Content-Type": "application/json",
             },
-            # No connection reuse. HUBLE (like any gateway / Odoo server)
+            # No connection reuse. HUBLE (like any gateway / RPC server)
             # half-closes idle keep-alive connections; httpx then pulls
             # the dead socket out of the pool and the next request hangs
             # for the full read timeout — retry after retry, a multi-
             # minute stall (TCP CLOSE_WAIT). keepalive_expiry=0 forces a
-            # fresh connection per request. OdooClient already does this;
-            # HubleProvider missing it is what hung long migrations.
+            # fresh connection per request. Vendor transport clients guard
+            # this the same way; HubleProvider missing it hung long runs.
             limits=httpx.Limits(max_keepalive_connections=0, keepalive_expiry=0.0),
             # Split timeouts so a stuck read can't block past the budget
             # and a pool-acquire fails fast rather than waiting forever.

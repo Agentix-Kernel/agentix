@@ -58,7 +58,7 @@ class ToolContext:
     sqlite: SqliteStore
     minio: MinioStore
     memory: MemoryStore
-    # App-supplied remote clients (e.g. an OdooClient pair for the migration app).
+    # App-supplied remote clients (e.g. a source/target vendor-client pair).
     # Kept kernel-agnostic (``Any``) so the kernel takes no dependency on any app's
     # client type; the app constructs the context with its own concrete clients and
     # the tools that need them assert presence via ``require_source``/``require_target``.

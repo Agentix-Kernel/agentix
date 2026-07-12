@@ -18,6 +18,7 @@ from agentix.core.middleware.base import Middleware, compose_chain, validate_ord
 from agentix.core.session import Session
 from agentix.core.session import save as save_session
 from agentix.core.types import Message, Turn
+from agentix.drivers.session import bind_turn, unbind_turn
 from agentix.storage import MinioStore, SqliteStore
 
 log = structlog.get_logger(__name__)
@@ -69,7 +70,14 @@ class Engine:
             turn_index=session.turn_index,
             input_messages=list(session.messages),
         )
-        result = await self._chain(turn)
+        # Turn attribution: every nested driver call inside the chain (LLM,
+        # vendor I/O) reads current_turn_id for log/usage attribution — the
+        # per-turn counterpart of session_scope's session binding.
+        turn_token = bind_turn(str(turn.turn_index))
+        try:
+            result = await self._chain(turn)
+        finally:
+            unbind_turn(turn_token)
 
         if result.status == "pending":
             # inner dispatch ran to completion without anybody changing status

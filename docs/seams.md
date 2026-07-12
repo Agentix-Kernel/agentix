@@ -131,6 +131,36 @@ owns the recovery/parsing mechanism, the app passes its policy in as callbacks
 named app modules and never logs from these helpers; observability stays with the
 caller.
 
+## Division of responsibilities — payloads vs. handling
+
+The one-sentence rule behind every seam: **payloads for all agentic functionality
+come from agents and drivers; the kernel owns the capability to HANDLE the
+payload** — routing it among system-internal components (memory, databases,
+learning stores, the catalogs of skills and tools) and system-external components
+(LLMs and other semantic models). The kernel never originates payload; downstream
+never re-implements handling.
+
+| Capability | Payload source | Handling capability (kernel) | Enforced by |
+|---|---|---|---|
+| LLM calling | app prompts/messages | `ChatDriver` family + middleware chain | app-side delegation gate (consumer repo) |
+| Tool dispatch | app tool payloads/results | `ToolRegistry` + `AgentDispatcher` (seams 3–5) | review |
+| Session mgmt | app `app_meta` | `Session`, `resume_or_create`, checkpoints | review |
+| Memory | app records/lessons | `MemoryStore` + `WorkingMemory` render; policy = app (`MemoryMaintain` slot, seam 9) | review |
+| Retry — model calls | — (mechanism) | `RetryMiddleware`; predicates = adapter `retryable` flag | review |
+| Retry — tool loops | app predicates/callbacks | midlayer (`TransientRetry`, `halve_on_timeout`, `bisect_on_failure`) | `test_kernel_purity` (no policy strings in kernel) |
+| Capacity gate A | — | `driver_capacity()` — process-global MODEL-call ceiling | review |
+| Capacity gate B | — | vendor driver's per-target semaphore (transport concern; **never routed through gate A** — coupling model and bulk-I/O throughput would starve both) | review |
+| Attribution | — | `current_session_id` + `current_turn_id` contextvars (`drivers/session.py`); engine binds, drivers READ — never define their own | driver purity tests |
+| Error taxonomy | driver exceptions | `DriverError` family; vendor classifies ONCE into it | review |
+| Prompts / vocabulary | app (always) | kernel renders/routes only — no kernel-authored text reaches an LLM | `test_kernel_purity` (incl. vendor model-name tokens) |
+
+Decision records: the spike tools stay in the kernel (generic capabilities, the
+`/bin`-utility analogy — boundary statement in `tools/spike/__init__.py`); vendor
+transport retry/semaphores stay in the driver (JSON-RPC knowledge, not midlayer
+duplication); middleware default constants are mechanism defaults, overridable at
+construction. Known temporary exception: the migration app's episodic-memory
+provider still speaks httpx to its backend directly (broker-gated cutover).
+
 ## What the kernel will never contain
 
 - **Domain vocabulary** — no app terms in identifiers or string literals.
