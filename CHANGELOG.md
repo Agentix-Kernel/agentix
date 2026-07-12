@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.8 — @tool: default_timeout_seconds kwarg
+
+- `@tool(default_timeout_seconds=...)` / `FunctionTool` attribute — first-class
+  declaration of the per-tool dispatch-timeout override the dispatcher already
+  reads via `getattr(tool, "default_timeout_seconds", None) or chain_default`.
+  None ≡ absent (the `or` fallback), pinned by test. Surfaced by the first
+  app-family migration: long-running tools declared it as a class attribute,
+  and the factory had no way to carry it without poking the instance.
+
 ## 0.5.7 — declarative tool factory (@tool) — #77
 
 - `agentix.tools.factory`: `@tool` decorator builds a `FunctionTool` INSTANCE

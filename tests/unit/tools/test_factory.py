@@ -155,6 +155,23 @@ def test_provider_gate_respected_by_registry() -> None:
     assert "needs_llm" in registry
 
 
+def test_default_timeout_declared_or_absent_semantics() -> None:
+    """The dispatcher reads ``getattr(t, "default_timeout_seconds", None) or
+    chain_default`` — an undeclared timeout must behave exactly like None."""
+
+    @tool(description="No timeout declared.")
+    async def plain(params: _In, ctx: ToolContext) -> _Out:
+        return _Out(y=0)
+
+    @tool(description="Long-running.", default_timeout_seconds=900.0)
+    async def slow(params: _In, ctx: ToolContext) -> _Out:
+        return _Out(y=0)
+
+    chain_default = 60.0
+    assert (getattr(plain, "default_timeout_seconds", None) or chain_default) == 60.0
+    assert (getattr(slow, "default_timeout_seconds", None) or chain_default) == 900.0
+
+
 def test_closure_builder_pattern_binds_dependencies() -> None:
     """Dep-carrying tools close over their deps via a builder function."""
 

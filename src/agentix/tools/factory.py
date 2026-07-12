@@ -68,6 +68,7 @@ class FunctionTool:
         mutates_target: bool = False,
         verifier: str | None = None,
         required_provider: str | None = None,
+        default_timeout_seconds: float | None = None,
     ) -> None:
         # Same invariant the registry enforces, moved to declaration time —
         # a mutating tool without a verifier fails at import, not at startup.
@@ -81,6 +82,11 @@ class FunctionTool:
         self.mutates_target = mutates_target
         self.verifier = verifier
         self.required_provider = required_provider
+        # Per-tool dispatch timeout override. The dispatcher reads it via
+        # ``getattr(tool, "default_timeout_seconds", None) or <chain default>``,
+        # so None is equivalent to absent — long-running tools declare their
+        # budget here instead of poking an attribute onto the instance.
+        self.default_timeout_seconds = default_timeout_seconds
         self.__doc__ = fn.__doc__
 
     def __repr__(self) -> str:
@@ -99,6 +105,7 @@ def tool(
     required_provider: str | None = None,
     input_model: type[BaseModel] | None = None,
     output_model: type[BaseModel] | None = None,
+    default_timeout_seconds: float | None = None,
 ) -> Callable[[ToolFn], FunctionTool]:
     """Build a :class:`FunctionTool` from ``async def fn(params, ctx) -> Output``.
 
@@ -141,6 +148,7 @@ def tool(
             mutates_target=mutates_target,
             verifier=verifier,
             required_provider=required_provider,
+            default_timeout_seconds=default_timeout_seconds,
         )
 
     return decorate
