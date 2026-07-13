@@ -29,7 +29,7 @@ tool = ConsultSkill()
 
 def _call(ctx, name: str):
     inp = ConsultSkillInput(name=name)
-    return asyncio.get_event_loop().run_until_complete(tool.call(inp, ctx))
+    return asyncio.run(tool.call(inp, ctx))
 
 
 # ── single root ───────────────────────────────────────────────────────────────
