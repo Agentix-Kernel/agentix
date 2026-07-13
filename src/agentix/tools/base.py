@@ -79,10 +79,11 @@ class ToolContext:
     # thread skill-scoped tools into each per-step registry. Empty → no
     # skills activated.
     activated_skill_names: list[str] = field(default_factory=list)
-    # Root dir of the per-agent skill catalog (open standard). ``consult_skill``
-    # reads SKILL.md bodies from here. Default "skills" = the migration agent's
-    # own per-process dir; set per-session by the orchestrator.
-    skills_root: str = "skills"
+    # Root dir(s) of the per-agent skill catalog (open standard). ``consult_skill``
+    # reads SKILL.md bodies from here.  A list of paths enables multi-root catalogs
+    # (e.g. kernel skills + a driver's bundled skills).  Default "skills" = the
+    # agent's own per-process dir; set per-session by the orchestrator.
+    skills_root: str | list[str] = "skills"
 
     def require_source(self) -> Any:
         if self.source is None:

@@ -1,16 +1,10 @@
-"""Open-standard skill catalog — scan a per-agent ``skills_root``.
+"""Open-standard skill catalog — scan one or more ``skills_root`` directories.
 
-Selection model (the generalization): rather than gate each bundle behind
-trigger predicates the recon phase evaluates, the catalog surfaces every
-bundle's ``(name, description)`` cheaply at session start and lets the agent's
-Cortex pull the full ``SKILL.md`` body on demand (progressive disclosure). This
-is the Agent Skills open standard and is agent-agnostic — a business agent's
-session is triggered by an inbound A2A request, a migration session by a version
-pair, but both consume the same catalog.
-
-The incumbent ``ludo.tools.skills_loader`` (manifest + trigger predicates) is
-untouched; this is additive. Tool registration for skills carrying a ``tool.py``
-delegates to :func:`ludo.tools.skills_loader.register_activated_skills`.
+Selection model: the catalog surfaces every bundle's ``(name, description)``
+cheaply at session start; the agent's Cortex pulls the full ``SKILL.md`` body on
+demand (progressive disclosure).  Multi-root support (``SkillCatalog(roots=[…])``)
+lets a composite agent surface skills from multiple packages.  First-root-wins
+on name clash.
 """
 
 from __future__ import annotations
@@ -18,7 +12,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 import frontmatter
 import structlog
@@ -26,58 +20,93 @@ import structlog
 from agentix.skills.loader import register_activated_skills
 from agentix.tools.registry import ToolRegistry
 
+if TYPE_CHECKING:
+    from agentix.a2a.card import AgentSkill
+
 log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
 class SkillBundle:
-    """One discovered skill bundle.
-
-    ``name`` / ``description`` drive the cheap session-start surfacing; the
-    agent reads ``skill_md_path`` in full only when it decides the skill is
-    relevant. ``has_tools`` flags bundles that register skill-scoped primitives
-    via ``tool.py`` (so the caller knows activation has a side effect).
-    """
+    """One discovered skill bundle."""
 
     name: str
     description: str
     bundle_dir: Path
-    #: Absolute path to ``SKILL.md`` if present (the progressive-disclosure body).
     skill_md_path: Path | None = None
-    #: True when a ``manifest.json`` declares skill-scoped tools (``tool.py``).
     has_tools: bool = False
-    #: Reference templates (leading-underscore dir name) — excluded from describe().
     reference_only: bool = False
     allowed_tools: tuple[str, ...] = field(default_factory=tuple)
+    # A2A AgentSkill fields parsed from SKILL.md frontmatter
+    id: str = ""
+    tags: tuple[str, ...] = field(default_factory=tuple)
+    examples: tuple[str, ...] = field(default_factory=tuple)
+    input_modes: tuple[str, ...] = field(default_factory=tuple)
+    output_modes: tuple[str, ...] = field(default_factory=tuple)
+
+    def to_agent_skill(self) -> AgentSkill:
+        """Project this bundle into an A2A v1.0 ``AgentSkill``."""
+        from agentix.a2a.card import AgentSkill
+
+        return AgentSkill(
+            id=self.id or self.name,
+            name=self.name,
+            description=self.description,
+            tags=list(self.tags),
+            examples=list(self.examples),
+            input_modes=list(self.input_modes),
+            output_modes=list(self.output_modes),
+        )
 
 
 class SkillCatalog:
-    """Per-agent view over a ``skills_root`` directory."""
+    """Per-agent view over one or more ``skills_root`` directories.
 
-    def __init__(self, skills_root: Path | str) -> None:
-        self.root = Path(skills_root)
+    ``roots`` may be a single ``Path``/``str`` or a sequence of them.
+    Bundles are discovered across all roots; when the same name appears in
+    multiple roots, the first root wins and a warning is logged.
+    """
+
+    def __init__(self, roots: Path | str | Sequence[Path | str]) -> None:
+        if isinstance(roots, (Path, str)):
+            self._roots: list[Path] = [Path(roots)]
+        else:
+            self._roots = [Path(r) for r in roots]
+
+    @property
+    def root(self) -> Path:
+        """Primary root (first in the list) — legacy single-root access."""
+        return self._roots[0]
 
     def bundles(self) -> list[SkillBundle]:
-        """Discover every bundle under ``skills_root``.
-
-        A directory is a bundle when it carries a ``SKILL.md`` (open standard)
-        or a ``manifest.json`` (legacy). Directories with neither are ignored.
-        Best-effort: an unreadable bundle logs a warning and is skipped.
-        """
-        if not self.root.exists():
-            log.info("skills.root_missing", root=str(self.root))
-            return []
+        """Discover every bundle across all roots, first-root-wins on name clash."""
+        seen: dict[str, str] = {}  # name -> root str for clash logging
         out: list[SkillBundle] = []
-        for bundle_dir in sorted(p for p in self.root.iterdir() if p.is_dir()):
-            bundle = self._read_bundle(bundle_dir)
-            if bundle is not None:
+        for root in self._roots:
+            if not root.exists():
+                log.info("skills.root_missing", root=str(root))
+                continue
+            for bundle_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+                bundle = self._read_bundle(bundle_dir)
+                if bundle is None:
+                    continue
+                if bundle.name in seen:
+                    log.warning(
+                        "skills.name_clash",
+                        name=bundle.name,
+                        kept=seen[bundle.name],
+                        skipped=str(root),
+                    )
+                    continue
+                seen[bundle.name] = str(root)
                 out.append(bundle)
         return out
 
     def describe(self) -> list[tuple[str, str, str]]:
-        """Return ``(name, description, skill_md_path)`` for session-start
-        surfacing. Reference templates (``_example_*``) are excluded — they
-        are not real capabilities the agent should consider."""
+        """``(name, description, skill_md_path)`` for session-start surfacing.
+
+        Reference templates (``_example_*``) are excluded.
+        """
         rows: list[tuple[str, str, str]] = []
         for b in self.bundles():
             if b.reference_only:
@@ -87,15 +116,11 @@ class SkillCatalog:
         return rows
 
     def activate(self, names: list[str], registry: ToolRegistry) -> list[str]:
-        """Register skill-scoped tools for the named bundles into ``registry``.
-
-        Delegates to the incumbent loader so there is one tool-import path.
-        Doctrine-only bundles (no ``tool.py``) are a no-op here; their value is
-        the ``SKILL.md`` body the agent reads, not a registered tool. Names that
-        carry tools but have no ``manifest.json`` (pure open-standard stubs) are
-        silently skipped by the delegate, which scans ``*/manifest.json``.
-        """
-        return register_activated_skills(self.root, names, registry)
+        """Register skill-scoped tools for the named bundles across all roots."""
+        activated: list[str] = []
+        for root in self._roots:
+            activated.extend(register_activated_skills(root, names, registry))
+        return list(dict.fromkeys(activated))  # dedupe, preserve order
 
     # ── internals ────────────────────────────────────────────────────────
 
@@ -110,9 +135,15 @@ class SkillCatalog:
 
         name = str(meta.get("name") or man.get("name") or bundle_dir.name)
         description = str(meta.get("description") or man.get("description") or "")
-        # Open standard uses ``allowed-tools``; legacy manifest uses ``tools``.
         allowed = meta.get("allowed-tools") or man.get("tools") or []
         allowed_tools = tuple(str(t) for t in allowed) if isinstance(allowed, list) else ()
+
+        # A2A frontmatter fields
+        skill_id = str(meta.get("id") or name)
+        tags = tuple(str(t) for t in meta.get("tags", [])) if isinstance(meta.get("tags"), list) else ()
+        examples = tuple(str(e) for e in meta.get("examples", [])) if isinstance(meta.get("examples"), list) else ()
+        input_modes = tuple(str(m) for m in meta.get("input_modes", [])) if isinstance(meta.get("input_modes"), list) else ()
+        output_modes = tuple(str(m) for m in meta.get("output_modes", [])) if isinstance(meta.get("output_modes"), list) else ()
 
         return SkillBundle(
             name=name,
@@ -122,6 +153,11 @@ class SkillCatalog:
             has_tools=bool(man.get("tools")),
             reference_only=bundle_dir.name.startswith("_"),
             allowed_tools=allowed_tools,
+            id=skill_id,
+            tags=tags,
+            examples=examples,
+            input_modes=input_modes,
+            output_modes=output_modes,
         )
 
     @staticmethod

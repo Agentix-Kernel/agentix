@@ -27,25 +27,30 @@ models the crossing with pieces that already exist:
   state (P-ISO-2, [`isolation.md`](isolation.md) §1). The crossing law is the same
   whether the peer is a thread away or an Account away.
 
-## 2. `AgentCard` + `Capability` — the discovery data model
+## 2. `AgentCard` — the A2A v1.0 discovery data model
 
-`a2a/card.py` — the first, deliberately safe slice of the epic: **pure data +
-validation, no transport, no credentials, no trust-zone wiring.** The
-security-sensitive substrate lands only with its own review (§4).
+`a2a/card.py` — **pure data + validation, no transport, no credentials, no
+trust-zone wiring.** Shaped to [A2A v1.0](https://a2a-protocol.org) so driver and
+app authors can publish spec-compliant cards today; the wire substrate lands in
+W1–W3 (§4).
 
-- `Capability` — one thing an agent can be asked to do over A2A. `name` is the
-  stable local handle a peer names in a *delegate*; `subject` is the transport
-  address it will eventually be routed on (e.g. `int.<domain>.<account>.<name>`)
-  — `None` until routing lands, so the card is useful for discovery before any
-  transport exists. Empty names are rejected.
-- `AgentCard` — an agent's declarative self-description, the payload of a future
-  discovery/INFO reply: who the agent is (`name`, `description`, `version`), what
-  it can do (`capabilities` — names must be unique per card; `tools`), and whether
-  it is **`activatable`** — key-gated, with a deterministic fallback when no key
-  is present (§5). It says enough for a peer to decide *whether* and *what* to
-  delegate; authorization and routing layer on top later.
-- Helpers a resolving peer uses: `capability_names()`, `has_capability(name)`,
-  `capability(name)`.
+Three types:
+
+- **`AgentSkill`** — one thing an agent can do. `id` is the stable machine handle;
+  `name` is the human label. A2A fields: `tags`, `examples`, `input_modes` /
+  `output_modes` (camelCase in JSON: `inputModes` / `outputModes`). Kernel
+  extension: `subject` — the future NATS routing address, `None` until W2.
+- **`AgentCapabilities`** — protocol feature flags: `streaming`,
+  `push_notifications`, `state_transition_history` (camelCase aliases in JSON).
+- **`AgentCard`** — an agent's declarative self-description. A2A required fields:
+  `name`, `description`, `url`, `version`, `protocol_version` (`"1.0"`). A2A
+  optional: `provider`, `capabilities` (`AgentCapabilities`),
+  `default_input_modes` / `default_output_modes`, `skills: list[AgentSkill]`,
+  `security_schemes`, `security`. Kernel extensions: `tools: list[str]`,
+  `activatable` (key-gated agent, §5). `to_a2a_json()` emits camelCase JSON
+  via `model_dump(by_alias=True, exclude_none=True)`.
+
+Helpers: `skill_ids()`, `has_skill(id)`, `skill(id)`.
 
 Tests: `tests/unit/a2a/test_card.py`.
 
@@ -57,6 +62,8 @@ Tests: `tests/unit/a2a/test_card.py`.
 | child-Session runtime relationship + crossing rules | [`isolation.md`](isolation.md) §5 |
 | persisted `parent_session_id` | [`session.md`](session.md) §1 |
 | skills reached *via* A2A (client agents carry no server skills) | [`skills.md`](skills.md) §7 |
+| `SkillBundle.to_agent_skill()` — project a bundle into `AgentSkill` | [`skills.md`](skills.md) §3 |
+| A2A wire (JSON-RPC 2.0, Task lifecycle, SSE/push, JWS) | epic #492 (W1–W3) |
 
 ---
 

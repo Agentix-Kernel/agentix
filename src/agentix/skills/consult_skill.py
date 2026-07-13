@@ -61,7 +61,7 @@ class ConsultSkill(Tool):
 
         params = ensure_input(input, ConsultSkillInput)
         root = getattr(ctx, "skills_root", "skills") or "skills"
-        bundles = [b for b in SkillCatalog(root).bundles() if not b.reference_only]
+        bundles = [b for b in SkillCatalog(root).bundles() if not b.reference_only]  # multi-root aware
         for b in bundles:
             if b.name == params.name:
                 if b.skill_md_path is None:

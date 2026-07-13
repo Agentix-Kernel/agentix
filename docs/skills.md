@@ -49,7 +49,10 @@ skills/<name>/
 ```
 
 - `SKILL.md` frontmatter: `name`, `description` (drive the cheap surfacing),
-  optional `allowed-tools`. The body is the procedure the model reads on consult.
+  optional `allowed-tools`.  Extended A2A fields (optional): `id`, `tags`,
+  `examples`, `input_modes`, `output_modes` — parsed by `SkillCatalog` into
+  `SkillBundle` and projected to `AgentSkill` via `to_agent_skill()`.
+  The body is the procedure the model reads on consult.
 - `tool.py` exports `register(registry)`; the loader imports it and hands it the
   registry so the bundle can add skill-scoped tools (§6). Doctrine-only bundles
   (no tools) are the common case.
@@ -60,20 +63,21 @@ skills/<name>/
 
 ## 3. `SkillCatalog` — discovery + progressive disclosure
 
-`skills/catalog.py`. The agent-agnostic reader: any agent process points one at
-*its own* `skills_root`.
+`skills/catalog.py`.  The agent-agnostic reader: takes `roots: Path | str |
+Sequence[Path | str]`.  **Multi-root**: bundles are discovered across all roots;
+first-root-wins on name clash (logs `skills.name_clash` warning).
 
 - `bundles()` — a directory is a bundle when it carries a `SKILL.md` (open
   standard) or a `manifest.json` (legacy). Frontmatter wins over manifest for
-  `name`/`description`/`allowed-tools`. Best-effort: an unreadable bundle logs a
-  warning and is skipped.
+  `name`/`description`/`allowed-tools`.  A2A frontmatter fields (`id`, `tags`,
+  `examples`, `input_modes`, `output_modes`) populate `SkillBundle`.  Best-effort:
+  unreadable bundles log a warning and are skipped.
 - `describe()` — `(name, description, skill_md_path)` rows for **session-start
-  surfacing**: the model sees every skill's name + description cheaply, then
-  decides what to read. Model-driven selection from descriptions is the
-  generalization that replaces hard trigger-predicate gating.
-- `activate(names, registry)` — registers skill-scoped tools for the named
-  bundles by delegating to the incumbent loader (§5), so there is exactly **one
-  tool-import path**. Doctrine-only bundles are a no-op here.
+  surfacing**.
+- `activate(names, registry)` — registers skill-scoped tools across all roots by
+  delegating to the incumbent loader (§5).
+- `SkillBundle.to_agent_skill()` — project into an A2A v1.0 `AgentSkill`; used
+  by driver `publish_agent_card()` to build the card's `skills` list.
 
 ## 4. `consult_skill` — the consult tier
 
@@ -118,8 +122,8 @@ as a carrier for live legacy bundles and their trigger wiring.
   builtin (`ToolConflict`).
 - `ToolContext` carries the skill state (`tools/base.py`):
   `activated_skill_names` (bundles whose triggers matched, threaded into each
-  per-step registry) and `skills_root` (where `consult_skill` reads from;
-  default `"skills"`).
+  per-step registry) and `skills_root: str | list[str]` (where `consult_skill`
+  reads from; default `"skills"`).  Pass a list to expose multiple catalogs.
 
 ---
 

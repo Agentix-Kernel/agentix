@@ -1,51 +1,85 @@
-"""AgentCard + Capability — an agent's declarative self-description for A2A.
+"""AgentCard — A2A v1.0 data model (discovery only, no transport).
 
-Pure data + validation, no transport or credentials (see package docstring).
+Pure data + validation.  No transport, credentials or trust-zone wiring —
+those land in W1–W3 (epic euroblaze/ludo #492).
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class Capability(BaseModel):
-    """One thing an agent can be asked to do over A2A.
+class AgentSkill(BaseModel):
+    """A2A v1.0 AgentSkill — one thing an agent can do.
 
-    ``name`` is the stable local handle a peer names in a ``delegate``. ``subject``
-    is the transport address it will eventually be routed on (e.g.
-    ``int.<domain>.<account>.<name>``) — ``None`` until W2 wires routing, so the
-    card stays useful for discovery before any transport exists.
+    ``id`` is the stable machine handle; ``name`` is the human label.
+    ``subject`` is the future NATS routing address (None until W2 wires
+    routing).  camelCase aliases let ``to_a2a_json()`` emit spec-compliant JSON.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(populate_by_name=True)
 
+    id: str
     name: str
     description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    examples: list[str] = Field(default_factory=list)
+    input_modes: list[str] = Field(default_factory=list, alias="inputModes")
+    output_modes: list[str] = Field(default_factory=list, alias="outputModes")
+    # Kernel extension: transport address — None until W2
     subject: str | None = None
 
     @model_validator(mode="after")
-    def _non_empty_name(self) -> Capability:
-        if not self.name.strip():
-            raise ValueError("capability name must be non-empty")
+    def _non_empty_id(self) -> AgentSkill:
+        if not self.id.strip():
+            raise ValueError("skill id must be non-empty")
         return self
 
 
-class AgentCard(BaseModel):
-    """An agent's self-description — the payload of a discovery/INFO reply.
+class AgentCapabilities(BaseModel):
+    """A2A v1.0 capabilities block — protocol feature flags."""
 
-    Declarative only: it says *who* the agent is and *what* it can do, so a peer
-    can decide whether and what to delegate. It carries no credentials and no
-    trust-zone wiring; authorization + routing are layered on in later A2A
-    slices. ``activatable`` marks a key-gated agent that has a deterministic
-    fallback when its key is absent.
+    model_config = ConfigDict(populate_by_name=True)
+
+    streaming: bool = False
+    push_notifications: bool = Field(False, alias="pushNotifications")
+    state_transition_history: bool = Field(False, alias="stateTransitionHistory")
+
+
+class AgentCard(BaseModel):
+    """An agent's declarative self-description — the payload of a discovery reply.
+
+    Shaped to the A2A v1.0 spec (a2a-protocol.org).  Kernel extensions
+    (``activatable``, ``tools``, per-skill ``subject``) are defined fields, not
+    extra JSON — they survive round-trips through ``model_dump()`` /
+    ``model_validate()``.  ``to_a2a_json()`` emits spec-compliant camelCase JSON.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
+    # A2A v1.0 required
     name: str
     description: str = ""
+    url: str = ""
     version: str = "0"
-    capabilities: list[Capability] = Field(default_factory=list)
+    protocol_version: str = Field("1.0", alias="protocolVersion")
+
+    # A2A v1.0 optional
+    provider: dict[str, str] | None = None
+    capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)
+    default_input_modes: list[str] = Field(
+        default_factory=lambda: ["application/json"], alias="defaultInputModes"
+    )
+    default_output_modes: list[str] = Field(
+        default_factory=lambda: ["application/json"], alias="defaultOutputModes"
+    )
+    skills: list[AgentSkill] = Field(default_factory=list)
+    security_schemes: dict[str, Any] | None = Field(None, alias="securitySchemes")
+    security: list[dict[str, list[str]]] | None = None
+
+    # Kernel extensions
     tools: list[str] = Field(default_factory=list)
     activatable: bool = False
 
@@ -53,20 +87,24 @@ class AgentCard(BaseModel):
     def _validate(self) -> AgentCard:
         if not self.name.strip():
             raise ValueError("agent name must be non-empty")
-        names = [c.name for c in self.capabilities]
-        if len(names) != len(set(names)):
-            raise ValueError("capability names must be unique within an agent card")
+        ids = [s.id for s in self.skills]
+        if len(ids) != len(set(ids)):
+            raise ValueError("skill ids must be unique within an agent card")
         return self
 
-    def capability_names(self) -> list[str]:
-        return [c.name for c in self.capabilities]
+    def skill_ids(self) -> list[str]:
+        return [s.id for s in self.skills]
 
-    def has_capability(self, name: str) -> bool:
-        return any(c.name == name for c in self.capabilities)
+    def has_skill(self, skill_id: str) -> bool:
+        return any(s.id == skill_id for s in self.skills)
 
-    def capability(self, name: str) -> Capability | None:
-        """The named capability, or None. Used by a peer resolving a delegate."""
-        for c in self.capabilities:
-            if c.name == name:
-                return c
+    def skill(self, skill_id: str) -> AgentSkill | None:
+        """Return the skill with the given id, or None."""
+        for s in self.skills:
+            if s.id == skill_id:
+                return s
         return None
+
+    def to_a2a_json(self) -> dict[str, Any]:
+        """Spec-compliant camelCase dict suitable for ``/.well-known/agent.json``."""
+        return self.model_dump(by_alias=True, exclude_none=True)

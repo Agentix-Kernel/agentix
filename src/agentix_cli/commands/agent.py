@@ -49,7 +49,7 @@ def agent_list(
 
     t = make_table("Name", "Version", "Activatable", "Capabilities", "Description")
     for a in agents:
-        caps = ", ".join(c["name"] for c in a.get("capabilities", []))
+        caps = ", ".join(s["name"] for s in a.get("skills", []))
         activatable = "[yellow]yes[/yellow]" if a.get("activatable") else "no"
         t.add_row(a.get("name", "—"), a.get("version", "0"), activatable, caps or "—", a.get("description", "—")[:60])
     print_table(t)
@@ -67,12 +67,12 @@ def agent_register(
     config_path: Path | None = typer.Option(None, "--config"),
 ) -> None:
     """Register a new A2A agent card."""
-    from agentix.a2a.card import AgentCard, Capability
+    from agentix.a2a.card import AgentCard, AgentSkill
 
-    caps_list = [Capability(name=c.strip()) for c in capabilities.split(",") if c.strip()] if capabilities else []
+    skills_list = [AgentSkill(id=c.strip(), name=c.strip()) for c in capabilities.split(",") if c.strip()] if capabilities else []
 
     try:
-        card = AgentCard(name=name, description=description, version=version, activatable=activatable, capabilities=caps_list)
+        card = AgentCard(name=name, description=description, version=version, activatable=activatable, skills=skills_list)
     except Exception as exc:
         error(f"Invalid agent card: {exc}")
         raise typer.Exit(1) from None
@@ -130,7 +130,7 @@ def agent_show(
         error(f"Agent {name!r} not found.")
         raise typer.Exit(1)
 
-    caps = match.get("capabilities", [])
+    skills = match.get("skills", [])
     print_kv(
         [
             ("Name", match.get("name")),
@@ -138,7 +138,7 @@ def agent_show(
             ("Version", match.get("version", "0")),
             ("Activatable", "yes" if match.get("activatable") else "no"),
             ("Tools", ", ".join(match.get("tools", [])) or "—"),
-            ("Capabilities", ", ".join(c["name"] for c in caps) if caps else "—"),
+            ("Skills", ", ".join(s["name"] for s in skills) if skills else "—"),
         ],
         title=f"Agent: {name}",
     )

@@ -226,7 +226,7 @@ class RegisterAgentRequest(BaseModel):
     description: str = ""
     version: str = "0"
     activatable: bool = False
-    capabilities: list[dict[str, Any]] = []
+    skills: list[dict[str, Any]] = []
     tools: list[str] = []
     dry_run: bool = False
 
@@ -234,14 +234,14 @@ class RegisterAgentRequest(BaseModel):
 @router.post("/agents", status_code=201)
 async def register_agent(body: RegisterAgentRequest, request: Request) -> dict[str, Any]:
     """Register an A2A agent card."""
-    from agentix.a2a.card import AgentCard, Capability
+    from agentix.a2a.card import AgentCard, AgentSkill
 
     try:
-        caps = [Capability(**c) for c in body.capabilities]
+        skill_list = [AgentSkill(**s) for s in body.skills]
         card = AgentCard(
             name=body.name, description=body.description,
             version=body.version, activatable=body.activatable,
-            capabilities=caps, tools=body.tools,
+            skills=skill_list, tools=body.tools,
         )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

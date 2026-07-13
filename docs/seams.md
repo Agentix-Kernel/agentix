@@ -65,11 +65,12 @@ verifiers and a neutral `agentix-agent` identity; the app extends at startup
 *LUDO:* adds `odoo.com` hosts, the `odoo-bin` binary, and the `ludo/port-spike-`
 branch identity.
 
-### 8. Skills — `SkillCatalog(skills_root)`
+### 8. Skills — `SkillCatalog(roots)`
 `src/agentix/skills/catalog.py` ([`skills.md`](skills.md) §3). The app points the catalog
-at its own skill-bundle directory (Agent Skills standard: `SKILL.md` + manifest + optional
-`tool.py`). Session start surfaces name+description cheaply; bodies load on demand
-(progressive disclosure).
+at one or more skill-bundle directories (`roots: Path | str | list[…]`); first-root-wins
+on name clash.  `ToolContext.skills_root` accepts `str | list[str]` so a composite agent
+can expose skills from multiple packages.  Session start surfaces name+description cheaply;
+bodies load on demand.  `SkillBundle.to_agent_skill()` projects into an A2A `AgentSkill`.
 
 ### 9. Middleware chain — fill the named slots
 `src/agentix/core/middleware/base.py` (`MIDDLEWARE_ORDER`) +
