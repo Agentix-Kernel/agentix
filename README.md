@@ -50,6 +50,14 @@ After install, activate: `source ~/.agentix/env.sh`
 
 See [docs/vendor-licenses.md](docs/vendor-licenses.md) for SDK licenses and provider ToS links.
 
+**With the CLI tools:**
+
+```sh
+curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=cli bash
+# or add cli to an existing extras list:
+AGENTIX_EXTRAS=anthropic,cli bash
+```
+
 **Developer install** (source checkout, Python 3.12 + [uv](https://docs.astral.sh/uv/)):
 
 ```sh
@@ -113,6 +121,47 @@ turn = await engine.run_turn(session, Message(role="user", content="Summarise da
 - `middlewares=[]` is the minimal chain; real apps compose the kernel layers (trajectory
   capture, cost tracking, token budget, safety gate, loop detection, retry — see
   `src/agentix/core/middleware/`) and may extend the order with their own.
+
+## CLI
+
+Install once: `pip install agentix[cli]`
+
+```
+agentix --help
+agentix version                               kernel + CLI version
+agentix status                                health: config, drivers, paths
+
+agentix driver list                           all 17 driver keys with tier, SDK status
+agentix driver show <key>                     details for one driver
+agentix driver install <key> [--dry-run]      pip-installs SDK extra + registers in config
+agentix driver uninstall <name> [--dry-run]   removes DriverSpec from config
+
+agentix session list [--limit N]              recent sessions from SQLite
+agentix session status <session-id>           single session: turns, spend, timestamps
+
+agentix tool list                             kernel built-in tools
+agentix tool show <name>
+
+agentix skill list                            skills from catalog (skills_root in config)
+agentix skill show <name> [--body]
+
+agentix memory list                           memory pages from memory_path
+agentix memory show [<page>]
+
+agentix context show [--session <id>]         token budget per turn
+
+agentix agent list                            registered A2A agent cards
+agentix agent register <name> [--dry-run]
+agentix agent unregister <name> [--dry-run]
+agentix agent show <name>
+
+agentix config show                           resolved config (secrets redacted)
+agentix config validate [--dry-run]           check driver specs + SDK installs
+```
+
+All mutating commands accept `--dry-run` / `-n` to preview changes without applying them.
+
+Config file: `~/.agentix/config.yaml` (override with `AGENTIX_CONFIG` env var or `--config`).
 
 ## Core concepts
 
