@@ -86,7 +86,7 @@ class MemoryStore:
                 raise TypeError("MemoryStore needs a root or a FileStoreDriver")
             # Lazy import: keeps storage importable without the drivers
             # package unless actually constructed from a root path.
-            from agentix.drivers.adapters.local_fs import LocalFileStoreDriver
+            from agentix.drivers.adapters.intrinsic.local_fs import LocalFileStoreDriver
 
             driver = LocalFileStoreDriver(root)
         self._driver = driver

@@ -1,11 +1,15 @@
-"""Concrete driver adapters — one module per external system."""
+"""Concrete driver adapters — intrinsic (open-source infra) and vendor (commercial API).
 
-from agentix.drivers.adapters.anthropic import AnthropicChatDriver
-from agentix.drivers.adapters.gemini import GeminiChatDriver
-from agentix.drivers.adapters.groq import GroqChatDriver
-from agentix.drivers.adapters.huble import HubleChatDriver
-from agentix.drivers.adapters.ollama import OllamaChatDriver
-from agentix.drivers.adapters.openai import OpenAIChatDriver
+Intrinsic adapters ship with the kernel; vendor adapters require an opt-in extra:
+    pip install agentix[anthropic]   # or openai, groq — see docs/vendor-licenses.md
+"""
+
+from agentix.drivers.adapters.intrinsic.huble import HubleChatDriver
+from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
+from agentix.drivers.adapters.vendor.gemini import GeminiChatDriver
+from agentix.drivers.adapters.vendor.groq import GroqChatDriver
+from agentix.drivers.adapters.vendor.ollama import OllamaChatDriver
+from agentix.drivers.adapters.vendor.openai import OpenAIChatDriver
 
 __all__ = [
     "AnthropicChatDriver",

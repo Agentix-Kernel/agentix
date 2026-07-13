@@ -268,7 +268,7 @@ class SqliteStore:
                 raise TypeError("SqliteStore needs a path or a RelationalDriver")
             # Lazy import: keeps storage importable without the drivers
             # package unless actually constructed from a path.
-            from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
+            from agentix.drivers.adapters.intrinsic.sqlite import SqliteRelationalDriver
 
             driver = SqliteRelationalDriver(path)
         self._driver = driver

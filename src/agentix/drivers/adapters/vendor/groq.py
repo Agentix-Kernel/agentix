@@ -9,7 +9,7 @@ import groq
 import structlog
 
 from agentix.core.types import TokenUsage
-from agentix.drivers.adapters.openai import _parse_openai_tool_calls, _to_openai
+from agentix.drivers.adapters.vendor.openai import _parse_openai_tool_calls, _to_openai
 from agentix.drivers.base import (
     DriverDescriptor,
     DriverInvalidRequest,

@@ -75,7 +75,7 @@ class MinioStore:
             # Lazy import: storage must stay importable without pulling the
             # adapter (and the drivers package) unless actually constructed
             # from config.
-            from agentix.drivers.adapters.minio import MinioObjectStoreDriver
+            from agentix.drivers.adapters.intrinsic.minio import MinioObjectStoreDriver
 
             driver = MinioObjectStoreDriver(config)
         self.config = config

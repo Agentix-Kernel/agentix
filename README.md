@@ -15,7 +15,42 @@
 
 ## Install
 
-Python **3.12** + [uv](https://docs.astral.sh/uv/):
+**One line — zero prior setup required:**
+
+```sh
+# Kernel only (intrinsic drivers: SQLite, local-fs, huble, hf-stt)
+curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | bash
+
+# With a specific vendor LLM (accepts Anthropic ToS — see docs/vendor-licenses.md)
+curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=anthropic bash
+
+# Multiple vendor extras
+curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=anthropic,openai,groq bash
+
+# Custom install directory
+curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_HOME=~/myproject bash
+```
+
+After install, activate: `source ~/.agentix/env.sh`
+
+**Extras reference:**
+
+| Extra | Installs | Notes |
+|-------|----------|-------|
+| *(none)* | Kernel + intrinsic drivers | SQLite, local-fs, huble, HuggingFace-STT |
+| `minio` | MinIO object store | Apache 2.0 |
+| `postgresql` | PostgreSQL driver | MIT (asyncpg) |
+| `hf` | HuggingFace hub SDK | Apache 2.0 |
+| `anthropic` | Anthropic chat | Requires Anthropic API key + ToS |
+| `openai` | OpenAI / Gemini / Ollama / Grok / NVIDIA / Melious | Requires OpenAI-compatible API key + ToS |
+| `groq` | Groq chat | Requires Groq API key + ToS |
+| `all-intrinsic` | minio + postgresql + hf | |
+| `all-vendors` | anthropic + openai + groq | |
+| `all` | Everything | |
+
+See [docs/vendor-licenses.md](docs/vendor-licenses.md) for SDK licenses and provider ToS links.
+
+**Developer install** (source checkout, Python 3.12 + [uv](https://docs.astral.sh/uv/)):
 
 ```sh
 uv sync                    # kernel + dev tooling

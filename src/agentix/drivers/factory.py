@@ -76,9 +76,14 @@ def _env_key(spec: DriverSpec) -> str | None:
 # ── builtin factories (lazy adapter imports — keep import-time cheap) ──
 
 
-def _build_anthropic(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+# ── vendor factories (ImportError → clear install hint) ───────────────────────
 
+
+def _build_anthropic(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    try:
+        from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[anthropic] to use the Anthropic driver") from exc
     pc = cfg.anthropic
     return AnthropicChatDriver(
         api_key=_env_key(spec) or pc.api_key,
@@ -88,20 +93,72 @@ def _build_anthropic(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     )
 
 
-def _build_gemini(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.gemini import GeminiChatDriver
+def _build_openai(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    try:
+        from agentix.drivers.adapters.vendor.openai import OpenAIChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[openai] to use the OpenAI driver") from exc
+    return OpenAIChatDriver(api_key=_env_key(spec), model=spec.model, base_url=spec.base_url or None)
 
+
+def _build_gemini(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    try:
+        from agentix.drivers.adapters.vendor.gemini import GeminiChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[openai] to use the Gemini driver") from exc
     return GeminiChatDriver(api_key=_env_key(spec), model=spec.model, base_url=spec.base_url or None)
 
 
 def _build_ollama(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.ollama import OllamaChatDriver
-
+    try:
+        from agentix.drivers.adapters.vendor.ollama import OllamaChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[openai] to use the Ollama driver") from exc
     return OllamaChatDriver(api_key=_env_key(spec), model=spec.model, base_url=spec.base_url or None)
 
 
+def _build_groq(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    try:
+        from agentix.drivers.adapters.vendor.groq import GroqChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[groq] to use the Groq driver") from exc
+    return GroqChatDriver(api_key=_env_key(spec), model=spec.model)
+
+
+def _build_grok(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    try:
+        from agentix.drivers.adapters.vendor.grok import GrokChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[openai] to use the Grok (xAI) driver") from exc
+    return GrokChatDriver(api_key=_env_key(spec), model=spec.model, base_url=spec.base_url or None)
+
+
+def _build_nvidia(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    try:
+        from agentix.drivers.adapters.vendor.nvidia import NvidiaChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[openai] to use the NVIDIA NIM driver") from exc
+    return NvidiaChatDriver(api_key=_env_key(spec), model=spec.model, base_url=spec.base_url or None)
+
+
+def _build_melious(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    try:
+        from agentix.drivers.adapters.vendor.melious import MeliousChatDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[openai] to use the Melious driver") from exc
+    pc = cfg.melious
+    return MeliousChatDriver(
+        base_url=spec.base_url or pc.base_url or os.environ.get("MELIOUS_BASE_URL"),
+        api_key=_env_key(spec) or pc.api_key or os.environ.get("MELIOUS_API_KEY"),
+        model=spec.model or pc.model,
+    )
+
+
+# ── intrinsic factories ───────────────────────────────────────────────────────
+
+
 def _build_huble(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.huble import HubleChatDriver
+    from agentix.drivers.adapters.intrinsic.huble import HubleChatDriver
 
     pc = cfg.huble
     return HubleChatDriver(
@@ -112,21 +169,11 @@ def _build_huble(spec: DriverSpec, cfg: KernelConfig) -> Driver:
     )
 
 
-def _build_melious(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    # Direct Melious — OpenAI-compatible wire, no gateway hop.
-    from agentix.drivers.adapters.openai import OpenAIChatDriver
-
-    pc = cfg.melious
-    return OpenAIChatDriver(
-        base_url=spec.base_url or pc.base_url or os.environ.get("MELIOUS_BASE_URL"),
-        api_key=_env_key(spec) or pc.api_key or os.environ.get("MELIOUS_API_KEY"),
-        model=spec.model or pc.model,
-    )
-
-
 def _build_openai_embedding(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.embedding import OpenAIEmbeddingDriver
-
+    try:
+        from agentix.drivers.embedding import OpenAIEmbeddingDriver
+    except ImportError as exc:
+        raise RuntimeError("Install agentix[openai] to use OpenAI embeddings") from exc
     kwargs: dict[str, str] = {}
     if spec.model:
         kwargs["model"] = spec.model
@@ -134,7 +181,7 @@ def _build_openai_embedding(spec: DriverSpec, cfg: KernelConfig) -> Driver:
 
 
 def _build_hf_stt(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.hf import HfSttDriver
+    from agentix.drivers.adapters.intrinsic.hf import HfSttDriver
 
     kwargs: dict[str, str] = {}
     if spec.model:
@@ -145,25 +192,31 @@ def _build_hf_stt(spec: DriverSpec, cfg: KernelConfig) -> Driver:
 
 
 def _build_minio_object_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.minio import MinioObjectStoreDriver
+    from agentix.drivers.adapters.intrinsic.minio import MinioObjectStoreDriver
 
     return MinioObjectStoreDriver(spec=spec, api_key=_env_key(spec))
 
 
+def _build_postgresql_relational(spec: DriverSpec, cfg: KernelConfig) -> Driver:
+    from agentix.drivers.adapters.intrinsic.postgresql import PostgresRelationalDriver
+
+    return PostgresRelationalDriver(spec=spec, api_key=_env_key(spec))
+
+
 def _build_local_file_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.local_fs import LocalFileStoreDriver
+    from agentix.drivers.adapters.intrinsic.local_fs import LocalFileStoreDriver
 
     return LocalFileStoreDriver(spec=spec, api_key=_env_key(spec))
 
 
 def _build_local_object_store(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.local_fs_object import LocalObjectStoreDriver
+    from agentix.drivers.adapters.intrinsic.local_fs_object import LocalObjectStoreDriver
 
     return LocalObjectStoreDriver(spec=spec, api_key=_env_key(spec))
 
 
 def _build_sqlite_relational(spec: DriverSpec, cfg: KernelConfig) -> Driver:
-    from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
+    from agentix.drivers.adapters.intrinsic.sqlite import SqliteRelationalDriver
 
     return SqliteRelationalDriver(spec=spec, api_key=_env_key(spec))
 
@@ -181,15 +234,22 @@ def _build_huble_embedding(spec: DriverSpec, cfg: KernelConfig) -> Driver:
 
 
 for _key, _factory in (
+    # vendor — require opt-in extra; consumer accepts provider ToS
     ("anthropic", _build_anthropic),
+    ("openai", _build_openai),
     ("gemini", _build_gemini),
+    ("groq", _build_groq),
     ("ollama", _build_ollama),
-    ("huble", _build_huble),
+    ("grok", _build_grok),
+    ("nvidia", _build_nvidia),
     ("melious", _build_melious),
     ("openai-embedding", _build_openai_embedding),
+    # intrinsic — ship with kernel, open-source deps only
+    ("huble", _build_huble),
     ("huble-embedding", _build_huble_embedding),
     ("hf-stt", _build_hf_stt),
     ("minio-object-store", _build_minio_object_store),
+    ("postgresql-relational", _build_postgresql_relational),
     ("local-object-store", _build_local_object_store),
     ("sqlite-relational", _build_sqlite_relational),
     ("local-file-store", _build_local_file_store),

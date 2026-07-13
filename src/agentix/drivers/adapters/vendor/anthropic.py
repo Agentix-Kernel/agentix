@@ -29,7 +29,7 @@ import anthropic
 import structlog
 
 from agentix.core.types import Message, TokenUsage, ToolCall
-from agentix.drivers.adapters.anthropic_auth import TokenSource, resolve_token_source
+from agentix.drivers.adapters.intrinsic.anthropic_auth import TokenSource, resolve_token_source
 from agentix.drivers.base import (
     DriverDescriptor,
     DriverInvalidRequest,
