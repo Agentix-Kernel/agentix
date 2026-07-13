@@ -1,7 +1,7 @@
 """agentixd — FastAPI app entry point.
 
-Default transport: Unix Domain Socket at ~/.agentix/agentixd.sock.
-TCP fallback: set AGENTIXD_HOST / AGENTIXD_PORT env vars or daemon.use_uds: false in config.
+Transport: Unix Domain Socket only at ~/.agentix/agentixd.sock (configurable via
+AGENTIXD_SOCKET env or daemon.socket_path in config.yaml). No TCP/IP port is bound.
 """
 
 from __future__ import annotations
@@ -90,50 +90,34 @@ def run() -> None:
         )
     )
 
-    use_uds = True
     socket_path: Path = _DEFAULT_SOCKET
-    host = os.environ.get("AGENTIXD_HOST", "10.0.99.1")
-    port = int(os.environ.get("AGENTIXD_PORT", "7320"))
 
     if cfg_path.exists():
         try:
             cfg = load_daemon_config(cfg_path)
-            use_uds = cfg.use_uds
             socket_path = cfg.socket_path
-            host = cfg.host
-            port = cfg.port
         except Exception:
             pass
 
-    if use_uds:
-        socket_path.parent.mkdir(parents=True, exist_ok=True)
-        # Restrict socket directory to owner only — prevents other local users from
-        # discovering or connecting to the socket even if they know the path.
-        os.chmod(socket_path.parent, 0o700)
-        # Remove stale socket from a previous run
-        if socket_path.exists():
-            socket_path.unlink()
-        log.info("starting agentixd", transport="uds", socket=str(socket_path), version=agentixd.__version__)
-        # Set umask so uvicorn creates the socket file with mode 0o600 (owner r/w only).
-        old_umask = os.umask(0o077)
-        try:
-            uvicorn.run(
-                "agentixd.main:app",
-                uds=str(socket_path),
-                log_level="info",
-                access_log=True,
-            )
-        finally:
-            os.umask(old_umask)
-        # Clean up socket file on exit
-        if socket_path.exists():
-            socket_path.unlink()
-    else:
-        log.info("starting agentixd", transport="tcp", host=host, port=port, version=agentixd.__version__)
+    socket_path.parent.mkdir(parents=True, exist_ok=True)
+    # Restrict socket directory to owner only — prevents other local users from
+    # discovering or connecting to the socket even if they know the path.
+    os.chmod(socket_path.parent, 0o700)
+    # Remove stale socket from a previous run
+    if socket_path.exists():
+        socket_path.unlink()
+    log.info("starting agentixd", transport="uds", socket=str(socket_path), version=agentixd.__version__)
+    # Set umask so uvicorn creates the socket file with mode 0o600 (owner r/w only).
+    old_umask = os.umask(0o077)
+    try:
         uvicorn.run(
             "agentixd.main:app",
-            host=host,
-            port=port,
+            uds=str(socket_path),
             log_level="info",
             access_log=True,
         )
+    finally:
+        os.umask(old_umask)
+    # Clean up socket file on exit
+    if socket_path.exists():
+        socket_path.unlink()

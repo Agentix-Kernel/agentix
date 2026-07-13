@@ -3,12 +3,11 @@
 No kernel imports. Apps install agentix[sdk] and talk to the daemon
 instead of embedding the kernel directly.
 
-Transport resolution order:
-  1. AGENTIXD_SOCKET env → Unix Domain Socket
-  2. base_url arg starting with "unix://" → Unix Domain Socket
-  3. AGENTIXD_URL env → TCP URL
-  4. ~/.agentix/agentixd.sock (if it exists) → Unix Domain Socket
-  5. AGENTIXD_HOST:AGENTIXD_PORT → TCP
+Transport: Unix Domain Socket only.
+  1. AGENTIXD_SOCKET env → socket path override
+  2. base_url arg starting with "unix://" → explicit socket path
+  3. ~/.agentix/agentixd.sock (auto-detect)
+  Raises RuntimeError if no socket is found.
 """
 
 from __future__ import annotations
@@ -53,33 +52,22 @@ class AgentixClient:
         self._uds_path: str | None = None
         self._base: str = ""
 
-        # Resolve transport
+        # Resolve transport — UDS only
         socket_env = os.environ.get("AGENTIXD_SOCKET")
 
         if socket_env:
             self._uds_path = socket_env
-            self._base = "http://agentixd"
         elif base_url and base_url.startswith("unix://"):
             self._uds_path = base_url[len("unix://") :]
-            self._base = "http://agentixd"
-        elif base_url:
-            self._base = base_url.rstrip("/")
-        elif os.environ.get("AGENTIXD_URL"):
-            self._base = os.environ["AGENTIXD_URL"].rstrip("/")
         elif _DEFAULT_SOCKET.exists():
             self._uds_path = str(_DEFAULT_SOCKET)
-            self._base = "http://agentixd"
         else:
-            host = os.environ.get("AGENTIXD_HOST", "10.0.99.1")
-            port = os.environ.get("AGENTIXD_PORT", "7320")
-            self._base = f"http://{host}:{port}"
+            raise RuntimeError("agentixd socket not found — is agentixd running?")
+        self._base = "http://agentixd"
 
     async def __aenter__(self) -> AgentixClient:
-        if self._uds_path:
-            transport = httpx.AsyncHTTPTransport(uds=self._uds_path)
-            self._http = httpx.AsyncClient(transport=transport, base_url=self._base, timeout=self._timeout)
-        else:
-            self._http = httpx.AsyncClient(base_url=self._base, timeout=self._timeout)
+        transport = httpx.AsyncHTTPTransport(uds=self._uds_path)
+        self._http = httpx.AsyncClient(transport=transport, base_url=self._base, timeout=self._timeout)
         return self
 
     async def __aexit__(self, *_: object) -> None:

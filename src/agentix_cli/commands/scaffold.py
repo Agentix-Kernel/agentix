@@ -13,43 +13,28 @@ from agentix_cli._output import dry_run_header, ok, would
 app = typer.Typer(help="Generate driver stubs and agent app skeletons.")
 
 
-def _daemon_url() -> str | None:
-    """Return the running daemon URL, or None if daemon is not up."""
-    import httpx
-
-    from agentix_cli._config import load_config
-
-    cfg = load_config()
-    host = "10.0.99.1"
-    port = 7320
-    if cfg._raw:
-        d = cfg._raw.get("daemon", {})
-        host = d.get("host", host)
-        port = int(d.get("port", port))
-    url = f"http://{host}:{port}"
+async def _try_scaffold_driver(name: str, modality: str, description: str = "") -> dict | None:
+    """Attempt scaffold via agentixd UDS. Returns None if daemon is unreachable."""
     try:
-        r = httpx.get(f"{url}/health/live", timeout=1.5)
-        return url if r.status_code == 200 else None
+        from agentix_sdk import AgentixClient
+
+        async with AgentixClient() as client:
+            f = await client.scaffold_driver(name=name, modality=modality, description=description)
+            return {"path": f.path, "content": f.content}
     except Exception:
         return None
 
 
-async def _scaffold_driver_via_daemon(url: str, name: str, modality: str) -> dict:
-    import httpx
+async def _try_scaffold_agent(name: str, description: str) -> list | None:
+    """Attempt scaffold via agentixd UDS. Returns None if daemon is unreachable."""
+    try:
+        from agentix_sdk import AgentixClient
 
-    async with httpx.AsyncClient(base_url=url, timeout=10.0) as client:
-        r = await client.post("/admin/scaffold/driver", json={"name": name, "modality": modality})
-        r.raise_for_status()
-        return r.json()
-
-
-async def _scaffold_agent_via_daemon(url: str, name: str, description: str) -> list:
-    import httpx
-
-    async with httpx.AsyncClient(base_url=url, timeout=10.0) as client:
-        r = await client.post("/admin/scaffold/agent", json={"name": name, "description": description})
-        r.raise_for_status()
-        return r.json()
+        async with AgentixClient() as client:
+            files = await client.scaffold_agent(name=name, description=description)
+            return [{"path": f.path, "content": f.content} for f in files]
+    except Exception:
+        return None
 
 
 @app.command("driver")
@@ -60,18 +45,9 @@ def scaffold_driver(
     dry_run: Annotated[bool, typer.Option("--dry-run", "-n", help="Preview without writing")] = False,
 ) -> None:
     """Generate a driver stub .py file."""
-    daemon = _daemon_url()
+    result = asyncio.run(_try_scaffold_driver(name, modality))
 
-    if daemon:
-        try:
-            result = asyncio.run(_scaffold_driver_via_daemon(daemon, name, modality))
-        except Exception as exc:
-            from agentix_cli._output import error
-
-            error(f"daemon call failed: {exc} — falling back to local generation")
-            daemon = None
-
-    if not daemon:
+    if result is None:
         # Local generation (no daemon needed — templates are bundled)
         from agentixd.scaffold.driver_tpl import render_driver
 
@@ -82,22 +58,20 @@ def scaffold_driver(
 
             error(str(exc))
             raise typer.Exit(1) from None
-        result = {"filename": filename, "content": content}
+        result = {"path": filename, "content": content}
 
-    filename = result["filename"]
-    content = result["content"]
-    dest = output / filename
+    dest = output / result["path"]
 
     if dry_run:
         dry_run_header()
-        would(f"write {dest} ({len(content)} bytes)")
+        would(f"write {dest} ({len(result['content'])} bytes)")
         typer.echo("\n--- preview (first 20 lines) ---")
-        for line in content.splitlines()[:20]:
+        for line in result["content"].splitlines()[:20]:
             typer.echo(f"  {line}")
         return
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(content)
+    dest.write_text(result["content"])
     ok(f"Driver stub written: {dest}")
     typer.echo(f"\nNext: implement {dest.stem}.complete() and register the driver factory.")
 
@@ -110,18 +84,9 @@ def scaffold_agent(
     dry_run: Annotated[bool, typer.Option("--dry-run", "-n", help="Preview without writing")] = False,
 ) -> None:
     """Generate an agent app skeleton directory."""
-    daemon = _daemon_url()
+    files = asyncio.run(_try_scaffold_agent(name, description))
 
-    if daemon:
-        try:
-            files = asyncio.run(_scaffold_agent_via_daemon(daemon, name, description))
-        except Exception as exc:
-            from agentix_cli._output import error
-
-            error(f"daemon call failed: {exc} — falling back to local generation")
-            daemon = None
-
-    if not daemon:
+    if files is None:
         from agentixd.scaffold.agent_tpl import render_agent
 
         files = render_agent(name, description)
