@@ -12,4 +12,4 @@ core dependency that terminal/web/mobile/desktop agent apps build on.
 
 from __future__ import annotations
 
-__version__ = "0.5.9"
+__version__ = "0.6.1"
