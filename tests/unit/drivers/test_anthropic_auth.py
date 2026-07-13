@@ -155,7 +155,8 @@ def test_keychain_token_source_timeout() -> None:
 
 def test_keychain_token_source_malformed_payload() -> None:
     with patch(
-        "agentix.drivers.adapters.intrinsic.anthropic_auth.subprocess.run", return_value=_fake_completed(stdout="not json")
+        "agentix.drivers.adapters.intrinsic.anthropic_auth.subprocess.run",
+        return_value=_fake_completed(stdout="not json"),
     ):
         src = KeychainTokenSource()
         with pytest.raises(DriverInvalidRequest, match="not JSON"):
@@ -238,7 +239,8 @@ def test_resolve_keychain_then_file(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     path.write_text(json.dumps({"claudeAiOauth": {"accessToken": "sk-ant-oat01-file"}}))
     kc_payload = json.dumps({"claudeAiOauth": {"accessToken": "sk-ant-oat01-kc"}})
     with patch(
-        "agentix.drivers.adapters.intrinsic.anthropic_auth.subprocess.run", return_value=_fake_completed(stdout=kc_payload)
+        "agentix.drivers.adapters.intrinsic.anthropic_auth.subprocess.run",
+        return_value=_fake_completed(stdout=kc_payload),
     ):
         src = resolve_token_source(credentials_path=path, keychain_service="Claude Code-credentials")
         assert src.get_token() == ("sk-ant-oat01-kc", True)
