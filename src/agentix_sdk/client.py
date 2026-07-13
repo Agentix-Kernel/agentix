@@ -2,16 +2,26 @@
 
 No kernel imports. Apps install agentix[sdk] and talk to the daemon
 instead of embedding the kernel directly.
+
+Transport resolution order:
+  1. AGENTIXD_SOCKET env → Unix Domain Socket
+  2. base_url arg starting with "unix://" → Unix Domain Socket
+  3. AGENTIXD_URL env → TCP URL
+  4. ~/.agentix/agentixd.sock (if it exists) → Unix Domain Socket
+  5. AGENTIXD_HOST:AGENTIXD_PORT → TCP
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import httpx
 
 from agentix_sdk.models import AgentCardInfo, DriverInfo, ScaffoldFile, Session, Turn
+
+_DEFAULT_SOCKET = Path.home() / ".agentix" / "agentixd.sock"
 
 
 class AgentixError(Exception):
@@ -38,17 +48,40 @@ class AgentixClient:
         base_url: str | None = None,
         timeout: float = 60.0,
     ) -> None:
-        resolved = (
-            base_url
-            or os.environ.get("AGENTIXD_URL")
-            or f"http://{os.environ.get('AGENTIXD_HOST', '10.0.99.1')}:{os.environ.get('AGENTIXD_PORT', '7320')}"
-        )
-        self._base = resolved.rstrip("/")
         self._timeout = timeout
         self._http: httpx.AsyncClient | None = None
+        self._uds_path: str | None = None
+        self._base: str = ""
+
+        # Resolve transport
+        socket_env = os.environ.get("AGENTIXD_SOCKET")
+
+        if socket_env:
+            self._uds_path = socket_env
+            self._base = "http://agentixd"
+        elif base_url and base_url.startswith("unix://"):
+            self._uds_path = base_url[len("unix://"):]
+            self._base = "http://agentixd"
+        elif base_url:
+            self._base = base_url.rstrip("/")
+        elif os.environ.get("AGENTIXD_URL"):
+            self._base = os.environ["AGENTIXD_URL"].rstrip("/")
+        elif _DEFAULT_SOCKET.exists():
+            self._uds_path = str(_DEFAULT_SOCKET)
+            self._base = "http://agentixd"
+        else:
+            host = os.environ.get("AGENTIXD_HOST", "10.0.99.1")
+            port = os.environ.get("AGENTIXD_PORT", "7320")
+            self._base = f"http://{host}:{port}"
 
     async def __aenter__(self) -> AgentixClient:
-        self._http = httpx.AsyncClient(base_url=self._base, timeout=self._timeout)
+        if self._uds_path:
+            transport = httpx.AsyncHTTPTransport(uds=self._uds_path)
+            self._http = httpx.AsyncClient(
+                transport=transport, base_url=self._base, timeout=self._timeout
+            )
+        else:
+            self._http = httpx.AsyncClient(base_url=self._base, timeout=self._timeout)
         return self
 
     async def __aexit__(self, *_: object) -> None:
@@ -84,12 +117,18 @@ class AgentixClient:
         customer_id: str,
         budget_usd: float | None = None,
         app_meta: dict[str, Any] | None = None,
+        control_plane_id: str | None = None,
+        parent_session_id: str | None = None,
     ) -> Session:
         body: dict[str, Any] = {"customer_id": customer_id}
         if budget_usd is not None:
             body["budget_usd"] = budget_usd
         if app_meta is not None:
             body["app_meta"] = app_meta
+        if control_plane_id is not None:
+            body["control_plane_id"] = control_plane_id
+        if parent_session_id is not None:
+            body["parent_session_id"] = parent_session_id
         r = await self._client().post("/run/sessions", json=body)
         self._raise(r)
         return Session.model_validate(r.json())

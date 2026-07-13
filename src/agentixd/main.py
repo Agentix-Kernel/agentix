@@ -1,7 +1,7 @@
 """agentixd — FastAPI app entry point.
 
-Binds to 10.0.99.1:7320 by default (loopback alias, per CLAUDE.md conventions).
-Override with AGENTIXD_HOST / AGENTIXD_PORT env vars or daemon.host/port in config.
+Default transport: Unix Domain Socket at ~/.agentix/agentixd.sock.
+TCP fallback: set AGENTIXD_HOST / AGENTIXD_PORT env vars or daemon.use_uds: false in config.
 """
 
 from __future__ import annotations
@@ -78,25 +78,46 @@ app = create_app()
 
 def run() -> None:
     """Console script entry point: agentixd."""
-    from agentixd._config import load_daemon_config
+    from agentixd._config import _DEFAULT_SOCKET, load_daemon_config
+
     cfg_path = Path(os.environ.get("AGENTIXD_CONFIG", os.environ.get("AGENTIX_CONFIG", str(Path.home() / ".agentix" / "config.yaml"))))
 
-    # Read host/port from config if available (no full kernel build needed here)
+    use_uds = True
+    socket_path: Path = _DEFAULT_SOCKET
     host = os.environ.get("AGENTIXD_HOST", "10.0.99.1")
     port = int(os.environ.get("AGENTIXD_PORT", "7320"))
+
     if cfg_path.exists():
         try:
             cfg = load_daemon_config(cfg_path)
+            use_uds = cfg.use_uds
+            socket_path = cfg.socket_path
             host = cfg.host
             port = cfg.port
         except Exception:
             pass
 
-    log.info("starting agentixd", host=host, port=port, version=agentixd.__version__)
-    uvicorn.run(
-        "agentixd.main:app",
-        host=host,
-        port=port,
-        log_level="info",
-        access_log=True,
-    )
+    if use_uds:
+        socket_path.parent.mkdir(parents=True, exist_ok=True)
+        # Remove stale socket from a previous run
+        if socket_path.exists():
+            socket_path.unlink()
+        log.info("starting agentixd", transport="uds", socket=str(socket_path), version=agentixd.__version__)
+        uvicorn.run(
+            "agentixd.main:app",
+            uds=str(socket_path),
+            log_level="info",
+            access_log=True,
+        )
+        # Clean up socket file on exit
+        if socket_path.exists():
+            socket_path.unlink()
+    else:
+        log.info("starting agentixd", transport="tcp", host=host, port=port, version=agentixd.__version__)
+        uvicorn.run(
+            "agentixd.main:app",
+            host=host,
+            port=port,
+            log_level="info",
+            access_log=True,
+        )

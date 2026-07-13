@@ -128,6 +128,17 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
     tool_registry = ToolRegistry()
     register_kernel_tools(tool_registry)
 
+    # 5b. Plugin packages — each exposes register(state, tool_registry)
+    if cfg.plugin_packages:
+        import importlib
+        for pkg in cfg.plugin_packages:
+            try:
+                mod = importlib.import_module(f"{pkg}.plugin")
+                mod.register(state, tool_registry)
+                log.info("plugin loaded", package=pkg)
+            except Exception as exc:
+                log.error("plugin load failed", package=pkg, error=str(exc))
+
     # 6. Dispatcher — session-scoped context factory closed over live stores
     def _ctx_factory(turn: Any) -> Any:
         from agentix.tools.base import ToolContext
