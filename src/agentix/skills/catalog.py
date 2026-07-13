@@ -49,7 +49,7 @@ class SkillBundle:
         """Project this bundle into an A2A v1.0 ``AgentSkill``."""
         from agentix.a2a.card import AgentSkill
 
-        return AgentSkill(
+        return AgentSkill(  # type: ignore[call-arg]
             id=self.id or self.name,
             name=self.name,
             description=self.description,

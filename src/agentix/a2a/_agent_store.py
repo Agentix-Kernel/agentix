@@ -21,7 +21,7 @@ def load_agents(agents_file: Path) -> list[dict[str, Any]]:
     if not agents_file.exists():
         return []
     try:
-        return json.loads(agents_file.read_text())
+        return list(json.loads(agents_file.read_text()))  # type: ignore[no-any-return]
     except (json.JSONDecodeError, OSError):
         return []
 

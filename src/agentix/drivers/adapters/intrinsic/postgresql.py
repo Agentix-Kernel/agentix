@@ -77,7 +77,7 @@ class PostgresRelationalDriver:
 
     async def connect(self) -> None:
         try:
-            import asyncpg
+            import asyncpg  # type: ignore[import-untyped]
         except ImportError as exc:
             raise DriverInvalidRequest(
                 "Install agentix[postgresql] to use the PostgreSQL driver",

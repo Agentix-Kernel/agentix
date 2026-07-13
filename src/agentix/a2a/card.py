@@ -68,7 +68,7 @@ class AgentCard(BaseModel):
 
     # A2A v1.0 optional
     provider: dict[str, str] | None = None
-    capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)
+    capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)  # type: ignore[arg-type]
     default_input_modes: list[str] = Field(default_factory=lambda: ["application/json"], alias="defaultInputModes")
     default_output_modes: list[str] = Field(default_factory=lambda: ["application/json"], alias="defaultOutputModes")
     skills: list[AgentSkill] = Field(default_factory=list)
