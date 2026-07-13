@@ -1,0 +1,166 @@
+"""Kernel singleton — builds and holds all long-lived kernel components.
+
+The daemon owns one KernelState for its lifetime. Every route reads from
+app.state.kernel rather than re-constructing components per request.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import structlog
+
+from agentixd._config import DaemonConfig
+
+log = structlog.get_logger(__name__)
+
+
+@dataclass
+class KernelState:
+    """All live kernel components for one daemon process."""
+
+    sqlite: Any = None        # SqliteStore
+    minio: Any = None         # MinioStore | None (None → local-fs checkpoints)
+    memory: Any = None        # MemoryStore
+    registry: Any = None      # DriverRegistry
+    engine: Any = None        # Engine
+    ready: bool = False
+    error: str | None = None  # startup error message (if not ready)
+    _cfg: DaemonConfig | None = None
+    _active_sessions: dict[str, Any] = field(default_factory=dict)  # id → Session (in-memory)
+
+
+async def build_kernel(cfg: DaemonConfig) -> KernelState:
+    """Initialize all kernel components from DaemonConfig.
+
+    Gracefully degrades: if the chat driver is missing or MinIO is absent,
+    the state is returned with ready=False so admin/scaffold routes still work
+    while session execution returns 503.
+    """
+    from agentix.config import KernelConfig
+    from agentix.core.agent_dispatcher import AgentDispatcher
+    from agentix.core.engine import Engine
+    from agentix.drivers.factory import DriverSpec, build_drivers
+    from agentix.storage import MemoryStore, MinioConfig, MinioStore, SqliteStore
+    from agentix.tools.builtin import register_kernel_tools
+    from agentix.tools.registry import ToolRegistry
+    from agentix.tools.safety import SafetyGate
+
+    state = KernelState(_cfg=cfg)
+
+    # 1. SQLite — always required
+    cfg.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    state.sqlite = SqliteStore(cfg.sqlite_path)
+    await state.sqlite.initialize()
+    log.info("sqlite initialized", path=str(cfg.sqlite_path))
+
+    # 2. Memory store
+    cfg.memory_path.mkdir(parents=True, exist_ok=True)
+    state.memory = MemoryStore(cfg.memory_path)
+
+    # 3. MinIO or local-fs fallback for checkpoints
+    if cfg.has_minio:
+        minio_cfg = MinioConfig(
+            endpoint=cfg.minio_endpoint,  # type: ignore[arg-type]
+            access_key=cfg.minio_access_key,  # type: ignore[arg-type]
+            secret_key=cfg.minio_secret_key,  # type: ignore[arg-type]
+            bucket=cfg.minio_bucket,
+        )
+        state.minio = MinioStore(minio_cfg)
+        await state.minio.ensure_bucket()
+        log.info("minio connected", endpoint=cfg.minio_endpoint, bucket=cfg.minio_bucket)
+    else:
+        # Use local-fs object store so checkpoints still work without MinIO
+        from agentix.drivers.adapters.intrinsic.local_fs_object import LocalFsObjectStoreDriver
+        checkpoint_path = cfg.memory_path / "checkpoints"
+        checkpoint_path.mkdir(parents=True, exist_ok=True)
+        state.minio = MinioStore(driver=LocalFsObjectStoreDriver(checkpoint_path))
+        log.info("minio not configured — using local-fs checkpoints", path=str(checkpoint_path))
+
+    # 4. Build driver registry from declared specs
+    if not cfg.has_drivers:
+        state.error = "no drivers declared in config — session execution disabled"
+        log.warning(state.error)
+        return state
+
+    # Build a minimal KernelConfig the driver factory understands.
+    # minio_placeholder is never used by the factory (we pass sqlite directly).
+    minio_placeholder = MinioConfig(
+        endpoint=cfg.minio_endpoint or "local",
+        access_key=cfg.minio_access_key or "",
+        secret_key=cfg.minio_secret_key or "",
+        bucket=cfg.minio_bucket,
+    )
+    driver_specs = tuple(
+        DriverSpec(
+            name=d.get("name", d.get("driver", "")),
+            driver=d.get("driver", ""),
+            type=d.get("type", "model"),
+            modality=d.get("modality", "chat"),
+            model=d.get("model"),
+            base_url=d.get("base_url"),
+            api_key_env=d.get("api_key_env"),
+            default=bool(d.get("default", False)),
+            options=dict(d.get("options", {})),
+        )
+        for d in cfg.driver_specs
+        if d.get("driver")
+    )
+    kernel_cfg = KernelConfig(
+        config_path=cfg.config_path,
+        minio=minio_placeholder,
+        sqlite_path=cfg.sqlite_path,
+        memory_path=cfg.memory_path,
+        budget_usd=cfg.budget_usd,
+        drivers=driver_specs,
+    )
+
+    try:
+        state.registry = build_drivers(kernel_cfg, sqlite=state.sqlite)
+        log.info("driver registry built", drivers=[d.descriptor.name for d in state.registry.all_drivers()])
+    except Exception as exc:
+        state.error = f"driver build failed: {exc}"
+        log.error(state.error)
+        return state
+
+    # 5. Tool registry with kernel builtins
+    tool_registry = ToolRegistry()
+    register_kernel_tools(tool_registry)
+
+    # 6. Dispatcher — session-scoped context factory closed over live stores
+    def _ctx_factory(turn: Any) -> Any:
+        from agentix.tools.base import ToolContext
+        # Retrieve the live session from the in-memory map
+        session = state._active_sessions.get(turn.session_id)
+        return ToolContext(
+            session=session,
+            sqlite=state.sqlite,
+            minio=state.minio,
+            memory=state.memory,
+        )
+
+    dispatcher = AgentDispatcher(
+        driver=state.registry.chat(),
+        registry=tool_registry,
+        safety_gate=SafetyGate(sqlite=state.sqlite),
+        ctx_factory=_ctx_factory,
+    )
+
+    # 7. Engine with empty middleware chain (daemon apps add middleware via seams)
+    state.engine = Engine(
+        sqlite=state.sqlite,
+        minio=state.minio,
+        middlewares=[],
+        dispatcher=dispatcher,
+    )
+    state.ready = True
+    log.info("kernel ready")
+    return state
+
+
+async def teardown_kernel(state: KernelState) -> None:
+    """Gracefully shut down all kernel components."""
+    if state.registry is not None:
+        await state.registry.aclose_all()
+        log.info("driver registry closed")
