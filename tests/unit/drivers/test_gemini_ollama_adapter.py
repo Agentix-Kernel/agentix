@@ -11,10 +11,10 @@ from __future__ import annotations
 import json
 
 import pytest
-from agentix.drivers.adapters.ollama import OllamaChatDriver
 
 from agentix.core.types import Message
 from agentix.drivers.adapters.vendor.gemini import GeminiChatDriver
+from agentix.drivers.adapters.vendor.ollama import OllamaChatDriver
 from agentix.drivers.base import DriverInvalidRequest
 from agentix.drivers.chat import ChatRequest, ToolSpec
 from tests.unit.drivers.test_openai_groq_adapter import (
