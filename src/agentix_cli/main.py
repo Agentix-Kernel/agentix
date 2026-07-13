@@ -10,7 +10,7 @@ from rich.console import Console
 import agentix_cli
 from agentix_cli._config import load_config
 from agentix_cli._output import make_table, print_kv, print_table, warn
-from agentix_cli.commands import agent, config_cmd, context, driver, memory, session, skill, tool
+from agentix_cli.commands import agent, config_cmd, context, daemon, driver, memory, scaffold, session, skill, tool
 
 app = typer.Typer(
     name="agentix",
@@ -20,7 +20,7 @@ app = typer.Typer(
 )
 
 # Register subcommand groups
-app.add_typer(driver.app,     name="driver",  help="Manage drivers (list, show, install, uninstall).")
+app.add_typer(driver.app,     name="driver",   help="Manage drivers (list, show, install, uninstall).")
 app.add_typer(session.app,    name="session",  help="Inspect sessions stored in the SQLite kernel database.")
 app.add_typer(tool.app,       name="tool",     help="List and inspect registered tools.")
 app.add_typer(skill.app,      name="skill",    help="List and inspect skills from the catalog.")
@@ -28,6 +28,8 @@ app.add_typer(memory.app,     name="memory",   help="Inspect memory pages and wo
 app.add_typer(context.app,    name="context",  help="Show context window usage for a session.")
 app.add_typer(agent.app,      name="agent",    help="Manage A2A agent cards (list, register, unregister).")
 app.add_typer(config_cmd.app, name="config",   help="Show and validate the Agentix configuration.")
+app.add_typer(scaffold.app,   name="scaffold", help="Generate driver stubs and agent app skeletons.")
+app.add_typer(daemon.app,     name="daemon",   help="Manage the agentixd system service.")
 
 _console = Console()
 
