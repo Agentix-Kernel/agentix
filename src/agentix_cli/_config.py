@@ -90,7 +90,9 @@ def load_config(path: Path | None = None) -> CliConfig:
     )
 
 
-def save_config(cfg: CliConfig, *, driver_to_add: CliDriverSpec | None = None, driver_name_to_remove: str | None = None) -> dict[str, Any]:
+def save_config(
+    cfg: CliConfig, *, driver_to_add: CliDriverSpec | None = None, driver_name_to_remove: str | None = None
+) -> dict[str, Any]:
     """Return updated raw config dict (caller writes to disk)."""
     try:
         import yaml  # type: ignore[import-untyped]
@@ -105,7 +107,12 @@ def save_config(cfg: CliConfig, *, driver_to_add: CliDriverSpec | None = None, d
         drivers = raw.get("drivers", [])
         # Replace if name exists, else append
         drivers = [d for d in drivers if d.get("name") != driver_to_add.name]
-        entry: dict[str, Any] = {"name": driver_to_add.name, "driver": driver_to_add.driver, "type": driver_to_add.type, "modality": driver_to_add.modality}
+        entry: dict[str, Any] = {
+            "name": driver_to_add.name,
+            "driver": driver_to_add.driver,
+            "type": driver_to_add.type,
+            "modality": driver_to_add.modality,
+        }
         if driver_to_add.model:
             entry["model"] = driver_to_add.model
         if driver_to_add.base_url:

@@ -25,7 +25,9 @@ async def _query(db_path: Path, sql: str, params: tuple = ()) -> list[dict]:
 
 @app.command("show")
 def context_show(
-    session_id: str | None = typer.Option(None, "--session", "-s", help="Session ID (or prefix). Defaults to the most recent session."),
+    session_id: str | None = typer.Option(
+        None, "--session", "-s", help="Session ID (or prefix). Defaults to the most recent session."
+    ),
     config_path: Path | None = typer.Option(None, "--config"),
 ) -> None:
     """Show context window usage — token budget breakdown per turn."""
@@ -47,7 +49,13 @@ def context_show(
         raise typer.Exit(1)
 
     s = sessions[0]
-    turns = asyncio.run(_query(db, "SELECT turn_index, role, tool_name, input_tokens, output_tokens, cost_usd, latency_ms, created_at FROM turns WHERE session_id = ? ORDER BY turn_index", (s["id"],)))
+    turns = asyncio.run(
+        _query(
+            db,
+            "SELECT turn_index, role, tool_name, input_tokens, output_tokens, cost_usd, latency_ms, created_at FROM turns WHERE session_id = ? ORDER BY turn_index",
+            (s["id"],),
+        )
+    )
 
     total_in = sum(t["input_tokens"] for t in turns)
     total_out = sum(t["output_tokens"] for t in turns)
@@ -76,5 +84,13 @@ def context_show(
         for tr in turns:
             cumul_in += tr["input_tokens"]
             cumul_out += tr["output_tokens"]
-            t.add_row(str(tr["turn_index"]), tr["role"], tr["tool_name"] or "—", str(tr["input_tokens"]), str(tr["output_tokens"]), f"{cumul_in:,}", f"{cumul_out:,}")
+            t.add_row(
+                str(tr["turn_index"]),
+                tr["role"],
+                tr["tool_name"] or "—",
+                str(tr["input_tokens"]),
+                str(tr["output_tokens"]),
+                f"{cumul_in:,}",
+                f"{cumul_out:,}",
+            )
         print_table(t)

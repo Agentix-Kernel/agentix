@@ -30,6 +30,7 @@ async def _sdk_list() -> list[dict[str, Any]] | None:
         return None
     try:
         from agentix_sdk import AgentixClient
+
         async with AgentixClient() as c:
             cards = await c.list_agents()
             return [card.model_dump() for card in cards]
@@ -42,6 +43,7 @@ async def _sdk_register(card_data: dict[str, Any], dry_run: bool) -> dict[str, A
         return None
     try:
         from agentix_sdk import AgentixClient
+
         async with AgentixClient() as c:
             return await c.register_agent(card_data, dry_run=dry_run)
     except Exception:
@@ -53,6 +55,7 @@ async def _sdk_unregister(name: str, dry_run: bool) -> dict[str, Any] | None:
         return None
     try:
         from agentix_sdk import AgentixClient
+
         async with AgentixClient() as c:
             return await c.unregister_agent(name, dry_run=dry_run)
     except Exception:
@@ -99,10 +102,14 @@ def agent_register(
     """Register a new A2A agent card."""
     from agentix.a2a.card import AgentCard, AgentSkill
 
-    skills_list = [AgentSkill(id=c.strip(), name=c.strip()) for c in capabilities.split(",") if c.strip()] if capabilities else []
+    skills_list = (
+        [AgentSkill(id=c.strip(), name=c.strip()) for c in capabilities.split(",") if c.strip()] if capabilities else []
+    )
 
     try:
-        card = AgentCard(name=name, description=description, version=version, activatable=activatable, skills=skills_list)
+        card = AgentCard(
+            name=name, description=description, version=version, activatable=activatable, skills=skills_list
+        )
     except Exception as exc:
         error(f"Invalid agent card: {exc}")
         raise typer.Exit(1) from None

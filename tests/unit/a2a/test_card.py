@@ -10,6 +10,7 @@ from agentix.a2a import AgentCapabilities, AgentCard, AgentSkill
 
 # ── AgentCard construction ────────────────────────────────────────────────────
 
+
 def test_card_construction_and_skill_lookups() -> None:
     card = AgentCard(
         name="concierge",
@@ -83,6 +84,7 @@ def test_extra_fields_forbidden() -> None:
 
 # ── to_a2a_json camelCase round-trip ─────────────────────────────────────────
 
+
 def test_to_a2a_json_camel_case() -> None:
     card = AgentCard(
         name="bot",
@@ -127,6 +129,7 @@ def test_to_a2a_json_round_trip() -> None:
 
 
 # ── AgentCapabilities ─────────────────────────────────────────────────────────
+
 
 def test_agent_capabilities_defaults() -> None:
     caps = AgentCapabilities()

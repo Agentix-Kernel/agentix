@@ -34,6 +34,7 @@ def _call(ctx, name: str):
 
 # ── single root ───────────────────────────────────────────────────────────────
 
+
 def test_reads_skill_md_single_root(tmp_path: Path) -> None:
     _skill_md(tmp_path, "extract", body="# Extract")
     result = _call(_ctx(str(tmp_path)), "extract")
@@ -49,6 +50,7 @@ def test_unknown_skill_raises(tmp_path: Path) -> None:
 
 
 # ── multi-root ────────────────────────────────────────────────────────────────
+
 
 def test_consult_skill_across_roots(tmp_path: Path) -> None:
     root_a = tmp_path / "a"

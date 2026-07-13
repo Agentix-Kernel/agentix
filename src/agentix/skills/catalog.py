@@ -142,8 +142,12 @@ class SkillCatalog:
         skill_id = str(meta.get("id") or name)
         tags = tuple(str(t) for t in meta.get("tags", [])) if isinstance(meta.get("tags"), list) else ()
         examples = tuple(str(e) for e in meta.get("examples", [])) if isinstance(meta.get("examples"), list) else ()
-        input_modes = tuple(str(m) for m in meta.get("input_modes", [])) if isinstance(meta.get("input_modes"), list) else ()
-        output_modes = tuple(str(m) for m in meta.get("output_modes", [])) if isinstance(meta.get("output_modes"), list) else ()
+        input_modes = (
+            tuple(str(m) for m in meta.get("input_modes", [])) if isinstance(meta.get("input_modes"), list) else ()
+        )
+        output_modes = (
+            tuple(str(m) for m in meta.get("output_modes", [])) if isinstance(meta.get("output_modes"), list) else ()
+        )
 
         return SkillBundle(
             name=name,

@@ -41,6 +41,7 @@ def memory_list(
         rel = p.relative_to(mem_path)
         size = f"{stat.st_size:,} B"
         import datetime
+
         mtime = datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
         t.add_row(str(rel), size, mtime)
     print_table(t)
@@ -49,7 +50,9 @@ def memory_list(
 
 @app.command("show")
 def memory_show(
-    page: str | None = typer.Argument(None, help="Page filename (e.g. 'customer-acme.md'). Shows all pages if omitted."),
+    page: str | None = typer.Argument(
+        None, help="Page filename (e.g. 'customer-acme.md'). Shows all pages if omitted."
+    ),
     config_path: Path | None = typer.Option(None, "--config"),
 ) -> None:
     """Show content of a memory page (or list sections if no page given)."""
@@ -75,6 +78,7 @@ def memory_show(
             typer.echo("No memory pages found.")
             return
         import re
+
         _H2 = re.compile(r"^##\s+(.+)$", re.MULTILINE)
         for p in pages:
             rel = p.relative_to(mem_path)

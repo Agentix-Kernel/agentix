@@ -18,24 +18,36 @@ app = typer.Typer(help="Manage drivers (list, show, install, uninstall).")
 
 _DRIVER_META: dict[str, dict[str, str]] = {
     # vendor — require opt-in extra
-    "anthropic":          {"type": "model",   "modality": "chat",       "source": "api",     "extra": "anthropic", "sdk": "anthropic"},
-    "openai":             {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "gemini":             {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "groq":               {"type": "model",   "modality": "chat",       "source": "api",     "extra": "groq",      "sdk": "groq"},
-    "ollama":             {"type": "model",   "modality": "chat",       "source": "local",   "extra": "openai",    "sdk": "openai"},
-    "grok":               {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "nvidia":             {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "melious":            {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "openai-embedding":   {"type": "model",   "modality": "embedding",  "source": "api",     "extra": "openai",    "sdk": "openai"},
+    "anthropic": {"type": "model", "modality": "chat", "source": "api", "extra": "anthropic", "sdk": "anthropic"},
+    "openai": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "gemini": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "groq": {"type": "model", "modality": "chat", "source": "api", "extra": "groq", "sdk": "groq"},
+    "ollama": {"type": "model", "modality": "chat", "source": "local", "extra": "openai", "sdk": "openai"},
+    "grok": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "nvidia": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "melious": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "openai-embedding": {"type": "model", "modality": "embedding", "source": "api", "extra": "openai", "sdk": "openai"},
     # intrinsic — ship with kernel
-    "huble":              {"type": "model",   "modality": "chat",       "source": "gateway", "extra": "",          "sdk": ""},
-    "huble-embedding":    {"type": "model",   "modality": "embedding",  "source": "gateway", "extra": "",          "sdk": ""},
-    "hf-stt":             {"type": "model",   "modality": "stt",        "source": "api",     "extra": "hf",        "sdk": "huggingface_hub"},
-    "minio-object-store": {"type": "storage", "modality": "object",     "source": "local",   "extra": "minio",     "sdk": "minio"},
-    "postgresql-relational": {"type": "storage", "modality": "relational", "source": "local", "extra": "postgresql", "sdk": "asyncpg"},
-    "local-object-store": {"type": "storage", "modality": "object",     "source": "local",   "extra": "",          "sdk": ""},
-    "sqlite-relational":  {"type": "storage", "modality": "relational", "source": "local",   "extra": "",          "sdk": ""},
-    "local-file-store":   {"type": "storage", "modality": "file",       "source": "local",   "extra": "",          "sdk": ""},
+    "huble": {"type": "model", "modality": "chat", "source": "gateway", "extra": "", "sdk": ""},
+    "huble-embedding": {"type": "model", "modality": "embedding", "source": "gateway", "extra": "", "sdk": ""},
+    "hf-stt": {"type": "model", "modality": "stt", "source": "api", "extra": "hf", "sdk": "huggingface_hub"},
+    "minio-object-store": {
+        "type": "storage",
+        "modality": "object",
+        "source": "local",
+        "extra": "minio",
+        "sdk": "minio",
+    },
+    "postgresql-relational": {
+        "type": "storage",
+        "modality": "relational",
+        "source": "local",
+        "extra": "postgresql",
+        "sdk": "asyncpg",
+    },
+    "local-object-store": {"type": "storage", "modality": "object", "source": "local", "extra": "", "sdk": ""},
+    "sqlite-relational": {"type": "storage", "modality": "relational", "source": "local", "extra": "", "sdk": ""},
+    "local-file-store": {"type": "storage", "modality": "file", "source": "local", "extra": "", "sdk": ""},
 }
 
 _VENDOR_KEYS = {k for k, v in _DRIVER_META.items() if v["extra"] in ("anthropic", "openai", "groq")}
@@ -81,6 +93,7 @@ def driver_show(key: str = typer.Argument(..., help="Driver key (e.g. anthropic,
     meta = _DRIVER_META[key]
     sdk = meta["sdk"]
     from agentix_cli._output import print_kv
+
     print_kv(
         [
             ("Key", key),

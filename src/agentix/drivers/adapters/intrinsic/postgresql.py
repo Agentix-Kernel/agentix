@@ -51,15 +51,11 @@ class PostgresRelationalDriver:
         max_size: int = 10,
     ) -> None:
         resolved = (
-            dsn
-            or (spec.base_url if spec else None)
-            or os.environ.get("POSTGRES_DSN")
-            or os.environ.get("DATABASE_URL")
+            dsn or (spec.base_url if spec else None) or os.environ.get("POSTGRES_DSN") or os.environ.get("DATABASE_URL")
         )
         if not resolved:
             raise DriverInvalidRequest(
-                "PostgresRelationalDriver needs a DSN: pass dsn=, set spec.base_url, "
-                "POSTGRES_DSN, or DATABASE_URL",
+                "PostgresRelationalDriver needs a DSN: pass dsn=, set spec.base_url, POSTGRES_DSN, or DATABASE_URL",
                 driver=name,
             )
         self._dsn = resolved
@@ -110,8 +106,14 @@ class PostgresRelationalDriver:
         t = type(exc).__name__
         if t in ("TooManyConnectionsError", "ConnectionDoesNotExistError", "CannotConnectNowError"):
             return DriverUnavailable(msg, driver=self._name)
-        if t in ("UniqueViolationError", "ForeignKeyViolationError", "NotNullViolationError",
-                 "PostgresSyntaxError", "UndefinedTableError", "UndefinedColumnError"):
+        if t in (
+            "UniqueViolationError",
+            "ForeignKeyViolationError",
+            "NotNullViolationError",
+            "PostgresSyntaxError",
+            "UndefinedTableError",
+            "UndefinedColumnError",
+        ):
             return DriverInvalidRequest(msg, driver=self._name)
         return DriverUnavailable(msg, driver=self._name)
 

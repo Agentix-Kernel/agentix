@@ -23,6 +23,7 @@ def _unit_file() -> Path:
 def _agentixd_bin() -> str:
     """Find the agentixd binary next to the running Python."""
     import sys
+
     candidate = Path(sys.executable).parent / "agentixd"
     if candidate.exists():
         return str(candidate)

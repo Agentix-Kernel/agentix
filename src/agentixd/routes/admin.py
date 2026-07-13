@@ -19,23 +19,35 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 # ── Driver metadata (mirrors CLI catalogue) ───────────────────────────────────
 
 _DRIVER_META: dict[str, dict[str, str]] = {
-    "anthropic":             {"type": "model",   "modality": "chat",       "source": "api",     "extra": "anthropic", "sdk": "anthropic"},
-    "openai":                {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "gemini":                {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "groq":                  {"type": "model",   "modality": "chat",       "source": "api",     "extra": "groq",      "sdk": "groq"},
-    "ollama":                {"type": "model",   "modality": "chat",       "source": "local",   "extra": "openai",    "sdk": "openai"},
-    "grok":                  {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "nvidia":                {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "melious":               {"type": "model",   "modality": "chat",       "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "openai-embedding":      {"type": "model",   "modality": "embedding",  "source": "api",     "extra": "openai",    "sdk": "openai"},
-    "huble":                 {"type": "model",   "modality": "chat",       "source": "gateway", "extra": "",          "sdk": ""},
-    "huble-embedding":       {"type": "model",   "modality": "embedding",  "source": "gateway", "extra": "",          "sdk": ""},
-    "hf-stt":                {"type": "model",   "modality": "stt",        "source": "api",     "extra": "hf",        "sdk": "huggingface_hub"},
-    "minio-object-store":    {"type": "storage", "modality": "object",     "source": "local",   "extra": "minio",     "sdk": "minio"},
-    "postgresql-relational": {"type": "storage", "modality": "relational", "source": "local",   "extra": "postgresql","sdk": "asyncpg"},
-    "local-object-store":    {"type": "storage", "modality": "object",     "source": "local",   "extra": "",          "sdk": ""},
-    "sqlite-relational":     {"type": "storage", "modality": "relational", "source": "local",   "extra": "",          "sdk": ""},
-    "local-file-store":      {"type": "storage", "modality": "file",       "source": "local",   "extra": "",          "sdk": ""},
+    "anthropic": {"type": "model", "modality": "chat", "source": "api", "extra": "anthropic", "sdk": "anthropic"},
+    "openai": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "gemini": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "groq": {"type": "model", "modality": "chat", "source": "api", "extra": "groq", "sdk": "groq"},
+    "ollama": {"type": "model", "modality": "chat", "source": "local", "extra": "openai", "sdk": "openai"},
+    "grok": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "nvidia": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "melious": {"type": "model", "modality": "chat", "source": "api", "extra": "openai", "sdk": "openai"},
+    "openai-embedding": {"type": "model", "modality": "embedding", "source": "api", "extra": "openai", "sdk": "openai"},
+    "huble": {"type": "model", "modality": "chat", "source": "gateway", "extra": "", "sdk": ""},
+    "huble-embedding": {"type": "model", "modality": "embedding", "source": "gateway", "extra": "", "sdk": ""},
+    "hf-stt": {"type": "model", "modality": "stt", "source": "api", "extra": "hf", "sdk": "huggingface_hub"},
+    "minio-object-store": {
+        "type": "storage",
+        "modality": "object",
+        "source": "local",
+        "extra": "minio",
+        "sdk": "minio",
+    },
+    "postgresql-relational": {
+        "type": "storage",
+        "modality": "relational",
+        "source": "local",
+        "extra": "postgresql",
+        "sdk": "asyncpg",
+    },
+    "local-object-store": {"type": "storage", "modality": "object", "source": "local", "extra": "", "sdk": ""},
+    "sqlite-relational": {"type": "storage", "modality": "relational", "source": "local", "extra": "", "sdk": ""},
+    "local-file-store": {"type": "storage", "modality": "file", "source": "local", "extra": "", "sdk": ""},
 }
 
 
@@ -70,11 +82,13 @@ def _driver_info(key: str) -> dict[str, Any]:
 
 def _load_config_raw(cfg_path: Path) -> dict[str, Any]:
     import yaml  # type: ignore[import-untyped]
+
     return yaml.safe_load(cfg_path.read_text()) or {} if cfg_path.exists() else {}
 
 
 def _save_config_raw(raw: dict[str, Any], cfg_path: Path) -> None:
     import yaml  # type: ignore[import-untyped]
+
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text(yaml.dump(raw, default_flow_style=False, sort_keys=False))
 
@@ -87,6 +101,7 @@ def _agents_file(cfg_path: Path) -> Path:
 
 
 # ── Driver endpoints ──────────────────────────────────────────────────────────
+
 
 @router.get("/drivers")
 async def list_drivers() -> list[dict[str, Any]]:
@@ -131,8 +146,10 @@ async def install_driver(body: InstallDriverRequest, request: Request) -> dict[s
         actions.append(f"SDK {sdk!r} already installed — skipping pip")
 
     entry: dict[str, Any] = {
-        "name": spec_name, "driver": body.key,
-        "type": meta["type"], "modality": meta["modality"],
+        "name": spec_name,
+        "driver": body.key,
+        "type": meta["type"],
+        "modality": meta["modality"],
     }
     if body.model:
         entry["model"] = body.model
@@ -150,7 +167,8 @@ async def install_driver(body: InstallDriverRequest, request: Request) -> dict[s
         result = await asyncio.to_thread(
             subprocess.run,
             [sys.executable, "-m", "pip", "install", f"agentix[{extra}]"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"pip install failed: {result.stderr}")
@@ -192,6 +210,7 @@ async def uninstall_driver(
 
 # ── Agent endpoints ───────────────────────────────────────────────────────────
 
+
 @router.get("/agents")
 async def list_agents(request: Request) -> list[dict[str, Any]]:
     """List registered A2A agent cards."""
@@ -227,9 +246,12 @@ async def register_agent(body: RegisterAgentRequest, request: Request) -> dict[s
     try:
         skill_list = [AgentSkill(**s) for s in body.skills]
         card = AgentCard(
-            name=body.name, description=body.description,
-            version=body.version, activatable=body.activatable,
-            skills=skill_list, tools=body.tools,
+            name=body.name,
+            description=body.description,
+            version=body.version,
+            activatable=body.activatable,
+            skills=skill_list,
+            tools=body.tools,
         )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -270,6 +292,7 @@ async def unregister_agent(
 
 
 # ── Config endpoints ──────────────────────────────────────────────────────────
+
 
 @router.get("/config")
 async def show_config(request: Request) -> dict[str, Any]:

@@ -20,11 +20,11 @@ log = structlog.get_logger(__name__)
 class KernelState:
     """All live kernel components for one daemon process."""
 
-    sqlite: Any = None        # SqliteStore
-    minio: Any = None         # MinioStore | None (None → local-fs checkpoints)
-    memory: Any = None        # MemoryStore
-    registry: Any = None      # DriverRegistry
-    engine: Any = None        # Engine
+    sqlite: Any = None  # SqliteStore
+    minio: Any = None  # MinioStore | None (None → local-fs checkpoints)
+    memory: Any = None  # MemoryStore
+    registry: Any = None  # DriverRegistry
+    engine: Any = None  # Engine
     ready: bool = False
     error: str | None = None  # startup error message (if not ready)
     _cfg: DaemonConfig | None = None
@@ -79,6 +79,7 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
     else:
         # Use local-fs object store so checkpoints still work without MinIO
         from agentix.drivers.adapters.intrinsic.local_fs_object import LocalObjectStoreDriver
+
         checkpoint_path = cfg.memory_path / "checkpoints"
         checkpoint_path.mkdir(parents=True, exist_ok=True)
         state.minio = MinioStore(driver=LocalObjectStoreDriver(checkpoint_path))
@@ -139,6 +140,7 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
     plugin_skills_roots: list[str] = []
     if cfg.plugin_packages:
         import importlib
+
         for pkg in cfg.plugin_packages:
             try:
                 mod = importlib.import_module(f"{pkg}.plugin")
@@ -155,6 +157,7 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
 
     def _ctx_factory(turn: Any) -> Any:
         from agentix.tools.base import ToolContext
+
         session = state._active_sessions.get(turn.session_id)
         extras = state._session_extras.get(turn.session_id if turn else "", {})
         # Fallback embedding from registry when the hook didn't supply one.
