@@ -28,11 +28,17 @@ anthropic  = ["anthropic>=0.40"]
 openai     = ["openai>=1.55"]
 groq       = ["groq>=0.13"]
 
+# CLI operational tooling
+cli = ["typer>=0.12", "rich>=13", "aiosqlite>=0.20"]
+
 # Convenience bundles
 broker        = ["nats-py>=2.6"]
 all-intrinsic = ["agentix[minio,hf,postgresql]"]
 all-vendors   = ["agentix[anthropic,openai,groq]"]
-all           = ["agentix[all-intrinsic,all-vendors,broker]"]
+all           = ["agentix[all-intrinsic,all-vendors,broker,cli]"]
+
+[project.scripts]
+agentix = "agentix_cli.main:app"
 
 [project.urls]
 Repository = "https://github.com/euroblaze/agentix"
@@ -47,7 +53,7 @@ build-backend = "hatchling.build"
 # (scripts/gen_shared.py), consumed by consumers VENDORING them, never via this
 # wheel. The kernel owns its own event vocabulary (agentix.event_types /
 # agentix.events), drift-guarded against contracts/session-event.schema.json.
-packages = ["src/agentix"]
+packages = ["src/agentix", "src/agentix_cli"]
 
 [dependency-groups]
 dev = [
@@ -77,6 +83,8 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "ASYNC240"]
+# typer's design requires calling typer.Option/Argument in function defaults (B008)
+"src/agentix_cli/**/*.py" = ["B008"]
 # Spike-harness primitives deliberately use blocking pathlib + simple try/except.
 "src/agentix/tools/spike/apply_patch.py" = ["ASYNC240"]
 "src/agentix/tools/spike/run_command.py" = ["SIM105"]
