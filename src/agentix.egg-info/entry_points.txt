@@ -1,3 +1,0 @@
-[console_scripts]
-agentix = agentix_cli.main:app
-agentixd = agentixd.main:run
