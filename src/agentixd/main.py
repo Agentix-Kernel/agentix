@@ -99,16 +99,24 @@ def run() -> None:
 
     if use_uds:
         socket_path.parent.mkdir(parents=True, exist_ok=True)
+        # Restrict socket directory to owner only — prevents other local users from
+        # discovering or connecting to the socket even if they know the path.
+        os.chmod(socket_path.parent, 0o700)
         # Remove stale socket from a previous run
         if socket_path.exists():
             socket_path.unlink()
         log.info("starting agentixd", transport="uds", socket=str(socket_path), version=agentixd.__version__)
-        uvicorn.run(
-            "agentixd.main:app",
-            uds=str(socket_path),
-            log_level="info",
-            access_log=True,
-        )
+        # Set umask so uvicorn creates the socket file with mode 0o600 (owner r/w only).
+        old_umask = os.umask(0o077)
+        try:
+            uvicorn.run(
+                "agentixd.main:app",
+                uds=str(socket_path),
+                log_level="info",
+                access_log=True,
+            )
+        finally:
+            os.umask(old_umask)
         # Clean up socket file on exit
         if socket_path.exists():
             socket_path.unlink()
