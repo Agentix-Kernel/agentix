@@ -21,6 +21,7 @@ def _get_catalog(config_path: Path | None):  # type: ignore[return]
         warn(f"skills_root directory does not exist: {cfg.skills_root}")
         return None
     from agentix.skills.catalog import SkillCatalog
+
     return SkillCatalog(cfg.skills_root)
 
 

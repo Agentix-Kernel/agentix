@@ -55,7 +55,7 @@ class AgentCardInfo(BaseModel):
     name: str
     description: str = ""
     version: str = "0"
-    capabilities: list[dict[str, Any]] = Field(default_factory=list)
+    capabilities: dict[str, Any] = Field(default_factory=dict)
     tools: list[str] = Field(default_factory=list)
     activatable: bool = False
 

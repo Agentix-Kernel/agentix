@@ -60,7 +60,7 @@ class AgentixClient:
             self._uds_path = socket_env
             self._base = "http://agentixd"
         elif base_url and base_url.startswith("unix://"):
-            self._uds_path = base_url[len("unix://"):]
+            self._uds_path = base_url[len("unix://") :]
             self._base = "http://agentixd"
         elif base_url:
             self._base = base_url.rstrip("/")
@@ -77,9 +77,7 @@ class AgentixClient:
     async def __aenter__(self) -> AgentixClient:
         if self._uds_path:
             transport = httpx.AsyncHTTPTransport(uds=self._uds_path)
-            self._http = httpx.AsyncClient(
-                transport=transport, base_url=self._base, timeout=self._timeout
-            )
+            self._http = httpx.AsyncClient(transport=transport, base_url=self._base, timeout=self._timeout)
         else:
             self._http = httpx.AsyncClient(base_url=self._base, timeout=self._timeout)
         return self

@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from agentix.core.types import Message, ToolCall
-from agentix.drivers.adapters.huble import (
+from agentix.drivers.adapters.intrinsic.huble import (
     HubleChatDriver,
     _message_to_huble,
     _parse_huble_response,

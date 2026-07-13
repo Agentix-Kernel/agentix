@@ -18,7 +18,7 @@ from agentix.drivers import (
     SttDriver,
     Transcript,
 )
-from agentix.drivers.adapters.hf import HfSttDriver
+from agentix.drivers.adapters.intrinsic.hf import HfSttDriver
 
 # ───────────────────── helpers ─────────────────────
 
@@ -202,7 +202,7 @@ def test_declared_spec_lands_in_registry_as_stt() -> None:
             pass
 
     with (
-        patch("agentix.drivers.adapters.anthropic.AnthropicChatDriver", _FakeAnthropic),
+        patch("agentix.drivers.adapters.vendor.anthropic.AnthropicChatDriver", _FakeAnthropic),
         patch.dict("os.environ", {"AGENTIX_TEST_HF_TOKEN": "hf-x"}),
     ):
         registry = build_drivers(cfg)

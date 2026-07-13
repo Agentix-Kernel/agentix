@@ -1,39 +1,70 @@
 """agent subcommands — list, register, unregister.
 
 Agent cards (A2A self-descriptions) are stored in ~/.agentix/agents.json.
+When agentixd is running, commands route through its admin API so the daemon
+is the single source of truth. Falls back to direct file access when no
+daemon socket is found.
 """
 
 from __future__ import annotations
 
-import json
+import asyncio
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
+from agentix.a2a import agents_file as _agents_file_for
+from agentix.a2a import load_agents, save_agents
 from agentix_cli._config import load_config
 from agentix_cli._output import dry_run_header, error, make_table, ok, print_kv, print_table, would
 
 app = typer.Typer(help="Manage A2A agent cards (list, register, unregister).")
 
+_DEFAULT_SOCKET = Path.home() / ".agentix" / "agentixd.sock"
+
+
+async def _sdk_list() -> list[dict[str, Any]] | None:
+    """Return agent list from agentixd, or None if daemon not available."""
+    if not _DEFAULT_SOCKET.exists():
+        return None
+    try:
+        from agentix_sdk import AgentixClient
+
+        async with AgentixClient() as c:
+            cards = await c.list_agents()
+            return [card.model_dump() for card in cards]
+    except Exception:
+        return None
+
+
+async def _sdk_register(card_data: dict[str, Any], dry_run: bool) -> dict[str, Any] | None:
+    if not _DEFAULT_SOCKET.exists():
+        return None
+    try:
+        from agentix_sdk import AgentixClient
+
+        async with AgentixClient() as c:
+            return await c.register_agent(card_data, dry_run=dry_run)
+    except Exception:
+        return None
+
+
+async def _sdk_unregister(name: str, dry_run: bool) -> dict[str, Any] | None:
+    if not _DEFAULT_SOCKET.exists():
+        return None
+    try:
+        from agentix_sdk import AgentixClient
+
+        async with AgentixClient() as c:
+            return await c.unregister_agent(name, dry_run=dry_run)
+    except Exception:
+        return None
+
 
 def _agents_file(config_path: Path | None) -> Path:
     cfg = load_config(config_path)
-    return cfg.config_path.parent / "agents.json"
-
-
-def _load_agents(agents_file: Path) -> list[dict]:
-    if not agents_file.exists():
-        return []
-    try:
-        return json.loads(agents_file.read_text())
-    except (json.JSONDecodeError, OSError):
-        return []
-
-
-def _save_agents(agents_file: Path, agents: list[dict]) -> None:
-    agents_file.parent.mkdir(parents=True, exist_ok=True)
-    agents_file.write_text(json.dumps(agents, indent=2))
+    return _agents_file_for(cfg.config_path)
 
 
 @app.command("list")
@@ -41,8 +72,10 @@ def agent_list(
     config_path: Path | None = typer.Option(None, "--config"),
 ) -> None:
     """List registered A2A agent cards."""
-    af = _agents_file(config_path)
-    agents = _load_agents(af)
+    agents = asyncio.run(_sdk_list())
+    if agents is None:
+        af = _agents_file(config_path)
+        agents = load_agents(af)
     if not agents:
         typer.echo("No agents registered. Use 'agentix agent register <name>'.")
         return
@@ -69,26 +102,34 @@ def agent_register(
     """Register a new A2A agent card."""
     from agentix.a2a.card import AgentCard, AgentSkill
 
-    skills_list = [AgentSkill(id=c.strip(), name=c.strip()) for c in capabilities.split(",") if c.strip()] if capabilities else []
+    skills_list = (
+        [AgentSkill(id=c.strip(), name=c.strip()) for c in capabilities.split(",") if c.strip()] if capabilities else []
+    )
 
     try:
-        card = AgentCard(name=name, description=description, version=version, activatable=activatable, skills=skills_list)
+        card = AgentCard(
+            name=name, description=description, version=version, activatable=activatable, skills=skills_list
+        )
     except Exception as exc:
         error(f"Invalid agent card: {exc}")
         raise typer.Exit(1) from None
 
-    af = _agents_file(config_path)
-
     if dry_run:
         dry_run_header()
-        would(f"register agent card {name!r} (v{version}) in {af}")
-        would(f"capabilities: {[c.name for c in caps_list] or '(none)'}")
+        would(f"register agent card {name!r} (v{version})")
+        would(f"capabilities: {[c.name for c in skills_list] or '(none)'}")
         return
 
-    agents = _load_agents(af)
+    result = asyncio.run(_sdk_register(card.model_dump(), dry_run=False))
+    if result is not None:
+        ok(f"Agent {name!r} registered via agentixd")
+        return
+    # fallback: file
+    af = _agents_file(config_path)
+    agents = load_agents(af)
     agents = [a for a in agents if a.get("name") != name]
     agents.append(card.model_dump())
-    _save_agents(af, agents)
+    save_agents(af, agents)
     ok(f"Agent {name!r} registered in {af}")
 
 
@@ -100,20 +141,24 @@ def agent_unregister(
 ) -> None:
     """Remove an A2A agent card."""
     af = _agents_file(config_path)
-    agents = _load_agents(af)
+    agents = load_agents(af)
     match = next((a for a in agents if a.get("name") == name), None)
-
-    if match is None:
-        error(f"Agent {name!r} not found.")
-        raise typer.Exit(1)
 
     if dry_run:
         dry_run_header()
-        would(f"remove agent card {name!r} from {af}")
+        would(f"remove agent card {name!r}")
         return
 
+    result = asyncio.run(_sdk_unregister(name, dry_run=False))
+    if result is not None:
+        ok(f"Agent {name!r} removed via agentixd")
+        return
+    # fallback: file
+    if match is None:
+        error(f"Agent {name!r} not found.")
+        raise typer.Exit(1)
     agents = [a for a in agents if a.get("name") != name]
-    _save_agents(af, agents)
+    save_agents(af, agents)
     ok(f"Agent {name!r} removed from {af}")
 
 
@@ -124,7 +169,7 @@ def agent_show(
 ) -> None:
     """Show details for a registered agent card."""
     af = _agents_file(config_path)
-    agents = _load_agents(af)
+    agents = load_agents(af)
     match = next((a for a in agents if a.get("name") == name), None)
     if match is None:
         error(f"Agent {name!r} not found.")

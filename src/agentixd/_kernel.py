@@ -20,11 +20,11 @@ log = structlog.get_logger(__name__)
 class KernelState:
     """All live kernel components for one daemon process."""
 
-    sqlite: Any = None        # SqliteStore
-    minio: Any = None         # MinioStore | None (None → local-fs checkpoints)
-    memory: Any = None        # MemoryStore
-    registry: Any = None      # DriverRegistry
-    engine: Any = None        # Engine
+    sqlite: Any = None  # SqliteStore
+    minio: Any = None  # MinioStore | None (None → local-fs checkpoints)
+    memory: Any = None  # MemoryStore
+    registry: Any = None  # DriverRegistry
+    engine: Any = None  # Engine
     ready: bool = False
     error: str | None = None  # startup error message (if not ready)
     _cfg: DaemonConfig | None = None
@@ -72,10 +72,11 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
         log.info("minio connected", endpoint=cfg.minio_endpoint, bucket=cfg.minio_bucket)
     else:
         # Use local-fs object store so checkpoints still work without MinIO
-        from agentix.drivers.adapters.intrinsic.local_fs_object import LocalFsObjectStoreDriver
+        from agentix.drivers.adapters.intrinsic.local_fs_object import LocalObjectStoreDriver
+
         checkpoint_path = cfg.memory_path / "checkpoints"
         checkpoint_path.mkdir(parents=True, exist_ok=True)
-        state.minio = MinioStore(driver=LocalFsObjectStoreDriver(checkpoint_path))
+        state.minio = MinioStore(driver=LocalObjectStoreDriver(checkpoint_path))
         log.info("minio not configured — using local-fs checkpoints", path=str(checkpoint_path))
 
     # 4. Build driver registry from declared specs
@@ -102,7 +103,7 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
             base_url=d.get("base_url"),
             api_key_env=d.get("api_key_env"),
             default=bool(d.get("default", False)),
-            options=dict(d.get("options", {})),
+            options=tuple((k, v) for k, v in d.get("options", {}).items()),
         )
         for d in cfg.driver_specs
         if d.get("driver")
@@ -128,20 +129,29 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
     tool_registry = ToolRegistry()
     register_kernel_tools(tool_registry)
 
-    # 5b. Plugin packages — each exposes register(state, tool_registry)
+    # 5b. Plugin packages — each exposes register(state, tool_registry) and
+    #     optionally skills_roots() -> list[str] for ToolContext injection.
+    plugin_skills_roots: list[str] = []
     if cfg.plugin_packages:
         import importlib
+
         for pkg in cfg.plugin_packages:
             try:
                 mod = importlib.import_module(f"{pkg}.plugin")
                 mod.register(state, tool_registry)
+                if callable(getattr(mod, "skills_roots", None)):
+                    plugin_skills_roots.extend(mod.skills_roots())
                 log.info("plugin loaded", package=pkg)
             except Exception as exc:
                 log.error("plugin load failed", package=pkg, error=str(exc))
 
-    # 6. Dispatcher — session-scoped context factory closed over live stores
+    # 6. Dispatcher — session-scoped context factory closed over live stores.
+    #    skills_root carries all plugin skill directories so consult_skill works.
+    _skills_root: str | list[str] = plugin_skills_roots if plugin_skills_roots else "skills"
+
     def _ctx_factory(turn: Any) -> Any:
         from agentix.tools.base import ToolContext
+
         # Retrieve the live session from the in-memory map
         session = state._active_sessions.get(turn.session_id)
         return ToolContext(
@@ -149,6 +159,7 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
             sqlite=state.sqlite,
             minio=state.minio,
             memory=state.memory,
+            skills_root=_skills_root,
         )
 
     dispatcher = AgentDispatcher(

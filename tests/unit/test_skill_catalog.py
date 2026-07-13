@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from agentix.skills.catalog import SkillBundle, SkillCatalog
+from agentix.skills.catalog import SkillCatalog
 
 
 def _skill_md(root: Path, name: str, *, frontmatter: str = "", body: str = "# body") -> None:
@@ -17,6 +15,7 @@ def _skill_md(root: Path, name: str, *, frontmatter: str = "", body: str = "# bo
 
 
 # ── single-root (existing behaviour) ─────────────────────────────────────────
+
 
 def test_single_root_str(tmp_path: Path) -> None:
     _skill_md(tmp_path, "alpha", frontmatter="name: alpha\ndescription: Alpha skill")
@@ -38,6 +37,7 @@ def test_missing_root_returns_empty(tmp_path: Path) -> None:
 
 
 # ── multi-root ────────────────────────────────────────────────────────────────
+
 
 def test_multi_root_merges_bundles(tmp_path: Path) -> None:
     root_a = tmp_path / "a"
@@ -61,6 +61,7 @@ def test_multi_root_first_root_wins_on_clash(tmp_path: Path) -> None:
     _skill_md(root_b, "shared", frontmatter="name: shared\ndescription: from B")
 
     from structlog.testing import capture_logs
+
     with capture_logs() as logs:
         cat = SkillCatalog([root_a, root_b])
         bundles = cat.bundles()
@@ -88,6 +89,7 @@ def test_multi_root_legacy_root_property(tmp_path: Path) -> None:
 
 
 # ── A2A frontmatter parsing ───────────────────────────────────────────────────
+
 
 def test_a2a_frontmatter_parsed(tmp_path: Path) -> None:
     fm = (

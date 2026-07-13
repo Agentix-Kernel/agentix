@@ -51,9 +51,7 @@ class DaemonConfig:
 
 def load_daemon_config(path: Path | None = None) -> DaemonConfig:
     """Load and parse config YAML into DaemonConfig. Raises if file is absent."""
-    resolved = path or Path(
-        os.environ.get("AGENTIXD_CONFIG", os.environ.get("AGENTIX_CONFIG", str(_DEFAULT_CONFIG)))
-    )
+    resolved = path or Path(os.environ.get("AGENTIXD_CONFIG", os.environ.get("AGENTIX_CONFIG", str(_DEFAULT_CONFIG))))
 
     import yaml  # type: ignore[import-untyped]
 

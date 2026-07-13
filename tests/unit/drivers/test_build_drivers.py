@@ -81,7 +81,7 @@ def test_derive_specs_last_resort_anthropic() -> None:
 
 def test_single_chat_spec_registers_bare_driver() -> None:
     cfg = _cfg(huble=HubleConfig(enabled=True, base_url="https://h.example", api_key="k"))
-    with patch("agentix.drivers.adapters.huble.HubleChatDriver", _FakeHuble):
+    with patch("agentix.drivers.adapters.intrinsic.huble.HubleChatDriver", _FakeHuble):
         registry = build_drivers(cfg)
     chat = registry.chat()
     assert isinstance(chat, _FakeHuble)
@@ -90,7 +90,7 @@ def test_single_chat_spec_registers_bare_driver() -> None:
 
 def test_always_chain_wraps_single_driver() -> None:
     cfg = _cfg(huble=HubleConfig(enabled=True, base_url="https://h.example", api_key="k"))
-    with patch("agentix.drivers.adapters.huble.HubleChatDriver", _FakeHuble):
+    with patch("agentix.drivers.adapters.intrinsic.huble.HubleChatDriver", _FakeHuble):
         registry = build_drivers(cfg, always_chain=True)
     assert isinstance(registry.chat(), ChatFailoverChain)
 
@@ -101,8 +101,8 @@ def test_multiple_chat_specs_compose_a_chain_in_priority_order() -> None:
         anthropic=AnthropicConfig(api_key="sk-ant-x"),
     )
     with (
-        patch("agentix.drivers.adapters.huble.HubleChatDriver", _FakeHuble),
-        patch("agentix.drivers.adapters.anthropic.AnthropicChatDriver", _FakeAnthropic),
+        patch("agentix.drivers.adapters.intrinsic.huble.HubleChatDriver", _FakeHuble),
+        patch("agentix.drivers.adapters.vendor.anthropic.AnthropicChatDriver", _FakeAnthropic),
     ):
         registry = build_drivers(cfg)
     chain = registry.chat()
@@ -112,7 +112,7 @@ def test_multiple_chat_specs_compose_a_chain_in_priority_order() -> None:
 
 def test_sqlite_wraps_chat_drivers_in_cost_recorder() -> None:
     cfg = _cfg(huble=HubleConfig(enabled=True, base_url="https://h.example", api_key="k"))
-    with patch("agentix.drivers.adapters.huble.HubleChatDriver", _FakeHuble):
+    with patch("agentix.drivers.adapters.intrinsic.huble.HubleChatDriver", _FakeHuble):
         registry = build_drivers(cfg, sqlite=MagicMock())
     assert isinstance(registry.chat(), CostRecordingChatDriver)
 
@@ -136,8 +136,8 @@ def test_model_override_reaches_huble_not_anthropic() -> None:
             anthro_kwargs.update(kwargs)
 
     with (
-        patch("agentix.drivers.adapters.huble.HubleChatDriver", _CapturingHuble),
-        patch("agentix.drivers.adapters.anthropic.AnthropicChatDriver", _CapturingAnthropic),
+        patch("agentix.drivers.adapters.intrinsic.huble.HubleChatDriver", _CapturingHuble),
+        patch("agentix.drivers.adapters.vendor.anthropic.AnthropicChatDriver", _CapturingAnthropic),
     ):
         build_drivers(cfg, model_override="hermes-4-405b")
     assert huble_kwargs["model"] == "hermes-4-405b"
@@ -175,7 +175,7 @@ def test_registered_factory_builds_declared_spec() -> None:
             DriverSpec(name="ticker", driver="test-ticker", type="timeseries-feed", modality="other"),
         ),
     )
-    with patch("agentix.drivers.adapters.anthropic.AnthropicChatDriver", _FakeAnthropic):
+    with patch("agentix.drivers.adapters.vendor.anthropic.AnthropicChatDriver", _FakeAnthropic):
         registry = build_drivers(cfg)
     assert registry.get("ticker").descriptor.type == "timeseries-feed"
     assert registry.chat().name == "anthropic"
@@ -196,7 +196,7 @@ def test_dotted_path_driver_construction() -> None:
         ),
     )
     with (
-        patch("agentix.drivers.adapters.anthropic.AnthropicChatDriver", _FakeAnthropic),
+        patch("agentix.drivers.adapters.vendor.anthropic.AnthropicChatDriver", _FakeAnthropic),
         patch.dict("os.environ", {"AGENTIX_TEST_DOTTED_KEY": "s3cr3t"}),
     ):
         registry = build_drivers(cfg)

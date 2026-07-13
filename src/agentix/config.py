@@ -13,8 +13,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from agentix.core.middleware.cost_tracking import ModelPricing
+if TYPE_CHECKING:
+    from agentix.core.middleware.cost_tracking import ModelPricing
+
 from agentix.storage import MinioConfig
 
 

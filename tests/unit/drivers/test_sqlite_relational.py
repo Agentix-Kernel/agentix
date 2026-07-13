@@ -14,7 +14,7 @@ from agentix.drivers import (
     DriverUnavailable,
     RelationalDriver,
 )
-from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
+from agentix.drivers.adapters.intrinsic.sqlite import SqliteRelationalDriver
 
 
 @pytest.fixture

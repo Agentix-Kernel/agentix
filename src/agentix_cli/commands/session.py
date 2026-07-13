@@ -60,8 +60,22 @@ def session_list(
     for r in rows:
         cost = f"{r['total_cost_usd']:.4f}" if r["total_cost_usd"] else "0.0000"
         ended = r["ended_at"][:19] if r["ended_at"] else "—"
-        status_style = {"running": "[cyan]running[/cyan]", "completed": "[green]completed[/green]", "failed": "[red]failed[/red]", "paused": "[yellow]paused[/yellow]"}.get(r["status"], r["status"])
-        t.add_row(r["id"][:16] + "…", r["customer_id"], status_style, r["started_at"][:19], ended, cost, str(r["total_input_tokens"]), str(r["total_output_tokens"]))
+        status_style = {
+            "running": "[cyan]running[/cyan]",
+            "completed": "[green]completed[/green]",
+            "failed": "[red]failed[/red]",
+            "paused": "[yellow]paused[/yellow]",
+        }.get(r["status"], r["status"])
+        t.add_row(
+            r["id"][:16] + "…",
+            r["customer_id"],
+            status_style,
+            r["started_at"][:19],
+            ended,
+            cost,
+            str(r["total_input_tokens"]),
+            str(r["total_output_tokens"]),
+        )
     print_table(t)
 
 
@@ -99,10 +113,24 @@ def session_status(
     )
 
     # Turns summary
-    turns = asyncio.run(_query(db, "SELECT turn_index, role, tool_name, input_tokens, output_tokens, cost_usd, latency_ms FROM turns WHERE session_id = ? ORDER BY turn_index", (s["id"],)))
+    turns = asyncio.run(
+        _query(
+            db,
+            "SELECT turn_index, role, tool_name, input_tokens, output_tokens, cost_usd, latency_ms FROM turns WHERE session_id = ? ORDER BY turn_index",
+            (s["id"],),
+        )
+    )
     if turns:
         typer.echo("")
         t = make_table("#", "Role", "Tool", "In tok", "Out tok", "Cost (€)", "ms", title="Turns")
         for tr in turns:
-            t.add_row(str(tr["turn_index"]), tr["role"], tr["tool_name"] or "—", str(tr["input_tokens"]), str(tr["output_tokens"]), f"{tr['cost_usd']:.4f}", str(tr["latency_ms"] or "—"))
+            t.add_row(
+                str(tr["turn_index"]),
+                tr["role"],
+                tr["tool_name"] or "—",
+                str(tr["input_tokens"]),
+                str(tr["output_tokens"]),
+                f"{tr['cost_usd']:.4f}",
+                str(tr["latency_ms"] or "—"),
+            )
         print_table(t)

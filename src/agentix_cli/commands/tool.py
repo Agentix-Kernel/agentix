@@ -15,15 +15,30 @@ app = typer.Typer(help="List and inspect registered tools.")
 
 # Kernel built-in tools (registered by register_kernel_tools in tools/builtin.py)
 _BUILTIN_TOOLS: list[dict[str, str]] = [
-    {"name": "read_file",      "mutates": "no",  "verifier": "—",        "description": "Read a file from the allowed paths"},
-    {"name": "glob",           "mutates": "no",  "verifier": "—",        "description": "List files matching a glob pattern"},
-    {"name": "grep",           "mutates": "no",  "verifier": "—",        "description": "Search file contents for a pattern"},
-    {"name": "fetch",          "mutates": "no",  "verifier": "—",        "description": "Fetch a URL (allowed hosts only)"},
-    {"name": "write_file",     "mutates": "yes", "verifier": "read_file", "description": "Write content to a file (sandboxed)"},
-    {"name": "apply_patch",    "mutates": "yes", "verifier": "read_file", "description": "Apply a unified diff patch"},
-    {"name": "run_command",    "mutates": "yes", "verifier": "—",        "description": "Run an allowed shell command"},
-    {"name": "git_commit",     "mutates": "yes", "verifier": "—",        "description": "Commit staged changes (namespaced branch)"},
-    {"name": "consult_skill",  "mutates": "no",  "verifier": "—",        "description": "Read a skill SKILL.md body into context"},
+    {"name": "read_file", "mutates": "no", "verifier": "—", "description": "Read a file from the allowed paths"},
+    {"name": "glob", "mutates": "no", "verifier": "—", "description": "List files matching a glob pattern"},
+    {"name": "grep", "mutates": "no", "verifier": "—", "description": "Search file contents for a pattern"},
+    {"name": "fetch", "mutates": "no", "verifier": "—", "description": "Fetch a URL (allowed hosts only)"},
+    {
+        "name": "write_file",
+        "mutates": "yes",
+        "verifier": "read_file",
+        "description": "Write content to a file (sandboxed)",
+    },
+    {"name": "apply_patch", "mutates": "yes", "verifier": "read_file", "description": "Apply a unified diff patch"},
+    {"name": "run_command", "mutates": "yes", "verifier": "—", "description": "Run an allowed shell command"},
+    {
+        "name": "git_commit",
+        "mutates": "yes",
+        "verifier": "—",
+        "description": "Commit staged changes (namespaced branch)",
+    },
+    {
+        "name": "consult_skill",
+        "mutates": "no",
+        "verifier": "—",
+        "description": "Read a skill SKILL.md body into context",
+    },
 ]
 
 

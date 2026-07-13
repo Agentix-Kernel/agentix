@@ -21,7 +21,7 @@ def _config() -> MinioConfig:
 
 @pytest.fixture
 def mock_minio() -> tuple[MinioStore, MagicMock]:
-    with patch("agentix.drivers.adapters.minio.Minio") as minio_cls:
+    with patch("agentix.drivers.adapters.intrinsic.minio.Minio") as minio_cls:
         client = MagicMock()
         minio_cls.return_value = client
         store = MinioStore(_config())

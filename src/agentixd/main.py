@@ -28,7 +28,11 @@ log = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Build the kernel on startup, tear it down on shutdown."""
-    cfg_path = Path(os.environ.get("AGENTIXD_CONFIG", os.environ.get("AGENTIX_CONFIG", str(Path.home() / ".agentix" / "config.yaml"))))
+    cfg_path = Path(
+        os.environ.get(
+            "AGENTIXD_CONFIG", os.environ.get("AGENTIX_CONFIG", str(Path.home() / ".agentix" / "config.yaml"))
+        )
+    )
 
     if not await asyncio.to_thread(cfg_path.exists):
         log.warning("config not found — admin/scaffold available; session execution disabled", path=str(cfg_path))
@@ -80,7 +84,11 @@ def run() -> None:
     """Console script entry point: agentixd."""
     from agentixd._config import _DEFAULT_SOCKET, load_daemon_config
 
-    cfg_path = Path(os.environ.get("AGENTIXD_CONFIG", os.environ.get("AGENTIX_CONFIG", str(Path.home() / ".agentix" / "config.yaml"))))
+    cfg_path = Path(
+        os.environ.get(
+            "AGENTIXD_CONFIG", os.environ.get("AGENTIX_CONFIG", str(Path.home() / ".agentix" / "config.yaml"))
+        )
+    )
 
     use_uds = True
     socket_path: Path = _DEFAULT_SOCKET

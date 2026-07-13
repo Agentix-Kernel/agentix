@@ -116,6 +116,7 @@ async def run_turn(session_id: str, body: RunTurnRequest, request: Request) -> d
     if session is None:
         # Try resuming from checkpoint
         from agentix.core.session import resume_or_create
+
         row = await kernel.sqlite.get_session(session_id)
         if not row:
             raise HTTPException(status_code=404, detail=f"session {session_id!r} not found")
@@ -168,6 +169,7 @@ async def list_turns(session_id: str, request: Request) -> list[dict[str, Any]]:
 
     # Query turns from SQLite
     import aiosqlite
+
     turns: list[dict[str, Any]] = []
     async with aiosqlite.connect(kernel._cfg.sqlite_path) as db:
         db.row_factory = aiosqlite.Row
@@ -176,17 +178,19 @@ async def list_turns(session_id: str, request: Request) -> list[dict[str, Any]]:
             (session_id,),
         ) as cur:
             async for r in cur:
-                turns.append({
-                    "session_id": session_id,
-                    "turn_index": r["turn_index"],
-                    "role": r["role"],
-                    "tool_name": r["tool_name"],
-                    "tool_ok": r["tool_ok"],
-                    "input_tokens": r["input_tokens"] or 0,
-                    "output_tokens": r["output_tokens"] or 0,
-                    "cost_usd": r["cost_usd"] or 0.0,
-                    "latency_ms": r["latency_ms"],
-                    "created_at": r["created_at"],
-                    "status": "ok" if r["tool_ok"] is not False else "error",
-                })
+                turns.append(
+                    {
+                        "session_id": session_id,
+                        "turn_index": r["turn_index"],
+                        "role": r["role"],
+                        "tool_name": r["tool_name"],
+                        "tool_ok": r["tool_ok"],
+                        "input_tokens": r["input_tokens"] or 0,
+                        "output_tokens": r["output_tokens"] or 0,
+                        "cost_usd": r["cost_usd"] or 0.0,
+                        "latency_ms": r["latency_ms"],
+                        "created_at": r["created_at"],
+                        "status": "ok" if r["tool_ok"] is not False else "error",
+                    }
+                )
     return turns

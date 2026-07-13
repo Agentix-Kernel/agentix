@@ -72,9 +72,12 @@ def config_validate(
         meta = _DRIVER_META[d.driver]
         sdk = meta["sdk"]
         if sdk and not _sdk_installed(sdk):
-            issues.append(f"Driver {d.name!r} ({d.driver}): SDK {sdk!r} not installed — run 'agentix driver install {d.driver}'")
+            issues.append(
+                f"Driver {d.name!r} ({d.driver}): SDK {sdk!r} not installed — run 'agentix driver install {d.driver}'"
+            )
         if d.api_key_env:
             import os
+
             if not os.environ.get(d.api_key_env):
                 warn(f"Driver {d.name!r}: env var {d.api_key_env!r} is not set")
 

@@ -10,9 +10,10 @@ on name clash.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 import frontmatter
 import structlog
@@ -48,7 +49,7 @@ class SkillBundle:
         """Project this bundle into an A2A v1.0 ``AgentSkill``."""
         from agentix.a2a.card import AgentSkill
 
-        return AgentSkill(
+        return AgentSkill(  # type: ignore[call-arg]
             id=self.id or self.name,
             name=self.name,
             description=self.description,
@@ -142,8 +143,12 @@ class SkillCatalog:
         skill_id = str(meta.get("id") or name)
         tags = tuple(str(t) for t in meta.get("tags", [])) if isinstance(meta.get("tags"), list) else ()
         examples = tuple(str(e) for e in meta.get("examples", [])) if isinstance(meta.get("examples"), list) else ()
-        input_modes = tuple(str(m) for m in meta.get("input_modes", [])) if isinstance(meta.get("input_modes"), list) else ()
-        output_modes = tuple(str(m) for m in meta.get("output_modes", [])) if isinstance(meta.get("output_modes"), list) else ()
+        input_modes = (
+            tuple(str(m) for m in meta.get("input_modes", [])) if isinstance(meta.get("input_modes"), list) else ()
+        )
+        output_modes = (
+            tuple(str(m) for m in meta.get("output_modes", [])) if isinstance(meta.get("output_modes"), list) else ()
+        )
 
         return SkillBundle(
             name=name,

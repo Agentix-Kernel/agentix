@@ -1,7 +1,7 @@
 """AgentCard — A2A v1.0 data model (discovery only, no transport).
 
 Pure data + validation.  No transport, credentials or trust-zone wiring —
-those land in W1–W3 (epic euroblaze/ludo #492).
+those land in W1-W3 (epic euroblaze/ludo #492).
 """
 
 from __future__ import annotations
@@ -68,13 +68,9 @@ class AgentCard(BaseModel):
 
     # A2A v1.0 optional
     provider: dict[str, str] | None = None
-    capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)
-    default_input_modes: list[str] = Field(
-        default_factory=lambda: ["application/json"], alias="defaultInputModes"
-    )
-    default_output_modes: list[str] = Field(
-        default_factory=lambda: ["application/json"], alias="defaultOutputModes"
-    )
+    capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)  # type: ignore[arg-type]
+    default_input_modes: list[str] = Field(default_factory=lambda: ["application/json"], alias="defaultInputModes")
+    default_output_modes: list[str] = Field(default_factory=lambda: ["application/json"], alias="defaultOutputModes")
     skills: list[AgentSkill] = Field(default_factory=list)
     security_schemes: dict[str, Any] | None = Field(None, alias="securitySchemes")
     security: list[dict[str, list[str]]] | None = None

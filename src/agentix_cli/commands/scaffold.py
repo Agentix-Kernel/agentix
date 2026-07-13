@@ -18,6 +18,7 @@ def _daemon_url() -> str | None:
     import httpx
 
     from agentix_cli._config import load_config
+
     cfg = load_config()
     host = "10.0.99.1"
     port = 7320
@@ -35,6 +36,7 @@ def _daemon_url() -> str | None:
 
 async def _scaffold_driver_via_daemon(url: str, name: str, modality: str) -> dict:
     import httpx
+
     async with httpx.AsyncClient(base_url=url, timeout=10.0) as client:
         r = await client.post("/admin/scaffold/driver", json={"name": name, "modality": modality})
         r.raise_for_status()
@@ -43,6 +45,7 @@ async def _scaffold_driver_via_daemon(url: str, name: str, modality: str) -> dic
 
 async def _scaffold_agent_via_daemon(url: str, name: str, description: str) -> list:
     import httpx
+
     async with httpx.AsyncClient(base_url=url, timeout=10.0) as client:
         r = await client.post("/admin/scaffold/agent", json={"name": name, "description": description})
         r.raise_for_status()
@@ -64,16 +67,19 @@ def scaffold_driver(
             result = asyncio.run(_scaffold_driver_via_daemon(daemon, name, modality))
         except Exception as exc:
             from agentix_cli._output import error
+
             error(f"daemon call failed: {exc} — falling back to local generation")
             daemon = None
 
     if not daemon:
         # Local generation (no daemon needed — templates are bundled)
         from agentixd.scaffold.driver_tpl import render_driver
+
         try:
             filename, content = render_driver(name, modality)
         except ValueError as exc:
             from agentix_cli._output import error
+
             error(str(exc))
             raise typer.Exit(1) from None
         result = {"filename": filename, "content": content}
@@ -111,11 +117,13 @@ def scaffold_agent(
             files = asyncio.run(_scaffold_agent_via_daemon(daemon, name, description))
         except Exception as exc:
             from agentix_cli._output import error
+
             error(f"daemon call failed: {exc} — falling back to local generation")
             daemon = None
 
     if not daemon:
         from agentixd.scaffold.agent_tpl import render_agent
+
         files = render_agent(name, description)
 
     if dry_run:

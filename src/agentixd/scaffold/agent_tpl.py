@@ -18,7 +18,9 @@ def render_agent(name: str, description: str = "") -> list[dict[str, str]]:
 
     _add("__init__.py", f'"""{desc}"""\n')
 
-    _add("config.py", f'''\
+    _add(
+        "config.py",
+        f'''\
 """KernelConfig subclass for {name}."""
 
 from __future__ import annotations
@@ -33,9 +35,12 @@ from agentix.config import KernelConfig
 class {cls}Config(KernelConfig):
     """Extend with {name}-specific config fields here."""
     pass
-''')
+''',
+    )
 
-    _add("main.py", f'''\
+    _add(
+        "main.py",
+        f'''\
 """Entry point for {name} — submits work to agentixd via agentix_sdk."""
 
 from __future__ import annotations
@@ -59,11 +64,14 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-''')
+''',
+    )
 
     _add("tools/__init__.py", "")
 
-    _add("tools/example_tool.py", f'''\
+    _add(
+        "tools/example_tool.py",
+        f'''\
 """Example tool for {name}."""
 
 from __future__ import annotations
@@ -91,9 +99,12 @@ class ExampleTool(Tool):
 
     async def __call__(self, args: ExampleInput, ctx: ToolContext) -> ExampleOutput:
         return ExampleOutput(result=f"processed: {{args.text}}")
-''')
+''',
+    )
 
-    _add("skills/example/SKILL.md", f'''\
+    _add(
+        "skills/example/SKILL.md",
+        f"""\
 # Example Skill
 
 This is a starter skill for {name}.
@@ -103,17 +114,23 @@ This is a starter skill for {name}.
 1. Identify the task.
 2. Use the available tools.
 3. Return a clear result.
-''')
+""",
+    )
 
-    _add("skills/example/manifest.yaml", f'''\
+    _add(
+        "skills/example/manifest.yaml",
+        f"""\
 name: example
 description: Starter skill for {name}
 tools: []
-''')
+""",
+    )
 
     _add("tests/__init__.py", "")
 
-    _add("tests/test_example.py", f'''\
+    _add(
+        "tests/test_example.py",
+        f'''\
 """Smoke tests for {name} — run via API against a live agentixd."""
 
 from __future__ import annotations
@@ -129,6 +146,7 @@ async def test_create_session() -> None:
         session = await client.create_session(customer_id="{mod}-test")
         assert session.id
         assert session.status == "running"
-''')
+''',
+    )
 
     return files
