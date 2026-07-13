@@ -13,7 +13,7 @@ import threading
 from pathlib import Path
 
 import pytest
-from agentix.drivers.adapters.local_fs_object import LocalObjectStoreDriver
+from agentix.drivers.adapters.intrinsic.local_fs_object import LocalObjectStoreDriver
 
 from agentix.core.engine import Engine
 from agentix.core.types import Message, Turn

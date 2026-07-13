@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from agentix.drivers.adapters.local_fs_object import LocalObjectStoreDriver
+from agentix.drivers.adapters.intrinsic.local_fs_object import LocalObjectStoreDriver
 
 from agentix.drivers.base import DriverInvalidRequest
 from agentix.drivers.object_store import ObjectNotFound, ObjectStoreDriver

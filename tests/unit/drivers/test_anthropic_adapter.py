@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from agentix.drivers.adapters.anthropic import (
+from agentix.drivers.adapters.vendor.anthropic import (
     _from_anthropic_response,
     _message_to_anthropic,
     _split_system,
@@ -132,7 +132,7 @@ async def test_cache_control_promotes_system_to_block_with_ephemeral_marker(
     """When cache_control=True (API-key mode), the system prompt is sent as
     a block list carrying `cache_control: {"type": "ephemeral"}` and the
     prompt-caching beta header is set."""
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
 
     from agentix.drivers.chat import ChatRequest
 
@@ -168,7 +168,7 @@ async def test_cache_control_off_keeps_system_string(
 ) -> None:
     """Regression: without cache_control, the system prompt is still a plain
     string so we don't send unused extra_headers to the API."""
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
 
     from agentix.drivers.chat import ChatRequest
 
@@ -221,7 +221,7 @@ class _FakeToolResponse:
 async def test_anthropic_sends_tools_in_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """PR-P2: ChatRequest.tools → Anthropic ``tools`` kwarg with
     {name, description, input_schema}."""
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
 
     from agentix.drivers.chat import ChatRequest, ToolSpec
 
@@ -252,7 +252,7 @@ async def test_anthropic_sends_tools_in_request(monkeypatch: pytest.MonkeyPatch)
 @pytest.mark.asyncio
 async def test_anthropic_parses_tool_use_response_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
     """tool_use blocks in the response become ChatResponse.tool_calls."""
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
 
     from agentix.drivers.chat import ChatRequest
 
@@ -275,7 +275,7 @@ async def test_anthropic_oauth_downgrades_tool_choice_any_to_auto(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """OAuth flow disallows forced tool selection — normalise silently."""
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
 
     from agentix.drivers.chat import ChatRequest, ToolSpec
 
@@ -296,7 +296,7 @@ async def test_anthropic_oauth_downgrades_tool_choice_any_to_auto(
 @pytest.mark.asyncio
 async def test_anthropic_no_tools_means_no_tools_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression: request without tools → ``tools`` kwarg is not sent."""
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
 
     from agentix.drivers.chat import ChatRequest
 
@@ -313,7 +313,7 @@ async def test_anthropic_no_tools_means_no_tools_kwarg(monkeypatch: pytest.Monke
 async def test_cache_control_noop_under_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
     """OAuth auth rejects prompt caching — the request must NOT carry
     cache_control markers even when the caller asked for them."""
-    from agentix.drivers.adapters.anthropic import AnthropicChatDriver
+    from agentix.drivers.adapters.vendor.anthropic import AnthropicChatDriver
 
     from agentix.drivers.chat import ChatRequest
 

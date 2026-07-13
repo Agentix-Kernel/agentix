@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from agentix.drivers.adapters.gemini import GeminiChatDriver
+from agentix.drivers.adapters.vendor.gemini import GeminiChatDriver
 from agentix.drivers.adapters.ollama import OllamaChatDriver
 
 from agentix.core.types import Message

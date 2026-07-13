@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from agentix.drivers.adapters.sqlite import SqliteRelationalDriver
+from agentix.drivers.adapters.intrinsic.sqlite import SqliteRelationalDriver
 
 from agentix.config import DriverSpec
 from agentix.drivers import (

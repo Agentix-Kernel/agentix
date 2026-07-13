@@ -37,8 +37,8 @@ def _s3_error(code: str) -> S3Error:
 
 @pytest.fixture
 def driver() -> tuple[object, MagicMock]:
-    with patch("agentix.drivers.adapters.minio.Minio") as minio_cls:
-        from agentix.drivers.adapters.minio import MinioObjectStoreDriver
+    with patch("agentix.drivers.adapters.intrinsic.minio.Minio") as minio_cls:
+        from agentix.drivers.adapters.intrinsic.minio import MinioObjectStoreDriver
 
         client = MagicMock()
         minio_cls.return_value = client
@@ -125,8 +125,8 @@ def test_spec_construction_builds_config_from_options() -> None:
         base_url="10.0.99.1:9000",
         options=(("access_key", "ak"), ("bucket", "prod-blobs"), ("secure", "true")),
     )
-    with patch("agentix.drivers.adapters.minio.Minio") as minio_cls:
-        from agentix.drivers.adapters.minio import MinioObjectStoreDriver
+    with patch("agentix.drivers.adapters.intrinsic.minio.Minio") as minio_cls:
+        from agentix.drivers.adapters.intrinsic.minio import MinioObjectStoreDriver
 
         d = MinioObjectStoreDriver(spec=spec, api_key="sekret")
         assert d.descriptor.name == "blob-main"
@@ -139,7 +139,7 @@ def test_spec_construction_builds_config_from_options() -> None:
 
 
 def test_construction_without_config_or_spec_raises() -> None:
-    from agentix.drivers.adapters.minio import MinioObjectStoreDriver
+    from agentix.drivers.adapters.intrinsic.minio import MinioObjectStoreDriver
 
     with pytest.raises(DriverInvalidRequest):
         MinioObjectStoreDriver()
