@@ -1,4 +1,0 @@
-agentix
-agentix_cli
-agentix_sdk
-agentixd
