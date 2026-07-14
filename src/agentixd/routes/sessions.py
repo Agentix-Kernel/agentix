@@ -8,6 +8,7 @@ updates the map. SQLite + MinIO handle durable persistence automatically
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import structlog
@@ -51,7 +52,7 @@ def _session_row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "total_input_tokens": row.get("total_input_tokens", 0),
         "total_output_tokens": row.get("total_output_tokens", 0),
         "total_cost_usd": row.get("total_cost_usd", 0.0),
-        "app_meta": row.get("app_meta"),
+        "app_meta": json.loads(row["app_meta"]) if row.get("app_meta") else None,
         "control_plane_id": row.get("control_plane_id"),
         "parent_session_id": row.get("parent_session_id"),
     }
@@ -152,15 +153,17 @@ async def run_turn(session_id: str, body: RunTurnRequest, request: Request) -> d
 
     log.info("turn complete", session_id=session_id, status=turn.status, turn_index=turn.turn_index)
 
+    content = turn.assistant_message.content if turn.assistant_message else None
     return {
         "session_id": turn.session_id,
         "turn_index": turn.turn_index,
         "role": "assistant",
+        "content": content,
         "status": turn.status,
-        "input_tokens": turn.input_tokens,
-        "output_tokens": turn.output_tokens,
+        "input_tokens": turn.usage.input_tokens,
+        "output_tokens": turn.usage.output_tokens,
         "cost_usd": turn.cost_usd,
-        "latency_ms": turn.latency_ms,
+        "latency_ms": turn.elapsed_ms,
     }
 
 
