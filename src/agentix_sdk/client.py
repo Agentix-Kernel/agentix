@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from agentix_sdk.models import AgentCardInfo, DriverInfo, ScaffoldFile, Session, Turn
+from agentix_sdk.models import AgentCardInfo, DriverInfo, ScaffoldFile, Session, SkillInfo, SkillRoot, Turn
 
 _DEFAULT_SOCKET = Path.home() / ".agentix" / "agentixd.sock"
 
@@ -204,6 +204,28 @@ class AgentixClient:
 
     async def unregister_agent(self, name: str, dry_run: bool = False) -> dict[str, Any]:
         r = await self._client().delete(f"/admin/agents/{name}", params={"dry_run": dry_run})
+        self._raise(r)
+        return r.json()
+
+    # ── admin: skills ────────────────────────────────────────────────────────
+
+    async def list_skill_roots(self) -> list[SkillRoot]:
+        r = await self._client().get("/admin/skill-roots")
+        self._raise(r)
+        return [SkillRoot.model_validate(s) for s in r.json()]
+
+    async def list_skills(self) -> list[SkillInfo]:
+        r = await self._client().get("/admin/skills")
+        self._raise(r)
+        return [SkillInfo.model_validate(s) for s in r.json()]
+
+    async def get_skill(self, name: str) -> SkillInfo:
+        r = await self._client().get(f"/admin/skills/{name}")
+        self._raise(r)
+        return SkillInfo.model_validate(r.json())
+
+    async def reload_skills(self) -> dict[str, Any]:
+        r = await self._client().post("/admin/skills/reload")
         self._raise(r)
         return r.json()
 

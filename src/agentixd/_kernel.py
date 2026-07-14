@@ -8,11 +8,15 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import structlog
 
 from agentixd._config import DaemonConfig
+
+# Project-root .skills/ directory — kernel-level user-managed skills
+_KERNEL_DOT_SKILLS = Path(__file__).resolve().parents[2] / ".skills"
 
 log = structlog.get_logger(__name__)
 
@@ -30,12 +34,13 @@ class KernelState:
     error: str | None = None  # startup error message (if not ready)
     _cfg: DaemonConfig | None = None
     _active_sessions: dict[str, Any] = field(default_factory=dict)  # id → Session (in-memory)
-    # Per-turn extras injected by the plugin's _pre_turn_hook before engine.run_turn().
-    # Keys are session IDs; values are dicts with source/target/dry_run/embeddings.
     _session_extras: dict[str, Any] = field(default_factory=dict)
-    # Plugin-registered async context manager: async with _pre_turn_hook(kernel, session).
-    # None when no plugin registered (non-ludo sessions pass through unmodified).
     _pre_turn_hook: Any = None
+    # Skill catalog — rebuilt from skill_roots on POST /admin/skills/reload
+    skill_catalog: Any = None  # SkillCatalog | None
+    skill_roots: list[str] = field(default_factory=list)
+    # path → layer label; e.g. "/…/ludo-agent/skills" → "agent:ludo"
+    skill_root_layers: dict[str, str] = field(default_factory=dict)
 
 
 async def build_kernel(cfg: DaemonConfig) -> KernelState:
@@ -139,6 +144,7 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
     # 5b. Plugin packages — each exposes register(state, tool_registry) and
     #     optionally skills_roots() -> list[str] for ToolContext injection.
     plugin_skills_roots: list[str] = []
+    root_layers: dict[str, str] = {}  # path → layer label
     if cfg.plugin_packages:
         import importlib
 
@@ -147,14 +153,37 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
                 mod = importlib.import_module(f"{pkg}.plugin")
                 mod.register(state, tool_registry)
                 if callable(getattr(mod, "skills_roots", None)):
-                    plugin_skills_roots.extend(mod.skills_roots())
+                    pkg_roots = mod.skills_roots()
+                    plugin_skills_roots.extend(pkg_roots)
+                    short = pkg.split(".")[-1]
+                    for r in pkg_roots:
+                        is_user = r.endswith("/.skills") or "/.skills/" in r or r.endswith("\\.skills")
+                        label = f"{short}-user" if is_user else short
+                        root_layers[r] = label
                 log.info("plugin loaded", package=pkg)
             except Exception as exc:
                 log.error("plugin load failed", package=pkg, error=str(exc))
 
+    # Always include the kernel's own .skills/ user root when it exists.
+    if _KERNEL_DOT_SKILLS.is_dir():
+        kp = str(_KERNEL_DOT_SKILLS)
+        plugin_skills_roots.insert(0, kp)
+        root_layers[kp] = "kernel-user"
+
     # 6. Dispatcher — session-scoped context factory closed over live stores.
     #    skills_root carries all plugin skill directories so consult_skill works.
     _skills_root: str | list[str] = plugin_skills_roots if plugin_skills_roots else "skills"
+
+    # Build and cache the SkillCatalog for admin endpoints.
+    try:
+        from agentix.skills.catalog import SkillCatalog
+
+        state.skill_catalog = SkillCatalog(_skills_root if isinstance(_skills_root, list) else [_skills_root])
+        state.skill_roots = list(_skills_root) if isinstance(_skills_root, list) else [_skills_root]
+        state.skill_root_layers = root_layers
+        log.info("skill catalog built", roots=len(state.skill_roots))
+    except Exception as exc:
+        log.warning("skill catalog build failed", error=str(exc))
 
     def _ctx_factory(turn: Any) -> Any:
         from agentix.tools.base import ToolContext

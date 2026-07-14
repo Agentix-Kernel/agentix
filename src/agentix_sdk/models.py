@@ -65,6 +65,25 @@ class ScaffoldFile(BaseModel):
     content: str
 
 
+class SkillRoot(BaseModel):
+    layer: str
+    path: str
+    writable: bool
+    exists: bool
+
+
+class SkillInfo(BaseModel):
+    name: str
+    description: str = ""
+    layer: str = ""
+    root: str = ""
+    skill_md_path: str | None = None
+    has_tools: bool = False
+    reference_only: bool = False
+    allowed_tools: list[str] = Field(default_factory=list)
+    body: str | None = None
+
+
 class HealthStatus(BaseModel):
     status: str
     version: str

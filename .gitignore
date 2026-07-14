@@ -13,3 +13,6 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 *.egg-info/
+
+# User-managed skill bundles (writable layer)
+.skills/

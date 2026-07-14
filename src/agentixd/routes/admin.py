@@ -309,8 +309,6 @@ async def show_config(request: Request) -> dict[str, Any]:
         "minio_endpoint": cfg.minio_endpoint or None,
         "minio_bucket": cfg.minio_bucket,
         "budget_usd": cfg.budget_usd,
-        "host": cfg.host,
-        "port": cfg.port,
         "drivers": cfg.driver_specs,
     }
 
@@ -348,3 +346,84 @@ async def validate_config(request: Request) -> dict[str, Any]:
         "warnings": warnings,
         "kernel_ready": kernel.ready,
     }
+
+
+# ── Skill endpoints ───────────────────────────────────────────────────────────
+
+
+def _skill_layer(bundle_dir: Path, root_layers: dict[str, str]) -> str:
+    """Return the layer label for a bundle by matching its parent dir."""
+    parent = str(bundle_dir.parent)
+    return root_layers.get(parent, "unknown")
+
+
+def _bundle_to_dict(bundle: Any, root_layers: dict[str, str], *, include_body: bool = False) -> dict[str, Any]:
+    layer = _skill_layer(bundle.bundle_dir, root_layers)
+    root = str(bundle.bundle_dir.parent)
+    out: dict[str, Any] = {
+        "name": bundle.name,
+        "description": bundle.description or "",
+        "layer": layer,
+        "root": root,
+        "skill_md_path": str(bundle.skill_md_path) if bundle.skill_md_path else None,
+        "has_tools": bundle.has_tools,
+        "reference_only": bundle.reference_only,
+        "allowed_tools": list(bundle.allowed_tools or []),
+        "body": None,
+    }
+    if include_body and bundle.skill_md_path and Path(bundle.skill_md_path).exists():
+        out["body"] = Path(bundle.skill_md_path).read_text()
+    return out
+
+
+@router.get("/skill-roots")
+async def list_skill_roots(request: Request) -> list[dict[str, Any]]:
+    """List all registered skill roots with layer labels."""
+    kernel = request.app.state.kernel
+    if not kernel.skill_roots:
+        return []
+    out = []
+    for root in kernel.skill_roots:
+        p = Path(root)
+        layer = kernel.skill_root_layers.get(root, "unknown")
+        writable = root.endswith("/.skills") or "/.skills/" in root
+        out.append({"layer": layer, "path": root, "writable": writable, "exists": p.is_dir()})  # noqa: ASYNC240
+    return out
+
+
+@router.get("/skills")
+async def list_skills(request: Request) -> list[dict[str, Any]]:
+    """List all skills from the merged catalog with layer labels."""
+    kernel = request.app.state.kernel
+    if kernel.skill_catalog is None:
+        raise HTTPException(status_code=503, detail="skill catalog not built — is the kernel ready?")
+    return [_bundle_to_dict(b, kernel.skill_root_layers) for b in kernel.skill_catalog.bundles()]
+
+
+@router.get("/skills/{name}")
+async def show_skill(name: str, request: Request) -> dict[str, Any]:
+    """Show skill details including full SKILL.md body."""
+    kernel = request.app.state.kernel
+    if kernel.skill_catalog is None:
+        raise HTTPException(status_code=503, detail="skill catalog not built")
+    bundle = next((b for b in kernel.skill_catalog.bundles() if b.name == name), None)
+    if bundle is None:
+        raise HTTPException(status_code=404, detail=f"skill {name!r} not found")
+    return _bundle_to_dict(bundle, kernel.skill_root_layers, include_body=True)
+
+
+@router.post("/skills/reload")
+async def reload_skills(request: Request) -> dict[str, Any]:
+    """Rebuild the skill catalog from all registered roots without restarting."""
+    kernel = request.app.state.kernel
+    if not kernel.skill_roots:
+        raise HTTPException(status_code=503, detail="no skill roots registered")
+    try:
+        from agentix.skills.catalog import SkillCatalog
+
+        kernel.skill_catalog = SkillCatalog(kernel.skill_roots)
+        count = len(list(kernel.skill_catalog.bundles()))
+        log.info("skill catalog reloaded", skill_count=count)
+        return {"status": "reloaded", "skill_count": count}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"reload failed: {exc}") from exc
