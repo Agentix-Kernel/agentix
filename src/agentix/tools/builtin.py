@@ -36,6 +36,17 @@ def register_kernel_tools(registry: ToolRegistry) -> None:
     registry.register(WriteToFs())
 
 
+def try_register_kernel_tools(registry: ToolRegistry) -> None:
+    """Like register_kernel_tools but skips tools already registered.
+
+    Use in plugin contexts where the kernel has already registered its builtins
+    before calling plugin.register() — avoids ToolConflict without silencing
+    genuine conflicts elsewhere.
+    """
+    for tool in (ReadFile(), GlobFiles(), GrepFiles(), WebFetch(), WriteToFs()):
+        registry.try_register(tool)
+
+
 def register_kernel_module_mode_tools(registry: ToolRegistry) -> None:
     """Register the mutating sandbox primitives (write/patch/shell/git).
 
