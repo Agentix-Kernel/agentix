@@ -27,6 +27,9 @@ class OpenAIChatDriver:
     """OpenAI chat completions via ``openai`` SDK."""
 
     name = "openai"
+    # Subclasses set this to False when the upstream model rejects the
+    # temperature param (e.g. some reasoning or flash models).
+    _temperature_supported: bool = True
 
     @property
     def descriptor(self) -> DriverDescriptor:
@@ -68,8 +71,9 @@ class OpenAIChatDriver:
             "model": model,
             "messages": [_to_openai(m) for m in request.messages],
             "max_tokens": request.max_tokens,
-            "temperature": request.temperature,
         }
+        if self._temperature_supported:
+            kwargs["temperature"] = request.temperature
         if request.stop_sequences:
             kwargs["stop"] = request.stop_sequences
         if request.reasoning_effort is not None:
