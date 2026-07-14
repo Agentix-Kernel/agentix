@@ -112,8 +112,14 @@ def _resolve_layer_path(layer: str, roots: list[dict]) -> Path | None:
     return None
 
 
+_SKILL_NAME_RE = __import__("re").compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
 def _read_skill_name(src: Path) -> str:
-    """Read name from SKILL.md frontmatter; fall back to directory basename."""
+    """Read name from SKILL.md frontmatter; fall back to directory basename.
+
+    Only accepts names matching [a-z0-9][a-z0-9_-]{0,63} to prevent path traversal.
+    """
     skill_md = src / "SKILL.md"
     if skill_md.exists():
         try:
@@ -124,10 +130,24 @@ def _read_skill_name(src: Path) -> str:
                 end = text.index("---", 3)
                 fm = yaml.safe_load(text[3:end])
                 if isinstance(fm, dict) and fm.get("name"):
-                    return str(fm["name"])
+                    candidate = str(fm["name"])
+                    if _SKILL_NAME_RE.fullmatch(candidate):
+                        return candidate
         except Exception:
             pass
     return src.name
+
+
+def _safe_dest(target_root: Path, skill_name: str) -> Path:
+    """Compute destination and abort if it escapes the target root."""
+    if not _SKILL_NAME_RE.fullmatch(skill_name):
+        error(f"Skill name {skill_name!r} is invalid. Use lowercase letters, digits, hyphens, underscores only.")
+        raise typer.Exit(1)
+    dest = (target_root / skill_name).resolve()
+    if not dest.is_relative_to(target_root.resolve()):
+        error(f"Skill name {skill_name!r} would escape the target root — aborting.")
+        raise typer.Exit(1)
+    return dest
 
 
 def _open_editor(path: Path) -> None:
@@ -276,7 +296,7 @@ def skill_add(
         raise typer.Exit(1)
 
     skill_name = _read_skill_name(src)
-    dest = target_root / skill_name
+    dest = _safe_dest(target_root, skill_name)
 
     if dest.exists() and not force:
         error(f"Skill {skill_name!r} already exists at {dest}. Use --force to overwrite.")
@@ -308,7 +328,7 @@ def skill_new(
         raise typer.Exit(1)
 
     target_root.mkdir(parents=True, exist_ok=True)
-    bundle_dir = target_root / name
+    bundle_dir = _safe_dest(target_root, name)
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
     skill_md = bundle_dir / "SKILL.md"
