@@ -25,6 +25,9 @@ class MeliousChatDriver(OpenAIChatDriver):
     """Melious chat via its OpenAI-compatible endpoint."""
 
     name = "melious"
+    # deepseek-v4-flash and other Melious-hosted models reject the temperature
+    # param entirely (deprecated at the API layer).
+    _temperature_supported = False
 
     @property
     def descriptor(self) -> DriverDescriptor:
