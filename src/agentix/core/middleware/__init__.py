@@ -1,8 +1,8 @@
 """Ordered middleware chain — the kernel's generic layers (arch.md §8).
 
-App-specific layers (the migration ``MemoryMaintainMiddleware``, and the safety
-*enforcement* in ``ludo.tools.safety_gate``) are registered by the app; the kernel ships
-the protocol, the composer/validator, and the domain-neutral middlewares.
+App-specific layers (the app-supplied ``MemoryMaintainMiddleware``, and the app's
+``SafetyGate`` subclass) are registered by the app; the kernel ships the protocol,
+the composer/validator, and the domain-neutral middlewares.
 """
 
 from agentix.core.middleware.base import (

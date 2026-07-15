@@ -23,6 +23,7 @@ from agentix.core.context_manager import (
     WindowEntry,
 )
 from agentix.core.engine import Engine, TurnDispatcher
+from agentix.core.resume import ResumableSession
 from agentix.core.session import (
     Session,
     create_session,
@@ -59,6 +60,7 @@ __all__ = [
     "WindowEntry",
     "create_session",
     "load_checkpoint",
+    "ResumableSession",
     "request_checkpoint",
     "resume_from",
     "resume_or_create",

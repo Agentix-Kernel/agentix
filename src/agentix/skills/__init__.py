@@ -10,8 +10,8 @@ Three layers live here:
 * the incumbent **manifest loader** (``loader.py``: ``load_skills`` /
   ``list_skill_manifests`` / ``register_activated_skills``) — bound to
   ``skills/<name>/manifest.json`` + recon-phase trigger predicates; registers a
-  bundle's ``tool.py`` skill-scoped tools. Re-exported from ``ludo.tools`` for
-  back-compat.
+  bundle's ``tool.py`` skill-scoped tools. Re-exported from the app's tool registry
+  for back-compat.
 * the **consult tool** (``consult_skill.py``) — reads a named skill's ``SKILL.md``
   body at runtime (``read_file`` is sandboxed and can't reach ``skills/``).
 
