@@ -2,6 +2,8 @@
 
 **Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
+![Driver families — Chat, Embedding, STT, Storage](assets/driver-families.svg)
+
 **Single source of truth for the driver framework in `docs/`.** Sections 1–8 document
 the landed subsystem (code: `src/agentix/drivers/`); section 9 is **DIRECTION**.
 Neighbouring SSoTs are referenced, never restated (CRIE rule): which model serves a

@@ -2,6 +2,8 @@
 
 **Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
+![Middleware chain — 9 layers outside-in](assets/middleware-chain.svg)
+
 **Single source of truth for the turn engine and the middleware chain in `docs/`.**
 Everything here is **landed** (code: `src/agentix/core/engine.py`,
 `core/middleware/`, `core/agent_dispatcher.py`). Neighbouring SSoTs are referenced,

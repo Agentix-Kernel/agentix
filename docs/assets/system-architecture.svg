@@ -1,0 +1,229 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 620" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="title-arch">
+  <title id="title-arch">Agentix — System Architecture</title>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a7ab5"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a8a5a"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7a5ab5"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="980" height="620" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="490" y="32" text-anchor="middle" font-size="18" font-weight="bold" fill="#222">Agentix — System Architecture</text>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- COLUMN 1: Agentix Kernel  x=20 w=280              -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <rect x="20" y="50" width="280" height="420" rx="8" fill="#eef4fb" stroke="#4a7ab5" stroke-width="2"/>
+  <text x="160" y="76" text-anchor="middle" font-size="14" font-weight="bold" fill="#4a7ab5">Agentix Kernel</text>
+
+  <!-- Engine -->
+  <rect x="34" y="88" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="103" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">Engine + Dispatcher</text>
+  <text x="160" y="117" text-anchor="middle" font-size="10" fill="#1a3a5c">cognitive escalation · one-turn loop</text>
+
+  <!-- Middleware -->
+  <rect x="34" y="132" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="147" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">Middleware Chain</text>
+  <text x="160" y="161" text-anchor="middle" font-size="10" fill="#1a3a5c">9 slots · cost · budget · retry · safety</text>
+
+  <!-- Tools + Skills -->
+  <rect x="34" y="176" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="191" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">Tools · Skills · Safety Gate</text>
+  <text x="160" y="205" text-anchor="middle" font-size="10" fill="#1a3a5c">protocol + registry · sandbox · spike</text>
+
+  <!-- Storage -->
+  <rect x="34" y="220" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="235" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">Storage</text>
+  <text x="160" y="249" text-anchor="middle" font-size="10" fill="#1a3a5c">SQLite · MinIO · Memory · VectorIndex</text>
+
+  <!-- Events -->
+  <rect x="34" y="264" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="279" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">Events Bus</text>
+  <text x="160" y="293" text-anchor="middle" font-size="10" fill="#1a3a5c">SessionEvent envelope · neutral sink</text>
+
+  <!-- Driver Registry -->
+  <rect x="34" y="308" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="323" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">Driver Registry</text>
+  <text x="160" y="337" text-anchor="middle" font-size="10" fill="#1a3a5c">chat · embed · STT · store · erp families</text>
+
+  <!-- Sessions -->
+  <rect x="34" y="352" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="367" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">Sessions · Context · Checkpoints</text>
+  <text x="160" y="381" text-anchor="middle" font-size="10" fill="#1a3a5c">resume · idempotency · window mgmt</text>
+
+  <!-- A2A -->
+  <rect x="34" y="396" width="252" height="36" rx="5" fill="#d0e4f7" stroke="#4a7ab5" stroke-width="1"/>
+  <text x="160" y="411" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a5c">A2A · AgentCard</text>
+  <text x="160" y="425" text-anchor="middle" font-size="10" fill="#1a3a5c">agent-to-agent coordination · skills</text>
+
+  <!-- Purity label -->
+  <text x="160" y="460" text-anchor="middle" font-size="10" fill="#4a7ab5" font-style="italic">3 CI purity gates enforce kernel/app split</text>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- COLUMN 2: agentix-driver-odoo  x=340 w=280        -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <rect x="340" y="50" width="280" height="420" rx="8" fill="#f0ebfb" stroke="#7a5ab5" stroke-width="2"/>
+  <text x="480" y="76" text-anchor="middle" font-size="14" font-weight="bold" fill="#7a5ab5">agentix-driver-odoo</text>
+
+  <!-- OdooDriver -->
+  <rect x="354" y="88" width="252" height="48" rx="5" fill="#ddd0f7" stroke="#7a5ab5" stroke-width="1"/>
+  <text x="480" y="107" text-anchor="middle" font-size="12" font-weight="bold" fill="#2a0a5c">OdooDriver</text>
+  <text x="480" y="122" text-anchor="middle" font-size="10" fill="#2a0a5c">type="erp" · registered via DriverRegistry</text>
+  <text x="480" y="134" text-anchor="middle" font-size="10" fill="#2a0a5c">session-leased · per-tenant credentials</text>
+
+  <!-- Verbs -->
+  <rect x="354" y="144" width="252" height="80" rx="5" fill="#ddd0f7" stroke="#7a5ab5" stroke-width="1"/>
+  <text x="480" y="160" text-anchor="middle" font-size="12" font-weight="bold" fill="#2a0a5c">Verbs (JSON-RPC)</text>
+  <text x="364" y="176" font-size="10" fill="#2a0a5c">· authenticate() · execute_kw()</text>
+  <text x="364" y="190" font-size="10" fill="#2a0a5c">· search_read() · introspect_schema()</text>
+  <text x="364" y="204" font-size="10" fill="#2a0a5c">· diff_schemas() · detect_version()</text>
+  <text x="364" y="218" font-size="10" fill="#2a0a5c">· list_modules() · profile_data()</text>
+
+  <!-- Resilience -->
+  <rect x="354" y="232" width="252" height="56" rx="5" fill="#ddd0f7" stroke="#7a5ab5" stroke-width="1"/>
+  <text x="480" y="249" text-anchor="middle" font-size="12" font-weight="bold" fill="#2a0a5c">Resilience Contract</text>
+  <text x="364" y="265" font-size="10" fill="#2a0a5c">· Reads: 5 attempts · exp. backoff + jitter</text>
+  <text x="364" y="279" font-size="10" fill="#2a0a5c">· Mutations: 1 attempt — never auto-retry</text>
+  <text x="364" y="277" font-size="10" fill="#2a0a5c"/>
+
+  <!-- Error taxonomy -->
+  <rect x="354" y="296" width="252" height="48" rx="5" fill="#ddd0f7" stroke="#7a5ab5" stroke-width="1"/>
+  <text x="480" y="313" text-anchor="middle" font-size="12" font-weight="bold" fill="#2a0a5c">Error Taxonomy</text>
+  <text x="364" y="329" font-size="10" fill="#2a0a5c">· DriverUnavailable  (retryable)</text>
+  <text x="364" y="341" font-size="10" fill="#2a0a5c">· DriverInvalidRequest  (permanent)</text>
+
+  <!-- Introspection tools -->
+  <rect x="354" y="352" width="252" height="48" rx="5" fill="#ddd0f7" stroke="#7a5ab5" stroke-width="1"/>
+  <text x="480" y="369" text-anchor="middle" font-size="12" font-weight="bold" fill="#2a0a5c">Introspection Tools (4)</text>
+  <text x="364" y="385" font-size="10" fill="#2a0a5c">odoo_detect_version · odoo_list_modules</text>
+  <text x="364" y="397" font-size="10" fill="#2a0a5c">odoo_extract_schema · odoo_profile_data</text>
+
+  <!-- Purity gate -->
+  <rect x="354" y="408" width="252" height="28" rx="5" fill="#c8b8f0" stroke="#7a5ab5" stroke-width="1"/>
+  <text x="480" y="426" text-anchor="middle" font-size="10" fill="#2a0a5c">Purity gate · V8–V19 via JSON-RPC</text>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- COLUMN 3: App (ludo-agent)  x=660 w=280           -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <rect x="660" y="50" width="300" height="420" rx="8" fill="#edfbf1" stroke="#4a8a5a" stroke-width="2"/>
+  <text x="810" y="76" text-anchor="middle" font-size="14" font-weight="bold" fill="#4a8a5a">App: ludo-agent</text>
+
+  <!-- Config -->
+  <rect x="674" y="88" width="272" height="48" rx="5" fill="#c0e8cc" stroke="#4a8a5a" stroke-width="1"/>
+  <text x="810" y="107" text-anchor="middle" font-size="12" font-weight="bold" fill="#0a3a1a">ResolvedConfig</text>
+  <text x="810" y="122" text-anchor="middle" font-size="10" fill="#0a3a1a">KernelConfig subclass · Seam #1</text>
+  <text x="810" y="134" text-anchor="middle" font-size="10" fill="#0a3a1a">source + target Odoo creds · customers</text>
+
+  <!-- Seams -->
+  <rect x="674" y="144" width="272" height="56" rx="5" fill="#c0e8cc" stroke="#4a8a5a" stroke-width="1"/>
+  <text x="810" y="161" text-anchor="middle" font-size="12" font-weight="bold" fill="#0a3a1a">12 Seams Wired</text>
+  <text x="684" y="177" font-size="10" fill="#0a3a1a">Config · SafetyGate · TerminationPolicy</text>
+  <text x="684" y="191" font-size="10" fill="#0a3a1a">DispatchGuard · Tools · ToolContext</text>
+  <text x="684" y="197" font-size="10" fill="#0a3a1a"/>
+
+  <!-- Tools -->
+  <rect x="674" y="208" width="272" height="36" rx="5" fill="#c0e8cc" stroke="#4a8a5a" stroke-width="1"/>
+  <text x="810" y="223" text-anchor="middle" font-size="12" font-weight="bold" fill="#0a3a1a">~40 Domain Tools</text>
+  <text x="810" y="237" text-anchor="middle" font-size="10" fill="#0a3a1a">extract · load · discover · rollback …</text>
+
+  <!-- SafetyGate -->
+  <rect x="674" y="252" width="272" height="36" rx="5" fill="#c0e8cc" stroke="#4a8a5a" stroke-width="1"/>
+  <text x="810" y="267" text-anchor="middle" font-size="12" font-weight="bold" fill="#0a3a1a">OdooSafetyGate</text>
+  <text x="810" y="281" text-anchor="middle" font-size="10" fill="#0a3a1a">xmlid rollback · verify-after-mutate</text>
+
+  <!-- Worker -->
+  <rect x="674" y="296" width="272" height="36" rx="5" fill="#c0e8cc" stroke="#4a8a5a" stroke-width="1"/>
+  <text x="810" y="311" text-anchor="middle" font-size="12" font-weight="bold" fill="#0a3a1a">Worker + Job Handlers</text>
+  <text x="810" y="325" text-anchor="middle" font-size="10" fill="#0a3a1a">migrate · estimate · port_module …</text>
+
+  <!-- ludo_shared -->
+  <rect x="674" y="340" width="272" height="36" rx="5" fill="#c0e8cc" stroke="#4a8a5a" stroke-width="1"/>
+  <text x="810" y="355" text-anchor="middle" font-size="12" font-weight="bold" fill="#0a3a1a">ludo_shared (vendored)</text>
+  <text x="810" y="369" text-anchor="middle" font-size="10" fill="#0a3a1a">JobMessage · SessionEvent · JobType</text>
+
+  <!-- CLI + Memory -->
+  <rect x="674" y="384" width="272" height="36" rx="5" fill="#c0e8cc" stroke="#4a8a5a" stroke-width="1"/>
+  <text x="810" y="399" text-anchor="middle" font-size="12" font-weight="bold" fill="#0a3a1a">CLI (ludo) + Episodic Memory</text>
+  <text x="810" y="413" text-anchor="middle" font-size="10" fill="#0a3a1a">operator interface · business dossiers</text>
+
+  <!-- Seam #13 note -->
+  <text x="810" y="460" text-anchor="middle" font-size="10" fill="#4a8a5a" font-style="italic">ResumableSession (Seam #13) — app-supplied</text>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- INTER-COLUMN ARROWS                                 -->
+  <!-- ═══════════════════════════════════════════════════ -->
+
+  <!-- App → Kernel: "plugs via 13 seams" (dashed, at y=185) -->
+  <line x1="660" y1="185" x2="302" y2="185" stroke="#4a8a5a" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arr-green)"/>
+  <rect x="330" y="171" width="145" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+  <text x="403" y="184" text-anchor="middle" font-size="10" font-weight="bold" fill="#4a8a5a">plugs via 13 seams</text>
+
+  <!-- Driver → Kernel: "registers" (solid, at y=326) -->
+  <line x1="340" y1="326" x2="302" y2="326" stroke="#7a5ab5" stroke-width="1.8" marker-end="url(#arr-purple)"/>
+  <rect x="294" y="312" width="60" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+  <text x="302" y="325" font-size="10" font-weight="bold" fill="#7a5ab5">registers</text>
+
+  <!-- App → Driver: "leases per session" (dashed, at y=270) -->
+  <line x1="660" y1="270" x2="622" y2="270" stroke="#4a8a5a" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-green)"/>
+  <rect x="579" y="256" width="80" height="18" rx="3" fill="#ffffff" opacity="0.92"/>
+  <text x="619" y="269" text-anchor="middle" font-size="10" fill="#333">leases driver</text>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- INFRASTRUCTURE ROW                                  -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <rect x="20" y="490" width="940" height="110" rx="8" fill="#fafafa" stroke="#aaaaaa" stroke-width="1.5" stroke-dasharray="7 4"/>
+  <text x="490" y="512" text-anchor="middle" font-size="12" font-weight="bold" fill="#666">Cluster Infrastructure</text>
+
+  <!-- NATS -->
+  <rect x="34" y="522" width="168" height="64" rx="5" fill="#fff9e6" stroke="#c8960a" stroke-width="1.2"/>
+  <text x="118" y="541" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5800">NATS JetStream</text>
+  <text x="118" y="555" text-anchor="middle" font-size="10" fill="#7a5800">ludo.jobs · ludo.events.*</text>
+  <text x="118" y="568" text-anchor="middle" font-size="10" fill="#7a5800">Contract B broker</text>
+  <text x="118" y="580" text-anchor="middle" font-size="10" fill="#7a5800">ludo_internal (private)</text>
+
+  <!-- MinIO -->
+  <rect x="214" y="522" width="158" height="64" rx="5" fill="#fff9e6" stroke="#c8960a" stroke-width="1.2"/>
+  <text x="293" y="541" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5800">MinIO</text>
+  <text x="293" y="555" text-anchor="middle" font-size="10" fill="#7a5800">reports · spike caches</text>
+  <text x="293" y="568" text-anchor="middle" font-size="10" fill="#7a5800">presigned URLs (portal)</text>
+
+  <!-- PostgreSQL / SQLite -->
+  <rect x="384" y="522" width="168" height="64" rx="5" fill="#fff9e6" stroke="#c8960a" stroke-width="1.2"/>
+  <text x="468" y="541" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5800">PostgreSQL / SQLite</text>
+  <text x="468" y="555" text-anchor="middle" font-size="10" fill="#7a5800">sessions · checkpoints</text>
+  <text x="468" y="568" text-anchor="middle" font-size="10" fill="#7a5800">diagnoses · memory rules</text>
+
+  <!-- Odoo ERP -->
+  <rect x="564" y="522" width="168" height="64" rx="5" fill="#fdeee6" stroke="#c85a0a" stroke-width="1.2"/>
+  <text x="648" y="541" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a2800">Odoo ERP</text>
+  <text x="648" y="555" text-anchor="middle" font-size="10" fill="#7a2800">source instance (read)</text>
+  <text x="648" y="568" text-anchor="middle" font-size="10" fill="#7a2800">target instance (write)</text>
+  <text x="648" y="580" text-anchor="middle" font-size="10" fill="#7a2800">V8–V19 · JSON-RPC</text>
+
+  <!-- LLM Providers -->
+  <rect x="744" y="522" width="202" height="64" rx="5" fill="#fff9e6" stroke="#c8960a" stroke-width="1.2"/>
+  <text x="845" y="541" text-anchor="middle" font-size="11" font-weight="bold" fill="#7a5800">LLM Providers</text>
+  <text x="845" y="555" text-anchor="middle" font-size="10" fill="#7a5800">Melious · Anthropic · Groq</text>
+  <text x="845" y="568" text-anchor="middle" font-size="10" fill="#7a5800">chat failover chain</text>
+
+  <!-- Arrows from columns down to infra -->
+  <line x1="160" y1="470" x2="118" y2="522" stroke="#aaaaaa" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="160" y1="470" x2="293" y2="522" stroke="#aaaaaa" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="160" y1="470" x2="430" y2="522" stroke="#aaaaaa" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="480" y1="470" x2="648" y2="522" stroke="#7a5ab5" stroke-width="1.2" marker-end="url(#arr-purple)"/>
+  <line x1="810" y1="470" x2="118" y2="522" stroke="#aaaaaa" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <line x1="810" y1="470" x2="845" y2="522" stroke="#aaaaaa" stroke-width="1.2" marker-end="url(#arr)"/>
+
+</svg>

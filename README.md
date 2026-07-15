@@ -8,10 +8,11 @@
   the engine and middleware spine, the driver framework for external-system I/O (models of
   any modality, with chat failover), sessions and checkpoints, context management, tools and
   skills, three-store persistence, budgets, isolation and safety.
-- A strict `[K]` kernel / `[A]` app split keeps domain vocabulary out of the core, enforced by
-  CI purity gates.
-- The kernel is the frozen API + principles; any terminal, web, mobile or desktop agent app
-  builds on it by registering its own tools, skills, job types and policies.
+- A strict `[K]` kernel / `[A]` app split keeps domain vocabulary out of the core.
+- The kernel is the frozen API + principles; apps build on it through declared seams — tools,
+  skills, job types, policies and more.
+
+![Agentix system architecture](docs/assets/system-architecture.svg)
 
 ## Install
 
@@ -54,8 +55,8 @@ See [docs/vendor-licenses.md](docs/vendor-licenses.md) for SDK licenses and prov
 
 ```sh
 curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=cli bash
-# or add cli to an existing extras list:
-AGENTIX_EXTRAS=anthropic,cli bash
+# combined with a vendor extra:
+curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=anthropic,cli bash
 ```
 
 **Developer install** (source checkout, Python 3.12 + [uv](https://docs.astral.sh/uv/)):
@@ -123,8 +124,6 @@ turn = await engine.run_turn(session, Message(role="user", content="Summarise da
   `src/agentix/core/middleware/`) and may extend the order with their own.
 
 ## CLI
-
-Install once: `pip install agentix[cli]`
 
 ```
 agentix --help
@@ -219,8 +218,6 @@ same behaviour, same guarantees.
 
 ### Cognitive escalation
 
-- An *escalation* happens when an automated step cannot prove its result is correct.
-- The deterministic body handles the routine; an escalation is the only event that wakes the model.
 - Escalations descend the **escalation ladder** — compiled recipe (model stays asleep) →
   consult skill → novel reasoning — so the cheapest competent path wins; the loop then
   re-runs the step to re-prove it.
@@ -254,7 +251,7 @@ can get work done:
   applies it and the model stays asleep.
 - ***delegate*** — hand the task to another agent over A2A.
 
-Detail and worked examples: [`docs/tools.md`](docs/tools.md), [`docs/skills.md`](docs/skills.md).
+Detail and worked examples: [`docs/skills.md`](docs/skills.md).
 
 ### Skills
 
