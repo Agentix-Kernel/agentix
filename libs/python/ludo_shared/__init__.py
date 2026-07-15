@@ -27,6 +27,17 @@ from ._generated import (
     event_subject,
     migration_state_label,
 )
+from .introspection import (
+    INTROSPECT_BLUEPRINTS,
+    INTROSPECT_BLUEPRINTS_GET,
+    INTROSPECT_ESCALATIONS,
+    INTROSPECT_HEALTHZ,
+    INTROSPECT_MEMORY_ADVISE,
+    INTROSPECT_MEMORY_CATALOGUE,
+    INTROSPECT_MEMORY_RENAMES,
+    INTROSPECT_MEMORY_STATS,
+    INTROSPECT_MEMORY_TRAJECTORIES_SEARCH,
+)
 from .sse import decode_sse, encode_sse
 
 __all__ = [
@@ -46,4 +57,13 @@ __all__ = [
     "encode_sse",
     "event_subject",
     "migration_state_label",
+    "INTROSPECT_HEALTHZ",
+    "INTROSPECT_ESCALATIONS",
+    "INTROSPECT_BLUEPRINTS",
+    "INTROSPECT_BLUEPRINTS_GET",
+    "INTROSPECT_MEMORY_CATALOGUE",
+    "INTROSPECT_MEMORY_RENAMES",
+    "INTROSPECT_MEMORY_STATS",
+    "INTROSPECT_MEMORY_TRAJECTORIES_SEARCH",
+    "INTROSPECT_MEMORY_ADVISE",
 ]
