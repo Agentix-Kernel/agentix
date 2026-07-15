@@ -55,7 +55,10 @@
   <!-- KERNEL: middleware -->
   <rect x="370" y="340" width="560" height="60" rx="6" fill="#f7f4ee" stroke="#8a7a55"/>
   <text x="650" y="360" text-anchor="middle" font-size="13" font-weight="bold" fill="#222">Middleware chain — 9 named slots (engine.md §3)</text>
-  <text x="650" y="378" text-anchor="middle" font-size="10" fill="#333">TrajectoryCapture · CostTracking · TokenBudget · ToolCallCountCap · LoopDetection · Retry · DanglingToolCall · SafetyGate · MemoryMaintain</text>
+  <text text-anchor="middle" font-size="10" fill="#333">
+    <tspan x="650" y="374">TrajectoryCapture · CostTracking · TokenBudget · ToolCallCountCap · LoopDetection</tspan>
+    <tspan x="650" dy="13">Retry · DanglingToolCall · SafetyGate · MemoryMaintain</tspan>
+  </text>
 
   <line x1="650" y1="400" x2="650" y2="424" stroke="#444" stroke-width="1.6" marker-end="url(#arrow)"/>
 

@@ -178,5 +178,5 @@
 <text x="317" y="500" font-size="9" fill="#424242">Wrapper / decorator</text>
 <rect x="428" y="491" width="10" height="10" rx="2" fill="#c8e6c9" stroke="#66bb6a" stroke-width="1"/>
 <text x="443" y="500" font-size="9" fill="#424242">Semantic store (above driver layer)</text>
-<text x="700" y="500" font-size="9" fill="#9e9e9e">All Chat adapters share ChatDriver Protocol · DriverRegistry.register() at app startup</text>
+<text x="700" y="500" font-size="9" fill="#9e9e9e">All register via DriverRegistry.register()</text>
 </svg>
