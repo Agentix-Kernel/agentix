@@ -209,3 +209,78 @@ shape; they are not runnable code.
 reference scaffolds. **Deferred (W1–W4):** business/ops act-tool catalogs, the
 ActionGate middleware, the NATS trust-zone substrate, and the concierge /
 ops-copilot processes themselves.
+
+---
+
+## 10. Shipping skills from a driver or plugin package
+
+A driver or plugin that bundles its own procedural know-how follows four steps.
+The `agentix-odoo-driver` package is the reference implementation; the
+`skills/detect-odoo-version/` bundle is the worked example.
+
+### Step 1 — Create the SKILL.md bundle
+
+```
+src/<your_package>/skills/<skill-name>/SKILL.md
+```
+
+Use the open-standard frontmatter (`id`, `name`, `description`, optional
+`tags`/`examples`/`allowed-tools`) and write the procedure body in Markdown.
+Copy `skills/_example/SKILL.md` from `agentix-odoo-driver` as a starting point —
+the underscore prefix marks it reference-only so the catalog ignores it.
+
+### Step 2 — Export `get_skills_root()`
+
+Add a `get_skills_root()` function to your package (typically in `catalog.py` or
+`__init__.py`) using `importlib.resources` so the path resolves correctly whether
+the package is installed as a wheel or used from an editable checkout:
+
+```python
+import importlib.resources
+from pathlib import Path
+
+def get_skills_root() -> Path:
+    return Path(
+        importlib.resources.files("your_package").joinpath("skills")
+    )
+```
+
+Export it from `__init__.py` so consumers can call
+`your_package.get_skills_root()`.
+
+### Step 3 — Register in the host app's `skills_roots()` hook
+
+If the host app uses the `PluginInterface.skills_roots()` seam (e.g.
+`ludo-agent`'s `plugin.py`), add your root to its return list:
+
+```python
+def skills_roots(self) -> list[Path]:
+    from your_package.catalog import get_skills_root
+    return [get_skills_root()]
+```
+
+If the driver is registered directly (no plugin layer), pass the root to
+`SkillCatalog(roots=[..., get_skills_root()])` at session construction.
+
+### Step 4 — Include skill files in the wheel
+
+Hatchling includes all files under `packages`; add an explicit glob for Markdown
+in `pyproject.toml` if your tool excludes non-Python files:
+
+```toml
+[tool.hatch.build.targets.wheel]
+packages = ["src/your_package"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/your_package/skills" = "your_package/skills"
+```
+
+Or, simpler, the default Hatchling behaviour already includes all files under
+listed packages — verify with `hatch build -t wheel && unzip -l dist/*.whl | grep skills`.
+
+### Reference template
+
+`agentix-odoo-driver/src/agentix_odoo_driver/skills/_example/SKILL.md` is an
+annotated copy-paste starting point. The underscore prefix causes `SkillCatalog`
+to exclude it from `describe()` and `consult_skill`, so it ships in the wheel
+without appearing as a live capability.
