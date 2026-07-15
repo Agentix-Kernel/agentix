@@ -2,6 +2,8 @@
 
 **Status:** living doc · **Scope:** Agentix kernel `[K]` (app-agnostic)
 
+![Kernel seams — 13 contact points colour-coded by category](assets/kernel-seams.svg)
+
 **Single source of truth for the kernel↔app seams in `docs/`** — the definitive
 catalog of how a purpose-specific app plugs into the generic kernel. Everything an
 app supplies enters through one of these 13 seams; everything else is
