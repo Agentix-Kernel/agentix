@@ -37,4 +37,5 @@ export const EventType = Object.freeze({
   TURN_COMPLETED: "turn_completed",
   SAFETY_EVENT: "safety_event",
   CHECKPOINT_REQUESTED: "checkpoint_requested",
+  VERIFY_STAGE: "verify_stage",
 })

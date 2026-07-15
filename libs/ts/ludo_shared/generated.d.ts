@@ -9,5 +9,5 @@ export declare function migrationStateLabel(index: number): string
 export type JobType = "migrate" | "dry_run" | "estimate" | "bulk_load" | "rollback" | "verify" | "port_module" | "trajectories_rebuild" | "discover_order" | "backfill_types"
 export declare const JobType: Readonly<Record<string, JobType>>
 
-export type EventType = "session_started" | "session_end" | "model_started" | "model_completed" | "job_started" | "job_completed" | "job_failed" | "turn_started" | "turn_completed" | "safety_event" | "checkpoint_requested"
+export type EventType = "session_started" | "session_end" | "model_started" | "model_completed" | "job_started" | "job_completed" | "job_failed" | "turn_started" | "turn_completed" | "safety_event" | "checkpoint_requested" | "verify_stage"
 export declare const EventType: Readonly<Record<string, EventType>>

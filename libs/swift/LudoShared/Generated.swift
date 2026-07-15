@@ -60,4 +60,5 @@ public enum EventType: String, Codable, CaseIterable, Sendable {
     case turnCompleted = "turn_completed"
     case safetyEvent = "safety_event"
     case checkpointRequested = "checkpoint_requested"
+    case verifyStage = "verify_stage"
 }

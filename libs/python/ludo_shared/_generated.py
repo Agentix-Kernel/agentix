@@ -55,6 +55,7 @@ class EventType(StrEnum):
     TURN_COMPLETED = "turn_completed"
     SAFETY_EVENT = "safety_event"
     CHECKPOINT_REQUESTED = "checkpoint_requested"
+    VERIFY_STAGE = "verify_stage"
 
 
 EVENT_TYPES = frozenset(EventType)
