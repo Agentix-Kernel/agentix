@@ -96,6 +96,10 @@ def _pr_mode(workspace: Path, sha: str) -> None:
                 "create",
                 "--base",
                 base,
+                # Fresh shallow clones confuse gh's upstream detection
+                # ("you must first push the current branch") — name it.
+                "--head",
+                branch,
                 "--title",
                 f"chore: re-vendor from agentix @{sha[:12]}",
                 "--body",
