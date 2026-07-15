@@ -144,8 +144,9 @@ sides**: the Session is the *durable store* of a run's context; the ContextManag
    rehydrates an ever-larger window.)*
 4. **Resume rehydrates through the ContextManager, kernel-generically.** *(The
    wiring half landed — `resume_or_create` is generic and driver-consumed. The
-   app-side idempotency/resume-key extension point stays an app seam; the
-   reference app's record census is one implementation.)*
+   app-side idempotency/resume-key extension point is seam #13 —
+   see ``agentix.core.resume.ResumableSession``; the reference app's record
+   census is one implementation.)*
 5. **Two budgets, reconciled.** ContextManager owns the per-step window/token
    budget and reports consumption into the Session's cost ledger — one flow, no
    double-count; scoped per session-task and ceilinged per customer
