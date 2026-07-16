@@ -99,6 +99,7 @@ class AgentDispatcher:
         termination_policy: TerminationPolicy | None = None,
         dispatch_guards: list[DispatchGuard] | None = None,
         default_tool_timeout_seconds: float = 300.0,
+        cancel_check: Callable[[], bool] | None = None,
     ) -> None:
         self._driver = driver
         self._registry = registry
@@ -113,6 +114,9 @@ class AgentDispatcher:
         # defaults: never force-terminate, no guards.
         self._termination_policy = termination_policy
         self._dispatch_guards: list[DispatchGuard] = list(dispatch_guards or [])
+        # Cooperative cancellation (seam 14): polled between tool iterations so
+        # a running turn can be cleanly aborted without interrupting mid-tool I/O.
+        self._cancel_check = cancel_check
         # The window owner: assembles the per-turn LLM messages (history +
         # working memory) in one place. Compression stays with the TokenBudget
         # middleware for now, so the dispatcher assembles with compress=False.
@@ -148,6 +152,20 @@ class AgentDispatcher:
                 )
                 return turn
             iteration += 1
+
+            # Cooperative cancellation seam (seam 14): check between tool
+            # iterations so a mid-turn cancel request takes effect promptly
+            # without interrupting any in-flight tool I/O.
+            if self._cancel_check is not None and self._cancel_check():
+                turn.abort(
+                    f"agent loop for session {turn.session_id!r} cancelled by app request"
+                )
+                log.info(
+                    "agent_dispatcher.cancelled",
+                    session_id=turn.session_id,
+                    iteration=iteration,
+                )
+                return turn
 
             # One slot of process-global LLM capacity per call (isolation.md I5):
             # bounds concurrent provider calls across all sessions/fan-out.
