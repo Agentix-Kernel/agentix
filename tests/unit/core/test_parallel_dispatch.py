@@ -12,16 +12,15 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from agentix.core.agent_dispatcher import AgentDispatcher
-from agentix.core.types import Message, ToolCall, ToolCallResult, Turn
+from agentix.core.types import ToolCall, Turn
 from agentix.tools.base import Tool, ToolContext
 from agentix.tools.registry import ToolRegistry
 from agentix.tools.safety import SafetyGate
-
 
 # ── minimal stubs ──────────────────────────────────────────────────────────
 

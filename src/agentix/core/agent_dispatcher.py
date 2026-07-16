@@ -369,7 +369,7 @@ class AgentDispatcher:
                 for call in batch:
                     results.append(await self._execute_tool_call(call, ctx, turn=turn))
 
-            for call, result in zip(batch, results):
+            for call, result in zip(batch, results, strict=True):
                 turn.tool_call_results.append(result)
                 turn.input_messages.append(
                     Message(
