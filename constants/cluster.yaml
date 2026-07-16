@@ -28,6 +28,7 @@ broker:
     jobs: "ludo.jobs"                  # gateway -> agent (job-message)
     jobs_cancel: "ludo.jobs.cancel"    # cooperative cancel
     events_prefix: "ludo.events"       # agent -> gateway: ludo.events.<session_id>
+    checkpoints_prefix: "ludo.checkpoints"  # gateway -> paused worker: operator decision on ludo.checkpoints.<session_id> (core NATS, no stream)
   streams:
     jobs: "LUDO_JOBS"
     events: "LUDO_EVENTS"

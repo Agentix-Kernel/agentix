@@ -149,6 +149,33 @@ paths:
         "202": { description: accepted }
         "404": { description: not found / out of scope }
 
+  /api/v1/migrations/{migration_id}/checkpoint-decision:
+    patch:
+      operationId: decideMigrationCheckpoint
+      description: >
+        Operator decision for a session paused on a checkpoint_requested event
+        (verify-drift triage). Superadmin only. Publish-and-ack (202): the
+        decision is relayed to the paused worker over the broker; if the worker
+        is no longer waiting (timed out or already aborted) the decision is a
+        no-op. rollback/skip accept the already-rolled-back abort; retry lets
+        the session re-attempt the batch.
+      parameters:
+        - { name: migration_id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [rollback, retry, skip] }
+                note: { type: string, maxLength: 500 }
+      responses:
+        "202": { description: decision published }
+        "404": { description: not found / out of scope }
+        "422": { description: unknown decision }
+
   /api/v1/migrations/{migration_id}/events:
     get:
       operationId: streamMigrationEvents

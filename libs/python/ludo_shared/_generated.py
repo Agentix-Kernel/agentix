@@ -16,6 +16,7 @@ NATS_URL = "nats://10.0.99.1:4222"
 JOBS_SUBJECT = "ludo.jobs"
 JOBS_CANCEL_SUBJECT = "ludo.jobs.cancel"
 EVENTS_SUBJECT_PREFIX = "ludo.events"  # ludo.events.<session_id>
+CHECKPOINTS_SUBJECT_PREFIX = "ludo.checkpoints"  # ludo.checkpoints.<session_id>
 JOBS_STREAM = "LUDO_JOBS"
 EVENTS_STREAM = "LUDO_EVENTS"
 
@@ -23,6 +24,11 @@ EVENTS_STREAM = "LUDO_EVENTS"
 def event_subject(session_id: str) -> str:
     """Per-session egress subject for Contract B events."""
     return f"{EVENTS_SUBJECT_PREFIX}.{session_id or 'unknown'}"
+
+
+def checkpoint_decision_subject(session_id: str) -> str:
+    """Per-session operator-decision subject (checkpoint_requested reply channel)."""
+    return f"{CHECKPOINTS_SUBJECT_PREFIX}.{session_id or 'unknown'}"
 
 
 # ── Contract B enums — from contracts/*.schema.json ──────────────────────────
