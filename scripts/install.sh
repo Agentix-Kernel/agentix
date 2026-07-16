@@ -2,9 +2,9 @@
 # Agentix one-line installer — zero prior setup required.
 #
 # Usage:
-#   curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | bash
-#   curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=anthropic,openai bash
-#   curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_HOME=~/myproject bash
+#   curl -LsSf https://raw.githubusercontent.com/Agentix-Kernel/agentix/main/scripts/install.sh | bash
+#   curl -LsSf https://raw.githubusercontent.com/Agentix-Kernel/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=anthropic,openai bash
+#   curl -LsSf https://raw.githubusercontent.com/Agentix-Kernel/agentix/main/scripts/install.sh | AGENTIX_HOME=~/myproject bash
 #
 # Environment variables:
 #   AGENTIX_HOME    — install root (default: ~/.agentix)
@@ -119,4 +119,4 @@ echo "Or add to your shell profile (~/.bashrc / ~/.zshrc):"
 echo "  echo 'source $ENV_SH' >> ~/.bashrc"
 echo ""
 echo "Quickstart: $AGENTIX_HOME/venv/bin/python -c \"import agentix; print(agentix.__version__)\""
-echo "Docs: https://github.com/euroblaze/agentix/blob/main/docs/quickstart.md"
+echo "Docs: https://github.com/Agentix-Kernel/agentix/blob/main/docs/quickstart.md"

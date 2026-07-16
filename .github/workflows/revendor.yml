@@ -1,4 +1,4 @@
-# Re-vendor bot (Design B, euroblaze/ludo-agent#558): when the canonical seams
+# Re-vendor bot (Design B, Ludo-Odoo-Migrations/ludo-agent#558): when the canonical seams
 # change on main, push the byte-canonical files out to every consumer repo as one
 # approve-only PR per repo. Reads the same manifest as the drift guards
 # (scripts/vendor_manifest.py), so bot and guards cannot disagree.
@@ -46,4 +46,4 @@ jobs:
       - name: Trigger cluster drift gate (ludo-tests #2)
         env:
           GH_TOKEN: ${{ secrets.WORKSPACE_PAT }}
-        run: gh api repos/euroblaze/ludo-tests/dispatches -f event_type=cluster-drift
+        run: gh api repos/Ludo-Odoo-Migrations/ludo-tests/dispatches -f event_type=cluster-drift

@@ -11,6 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  docs:
+    name: doc links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Relative markdown links must resolve (docs cleanup #133); no deps needed.
+      - name: Check doc links
+        run: python3 scripts/check_doc_links.py
+
   check:
     name: kernel — lint + typecheck + test
     runs-on: ubuntu-latest

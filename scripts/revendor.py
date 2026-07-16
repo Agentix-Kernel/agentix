@@ -12,7 +12,7 @@ the guards cannot disagree. Two modes:
       --workspace, copy, and open one `chore: re-vendor from agentix @<sha>` PR per
       repo that changed. Each consumer's own CI then validates the bump; a Contract B
       change becomes 1 human PR (agentix) + N approve-only bot PRs
-      (Design B, euroblaze/ludo-agent#558). Requires `gh` authenticated with a PAT
+      (Design B, Ludo-Odoo-Migrations/ludo-agent#558). Requires `gh` authenticated with a PAT
       that can push to the consumer repos (WORKSPACE_PAT).
 
 Run from `agentix/` after the generators (gen_shared/gen_ts/gen_swift) are fresh —
@@ -30,7 +30,11 @@ from pathlib import Path
 
 from vendor_manifest import REPO_ROOT, WORKSPACE, all_vendored_files
 
-OWNER = "euroblaze"
+# Consumers all live in the Ludo-Odoo-Migrations org today; per-repo overrides in
+# OWNER_BY_REPO so a consumer moving org (or a future Agentix-Kernel consumer) is
+# a one-line change, not a constant hunt.
+DEFAULT_OWNER = "Ludo-Odoo-Migrations"
+OWNER_BY_REPO: dict[str, str] = {}
 # master, not main: ludo-tests convention documented in docs/cluster; everything else main.
 DEFAULT_BRANCH = {"ludo-tests": "master"}
 
@@ -67,7 +71,8 @@ def _pr_mode(workspace: Path, sha: str) -> None:
     repos = sorted({repo for _, _, repo in all_vendored_files(workspace)})
     for repo in repos:
         if not (workspace / repo).exists():
-            _run(["gh", "repo", "clone", f"{OWNER}/{repo}", repo, "--", "--depth", "1"], cwd=workspace)
+            owner = OWNER_BY_REPO.get(repo, DEFAULT_OWNER)
+            _run(["gh", "repo", "clone", f"{owner}/{repo}", repo, "--", "--depth", "1"], cwd=workspace)
     changed = _sync(workspace, write=True, missing_repo_note="clone failed / repo absent")
     branch = f"revendor/{sha[:12]}"
     for repo, files in changed.items():
@@ -103,7 +108,7 @@ def _pr_mode(workspace: Path, sha: str) -> None:
                 "--title",
                 f"chore: re-vendor from agentix @{sha[:12]}",
                 "--body",
-                f"Automated re-vendor of canonical files from euroblaze/agentix commit {sha}.\n"
+                f"Automated re-vendor of canonical files from Agentix-Kernel/agentix commit {sha}.\n"
                 f"Files:\n"
                 + "\n".join(f"- {f}" for f in files)
                 + "\n\nGuards: check_shared/internal/config/contract_drift.py (hub). "

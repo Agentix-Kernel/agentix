@@ -7,9 +7,9 @@ kernel tool subsystem (code: `src/agentix/tools/`); sections 8–11 are **DIRECT
 converged design, not the code today — consolidated from the retired proposals
 `tool-skill-calling.md` and `tools-skills-mcp.md` (their skills content is now in
 [`skills.md`](skills.md)). Tracking:
-[euroblaze/ludo #503](https://github.com/euroblaze/ludo/issues/503), sub-issues
+[Ludo-Odoo-Migrations/ludo-agent #503](https://github.com/Ludo-Odoo-Migrations/ludo-agent/issues/503), sub-issues
 #499–502. Not to be confused with dev tooling (ruff, uv, mypy) — that is
-[`ludo-agent/docs/cluster/dev-standards.md`](https://github.com/euroblaze/ludo-agent/blob/main/docs/cluster/dev-standards.md), unrelated to agent tools.
+[`ludo-agent/docs/cluster/dev-standards.md`](https://github.com/Ludo-Odoo-Migrations/ludo-agent/blob/main/docs/cluster/dev-standards.md), unrelated to agent tools.
 
 ---
 

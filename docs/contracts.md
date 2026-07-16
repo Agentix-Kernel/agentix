@@ -38,9 +38,13 @@ The schema files under `contracts/` are the **published canonical**. Authorship
 sits with the emitting component, which must stay in sync with the published file:
 
 - **A / C** — authored by the **gateway** (it serves these surfaces).
-- **B events** — the envelope the **agent** emits. The kernel's native event types
-  (`agentix/event_types.py` + `events.py`) are enforced against
-  `session-event.schema.json` by the CI gate
+- **B events** — the envelope the **agent** emits. The `type` vocabulary (12):
+  `session_started` · `session_end` · `model_started` · `model_completed` ·
+  `job_started` · `job_completed` · `job_failed` · `turn_started` ·
+  `turn_completed` · `safety_event` · `checkpoint_requested` · `verify_stage`
+  (per-rung verification progress, added 2026-07-15). The schema enum is
+  canonical; the kernel's native event types (`agentix/event_types.py` +
+  `events.py`) are enforced against `session-event.schema.json` by the CI gate
   `tests/unit/test_event_contract_drift.py` — the kernel never imports the
   generated package to stay brand-free.
 - **B jobs** — the payload the **gateway** publishes; mirror of the agent worker's

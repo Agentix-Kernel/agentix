@@ -4,7 +4,7 @@
 
 **Single source of truth for A2A in `docs/`.** Sections 1–3 document the landed
 kernel surface (code: `src/agentix/a2a/`); sections 4–5 are **DIRECTION** — the
-deferred substrate, tracked as epic euroblaze/ludo #492 (W1–W4). The cluster-wide
+deferred substrate, tracked as epic Ludo-Odoo-Migrations/ludo-agent #492 (W1–W4). The cluster-wide
 *application* of A2A (trust-zone agent map, guardrails, the four locked principles)
 is canonical in `ludo-agent/docs/proposals/agentic-cluster-a2a.md` — referenced,
 never restated (CRIE rule, same as [`isolation.md`](isolation.md) §2).
@@ -68,7 +68,7 @@ Tests: `tests/unit/a2a/test_card.py`.
 ---
 
 *Everything below is DIRECTION — converged design, not the code today. Epic
-euroblaze/ludo #492 (workstreams W1–W4, #493–496).*
+Ludo-Odoo-Migrations/ludo-agent #492 (workstreams W1–W4, #493–496).*
 
 ## 4. The deferred substrate (W1–W3)
 

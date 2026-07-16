@@ -3,9 +3,13 @@
 ## Install
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/euroblaze/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=anthropic bash
+curl -LsSf https://raw.githubusercontent.com/Agentix-Kernel/agentix/main/scripts/install.sh | AGENTIX_EXTRAS=anthropic bash
 source ~/.agentix/env.sh
 ```
+
+All install variants (the extras matrix, custom `AGENTIX_HOME`, CLI tools,
+developer install) live in the [README § Install](../README.md#install) —
+single source, not repeated here.
 
 ## Write your first agent
 

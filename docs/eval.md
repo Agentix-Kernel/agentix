@@ -6,7 +6,7 @@
 landed kernel pieces (code: `src/agentix/drivers/adapters/adversarial.py`, the honesty columns in
 `storage/sqlite_store.py`, the safety gate); sections 3–6 are **DIRECTION** —
 consolidated from the retired proposal `ludo-agent/docs/proposals/eval-validation.md`.
-Tracking: epic [euroblaze/ludo #505](https://github.com/euroblaze/ludo/issues/505),
+Tracking: epic [Ludo-Odoo-Migrations/ludo-agent #505](https://github.com/Ludo-Odoo-Migrations/ludo-agent/issues/505),
 workstreams E1–E5 (#506–510). Scope is **runtime-only**: validating live responses
 and outcomes — no offline eval harness, golden datasets, or CI regression scoring
 this round (deliberate anti-scope), and no metrics dashboard.

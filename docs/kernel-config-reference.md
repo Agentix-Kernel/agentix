@@ -67,5 +67,5 @@ chat-only in v0.5 ([`budgets.md`](budgets.md) §3); `DriverDescriptor.pricing_re
 None` marks non-token-priced drivers.
 
 Cluster-wide secret policy (fail-fast in stag/prod, secret vs publishable) lives in
-[`ludo-agent/docs/cluster/env-and-secrets.md`](https://github.com/euroblaze/ludo-agent/blob/main/docs/cluster/env-and-secrets.md);
+[`ludo-agent/docs/cluster/env-and-secrets.md`](https://github.com/Ludo-Odoo-Migrations/ludo-agent/blob/main/docs/cluster/env-and-secrets.md);
 this page is the kernel-specific list.

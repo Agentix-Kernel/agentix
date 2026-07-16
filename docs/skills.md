@@ -8,7 +8,7 @@ kernel skill subsystem (code: `src/agentix/skills/`); sections 7–9 are **DIREC
 — converged design, not the code today — consolidated from the retired proposal
 `proposals/agent-skills-catalog.md`. Tools and the four calling verbs are canonical
 in [`tools.md`](tools.md) (§9–10 there cover the *consult* and *compile* verbs,
-which act on skills). Tracking: [euroblaze/ludo #470](https://github.com/euroblaze/ludo/issues/470)
+which act on skills). Tracking: [Ludo-Odoo-Migrations/ludo-agent #470](https://github.com/Ludo-Odoo-Migrations/ludo-agent/issues/470)
 (competence-model redesign), #498/#513/#514 (catalog implementation).
 
 ---
@@ -215,8 +215,9 @@ ops-copilot processes themselves.
 ## 10. Shipping skills from a driver or plugin package
 
 A driver or plugin that bundles its own procedural know-how follows four steps.
-The `agentix-odoo-driver` package is the reference implementation; the
-`skills/detect-odoo-version/` bundle is the worked example.
+The `agentix-driver-odoo` repo (its Python package is `agentix_odoo_driver`) is
+the reference implementation; the `skills/detect-odoo-version/` bundle is the
+worked example.
 
 ### Step 1 — Create the SKILL.md bundle
 
@@ -226,7 +227,7 @@ src/<your_package>/skills/<skill-name>/SKILL.md
 
 Use the open-standard frontmatter (`id`, `name`, `description`, optional
 `tags`/`examples`/`allowed-tools`) and write the procedure body in Markdown.
-Copy `skills/_example/SKILL.md` from `agentix-odoo-driver` as a starting point —
+Copy `skills/_example/SKILL.md` from `agentix-driver-odoo` as a starting point —
 the underscore prefix marks it reference-only so the catalog ignores it.
 
 ### Step 2 — Export `get_skills_root()`
@@ -280,7 +281,7 @@ listed packages — verify with `hatch build -t wheel && unzip -l dist/*.whl | g
 
 ### Reference template
 
-`agentix-odoo-driver/src/agentix_odoo_driver/skills/_example/SKILL.md` is an
+`agentix-driver-odoo/src/agentix_odoo_driver/skills/_example/SKILL.md` is an
 annotated copy-paste starting point. The underscore prefix causes `SkillCatalog`
 to exclude it from `describe()` and `consult_skill`, so it ships in the wheel
 without appearing as a live capability.

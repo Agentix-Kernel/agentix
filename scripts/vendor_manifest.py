@@ -4,7 +4,7 @@
 Single source shared by the four drift guards (check_shared_drift, check_internal_drift,
 check_config_drift, check_contract_drift) and the re-vendor bot (revendor.py), so the
 guard and the bot can never disagree about what is vendored where (Design B,
-euroblaze/ludo-agent#558).
+Ludo-Odoo-Migrations/ludo-agent#558).
 
 Layout notes:
 - Paths are expressed workspace-relative (repo-dir/...) and resolved against a workspace
