@@ -10,6 +10,7 @@ this module does not depend on which.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 
 import structlog
@@ -47,6 +48,7 @@ class Engine:
         self,
         session: Session,
         user_message: Message | None = None,
+        deadline_seconds: float | None = None,
     ) -> Turn:
         """Advance ``session`` by one turn. Returns the resulting Turn.
 
@@ -75,7 +77,23 @@ class Engine:
         # per-turn counterpart of session_scope's session binding.
         turn_token = bind_turn(str(turn.turn_index))
         try:
-            result = await self._chain(turn)
+            if deadline_seconds is not None:
+                try:
+                    async with asyncio.timeout(deadline_seconds):
+                        result = await self._chain(turn)
+                except TimeoutError:
+                    turn.abort(
+                        f"turn deadline of {deadline_seconds:.0f}s exceeded for session {session.id!r}"
+                    )
+                    log.warning(
+                        "engine.turn_deadline_exceeded",
+                        session_id=session.id,
+                        turn_index=turn.turn_index,
+                        deadline_seconds=deadline_seconds,
+                    )
+                    result = turn
+            else:
+                result = await self._chain(turn)
         finally:
             unbind_turn(turn_token)
 

@@ -117,6 +117,15 @@ instance per session, invisible to name lookup, drained by
 *LUDO:* the agentix-odoo-driver (`type="erp"`, euroblaze/agentix-odoo-driver) registers here as a session-leased driver —
 source/target Odoo credentials are vault-decrypted per job.
 
+### 14. Cooperative-cancellation check — `cancel_check` callable
+`src/agentix/core/agent_dispatcher.py` (`AgentDispatcher(cancel_check=…)`): an optional
+`Callable[[], bool]` supplied by the app at dispatcher construction time. Polled at the
+top of every tool-iteration cycle — after the iteration guard, before the LLM call — so
+a running turn can be cleanly aborted between iterations without interrupting any in-flight
+tool I/O. When `cancel_check()` returns `True` the dispatcher calls `turn.abort(…)` and
+returns; the engine then sets `session.status = "paused"`.
+*LUDO:* `CancelRegistry.is_cancelled` (ludo-agent) wrapped in a zero-arg lambda.
+
 ### 13. Idempotency / resume-key provider — *(design seam — no code hook yet)*
 On redelivery the kernel restores only the agent's own state
 (`resume_or_create`, [`session.md`](session.md) §4); **what work is already done on
