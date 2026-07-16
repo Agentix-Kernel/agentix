@@ -28,7 +28,7 @@ WORKSPACE = REPO_ROOT.parent  # .../ludo
 SHARED_GROUPS: list[tuple[Path, list[str], list[str]]] = [
     (
         REPO_ROOT / "libs" / "python" / "ludo_shared",
-        ["__init__.py", "_generated.py", "sse.py"],
+        ["__init__.py", "_generated.py", "introspection.py", "sse.py"],
         [
             "ludo-agent/libs/ludo_shared",
             "ludo-gateway/libs/ludo_shared",
