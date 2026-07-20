@@ -74,6 +74,16 @@ async def create_session(body: CreateSessionRequest, request: Request) -> dict[s
         parent_session_id=body.parent_session_id,
     )
     kernel._active_sessions[session.id] = session
+
+    # Build a per-session engine if the plugin registered a factory (e.g. ludo middleware chain).
+    if kernel._session_engine_factory is not None:
+        try:
+            kernel._session_engines[session.id] = kernel._session_engine_factory(
+                kernel, session, body.app_meta
+            )
+        except Exception as exc:
+            log.warning("session engine factory failed — using global engine", session_id=session.id, error=str(exc))
+
     log.info("session created", session_id=session.id, customer_id=body.customer_id)
 
     row = await kernel.sqlite.get_session(session.id)
@@ -140,16 +150,23 @@ async def run_turn(session_id: str, body: RunTurnRequest, request: Request) -> d
 
     user_message = Message(role="user", content=body.message) if body.message else None
 
+    # Use the per-session engine (with app middleware) when available; fall back to global.
+    engine = kernel._session_engines.get(session_id, kernel.engine)
+
     hook = getattr(kernel, "_pre_turn_hook", None)
     try:
         if hook is not None:
             async with hook(kernel, session):
-                turn = await kernel.engine.run_turn(session, user_message=user_message)
+                turn = await engine.run_turn(session, user_message=user_message)
         else:
-            turn = await kernel.engine.run_turn(session, user_message=user_message)
+            turn = await engine.run_turn(session, user_message=user_message)
     except Exception as exc:
         log.error("run_turn failed", session_id=session_id, error=str(exc))
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    # Clean up per-session engine once the session reaches a terminal state.
+    if session.status in ("completed", "failed"):
+        kernel._session_engines.pop(session_id, None)
 
     log.info("turn complete", session_id=session_id, status=turn.status, turn_index=turn.turn_index)
 

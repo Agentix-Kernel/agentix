@@ -29,13 +29,21 @@ class KernelState:
     minio: Any = None  # MinioStore | None (None → local-fs checkpoints)
     memory: Any = None  # MemoryStore
     registry: Any = None  # DriverRegistry
-    engine: Any = None  # Engine
+    dispatcher: Any = None  # AgentDispatcher — stored so plugins can build per-session engines
+    engine: Any = None  # Engine (global fallback — no middleware)
     ready: bool = False
     error: str | None = None  # startup error message (if not ready)
     _cfg: DaemonConfig | None = None
     _active_sessions: dict[str, Any] = field(default_factory=dict)  # id → Session (in-memory)
     _session_extras: dict[str, Any] = field(default_factory=dict)
     _pre_turn_hook: Any = None
+    # Per-session engines — built by _session_engine_factory when set.
+    # Allows plugins to inject a middleware chain per session (e.g. ludo's 9-layer chain).
+    # Falls back to the global engine when no per-session engine is registered.
+    _session_engines: dict[str, Any] = field(default_factory=dict)  # session_id → Engine
+    # Callable[[KernelState, Session, app_meta | None], Engine] | None
+    # Set by a plugin's register() to build a per-session Engine with app-specific middleware.
+    _session_engine_factory: Any = None
     # Skill catalog — rebuilt from skill_roots on POST /admin/skills/reload
     skill_catalog: Any = None  # SkillCatalog | None
     skill_roots: list[str] = field(default_factory=list)
@@ -214,8 +222,12 @@ async def build_kernel(cfg: DaemonConfig) -> KernelState:
         safety_gate=SafetyGate(sqlite=state.sqlite),
         ctx_factory=_ctx_factory,
     )
+    # Store dispatcher so plugins can build per-session engines via _session_engine_factory.
+    state.dispatcher = dispatcher
 
-    # 7. Engine with empty middleware chain (daemon apps add middleware via seams)
+    # 7. Engine with empty middleware chain (global fallback).
+    #    Per-session engines with app-specific middleware are built by _session_engine_factory
+    #    (set by a plugin) at session-create time and stored in _session_engines.
     state.engine = Engine(
         sqlite=state.sqlite,
         minio=state.minio,
