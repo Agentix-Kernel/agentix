@@ -64,13 +64,20 @@ def load_daemon_config(path: Path | None = None) -> DaemonConfig:
     socket_yaml = daemon_block.get("socket_path")
     socket_path = Path(socket_env or socket_yaml or str(_DEFAULT_SOCKET)).expanduser()
 
+    # For each MinIO field, check the YAML block first, then the canonical agentixd env var
+    # (MINIO_*), then the ludo-agent-compatible alias (LUDO_MINIO_*) so that a single
+    # shared Kubernetes Secret (ludo-agent-secret) can drive both containers in the pod.
+    def _menv(key: str) -> str | None:
+        up = key.upper()
+        return minio_block.get(key) or os.environ.get(f"MINIO_{up}") or os.environ.get(f"LUDO_MINIO_{up}")
+
     return DaemonConfig(
         sqlite_path=_path("sqlite_path", "~/.agentix/kernel.db"),
         memory_path=_path("memory_path", "~/.agentix/memory"),
-        minio_endpoint=minio_block.get("endpoint") or os.environ.get("MINIO_ENDPOINT"),
-        minio_access_key=minio_block.get("access_key") or os.environ.get("MINIO_ACCESS_KEY"),
-        minio_secret_key=minio_block.get("secret_key") or os.environ.get("MINIO_SECRET_KEY"),
-        minio_bucket=minio_block.get("bucket", "agentix"),
+        minio_endpoint=_menv("endpoint"),
+        minio_access_key=_menv("access_key"),
+        minio_secret_key=_menv("secret_key"),
+        minio_bucket=minio_block.get("bucket") or os.environ.get("MINIO_BUCKET") or os.environ.get("LUDO_MINIO_BUCKET", "agentix"),
         driver_specs=raw.get("drivers", []),
         plugin_packages=raw.get("plugin_packages", []),
         budget_usd=float(raw.get("budget_usd", 200.0)),
